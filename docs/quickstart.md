@@ -24,29 +24,40 @@ hash.
 
 ## 4. Read it at the edge
 
+### With the SDK (recommended)
+
+[`@edgevault/sdk`](../packages/sdk/) is a typed client that runs in browsers,
+Node 18+, Workers, Deno, and Bun:
+
+```ts
+import { EdgeVault } from '@edgevault/sdk'
+
+const ev = new EdgeVault({ apiKey: process.env.EDGEVAULT_API_KEY! })
+
+const theme = await ev.value<string>('feature.checkout.theme') // "midnight"
+if (await ev.flag('feature.search.enabled')) { /* ... */ }
+const many = await ev.batch(['feature.checkout.theme', 'feature.search.enabled'])
+```
+
+React bindings live under `@edgevault/sdk/react` (`useValue`, `useFlag`).
+
+### With raw HTTP
+
 The delivery plane lives at `cdn.edgevault.io` and authenticates with the API
 key (either header form works):
 
 ```sh
 curl https://cdn.edgevault.io/v1/configs/feature.checkout.theme \
   -H "authorization: Bearer $EDGEVAULT_API_KEY"
-# { "key": "feature.checkout.theme", "value": "midnight", ... }
+# { "key": "feature.checkout.theme", "content": "midnight", ... }
 ```
 
 A feature flag is read the same way under `/v1/flags/:key`, and you can fetch
-many keys in one round trip:
+many keys in one round trip via `POST /v1/batch` with `{"keys":[...]}`.
 
-```sh
-curl https://cdn.edgevault.io/v1/batch \
-  -H "authorization: Bearer $EDGEVAULT_API_KEY" \
-  -H "content-type: application/json" \
-  -d '{"keys":["feature.checkout.theme","feature.search.enabled"]}'
-# { "configs": { "feature.checkout.theme": "midnight", ... } }
-```
-
-Responses include an `x-cache` header showing where the value was served from
-(L1 / KV / origin). Typical edge reads are served from KV in single-digit
-milliseconds.
+Responses include an `x-cache` header (L1 / KV source) and a `Server-Timing:
+resolve;dur=<ms>` header with the server-side resolve time. Typical edge reads
+are served from KV in single-digit milliseconds.
 
 ### Status codes
 

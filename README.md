@@ -30,7 +30,9 @@ KV for hot edge reads; R2 + Vectorize + Queues for audit, search, and warehouse.
 - **Real-time** — WebSocket Hibernation in the DO broadcasts changes to the
   console (`@edgevault/realtime` + `useWorkspaceEvents`).
 - **Edge delivery** — write-through to KV on every change; the delivery worker
-  serves pre-resolved values behind an L1 cache.
+  serves pre-resolved values behind an L1 cache, with `Server-Timing` on every
+  read. Consume it with the typed [`@edgevault/sdk`](./packages/sdk/)
+  (`value`/`flag`/`batch` + React bindings).
 - **Promotion Workflows** — durable dev→prod promotion with an AI/heuristic risk
   scan and a `waitForEvent` approval gate.
 - **AI** — embeddings-on-write + Vectorize semantic search, config-risk scoring

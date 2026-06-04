@@ -7,6 +7,8 @@ Edge-native configuration, feature flags, and secrets on Cloudflare.
 **Using EdgeVault (app developers)**
 - [Quickstart](./quickstart.md) — create a config and read it from the edge in
   under five minutes.
+- [`@edgevault/sdk`](../packages/sdk/) — typed client (`value`/`flag`/`batch`,
+  in-process cache, React bindings) for reading configs/flags from your app.
 - [Architecture](./architecture.md) — how the pieces fit and where your data
   lives.
 
