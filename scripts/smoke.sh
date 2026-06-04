@@ -14,6 +14,9 @@ APP="https://app${S}.edgevault.io"
 AUTH="https://auth${S}.edgevault.io"
 API="https://api${S}.edgevault.io"
 CDN="https://cdn${S}.edgevault.io"
+# Commercial EE worker is internal (no custom domain) — reach it on workers.dev.
+# Self-hosters override the account subdomain via WORKERS_SUBDOMAIN.
+ENT="https://edgevault-enterprise${S}.${WORKERS_SUBDOMAIN:-bauman}.workers.dev"
 
 fail=0
 code() { curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$1" 2>/dev/null; }
@@ -31,6 +34,7 @@ check "console /login" "$APP/login" 200
 # request returns 401. This both proves the worker is up AND that *EdgeVault's*
 # delivery worker (not some other worker) owns the cdn hostname.
 check "cdn (delivery /v1 auth)" "$CDN/v1/configs/_smoke" 401
+check "enterprise /health"      "$ENT/health" 200
 
 # JWKS must publish at least one verification key (proves the signing secret loaded).
 if curl -s --max-time 15 "$AUTH/.well-known/jwks.json" | grep -q '"keys":\[{'; then

@@ -15,11 +15,12 @@
   },
   // BFF: the console SSR worker proxies to auth + api via service bindings, so
   // the browser only talks to the console origin (no CORS / cross-site cookies).
-  // ENTERPRISE_SERVICE (commercial ee/enterprise worker) is bound only in
-  // EE/Managed Edge deployments; the SSO routes degrade gracefully without it.
+  // ENTERPRISE_SERVICE (commercial ee/enterprise worker) hosts SSO/SCIM; the SSO
+  // routes degrade gracefully (sso=unavailable) if the binding is ever removed.
   "services": [
     { "binding": "AUTH_SERVICE", "service": "edgevault-auth" },
-    { "binding": "API_SERVICE", "service": "edgevault-api" }
+    { "binding": "API_SERVICE", "service": "edgevault-api" },
+    { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise" }
   ],
   "env": {
     "staging": {
@@ -30,7 +31,8 @@
       },
       "services": [
         { "binding": "AUTH_SERVICE", "service": "edgevault-auth-staging" },
-        { "binding": "API_SERVICE", "service": "edgevault-api-staging" }
+        { "binding": "API_SERVICE", "service": "edgevault-api-staging" },
+        { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise-staging" }
       ]
     }
   }

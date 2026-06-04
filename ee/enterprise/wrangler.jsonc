@@ -5,14 +5,28 @@
   "compatibility_date": "2026-06-03",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  "vars": { "ENVIRONMENT": "development" },
+  "vars": { "ENVIRONMENT": "production" },
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
       "id": "2297a04370d24da7b267223e7d8837f5",
       "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
     }
-  ]
+  ],
+  // Internal worker — no public route. Reached only via the console BFF's
+  // ENTERPRISE_SERVICE service binding, authenticated by the shared INTERNAL_TOKEN.
+  "env": {
+    "staging": {
+      "vars": { "ENVIRONMENT": "staging" },
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "774bd4e3e43f4ae0ad7d35a80045e6d3",
+          "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+        }
+      ]
+    }
+  }
   // EE worker (commercial). Hosts enterprise SSO + SCIM, gated by entitlements
   // read from Neon. Deployed only for Enterprise/Managed Edge; the MIT core auth
   // worker never imports ee/.
