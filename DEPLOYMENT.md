@@ -92,6 +92,44 @@ Then set the cross-worker URLs:
   deployed console origin: `/oauth/:provider/callback`, `/saml/:orgId/acs`,
   `/sso/:orgId/callback`.
 
+## Runbook
+
+**Health smoke** (read-only, no data writes):
+
+```sh
+bash scripts/smoke.sh staging
+bash scripts/smoke.sh production
+```
+
+It checks auth/api health, console `/login`, JWKS (proves the signing secret
+loaded), and that *EdgeVault's* delivery worker owns the `cdn` host (`/v1/*` →
+401). CI runs it automatically after every deploy.
+
+**Rollback** — each `wrangler deploy` creates a version:
+
+```sh
+cd apps/<worker> && npx wrangler deployments list
+npx wrangler rollback [VERSION_ID]   # or redeploy a previous git commit
+```
+
+**Secret rotation** — `JWT_PRIVATE_JWK`, `INTERNAL_TOKEN` rotate by `wrangler
+secret put` (re-set the same key on every worker that holds it). **`MASTER_KEK`
+is special**: customer secrets are envelope-encrypted under it, so you cannot
+just swap it — rotate by re-wrapping each envelope (`@edgevault/crypto`
+`rewrapEnvelope`) under the new key, then deploy. Plan a migration job before
+rotating `MASTER_KEK` in production.
+
+**Scaling notes** — `api` uses Smart Placement (near the Neon region) + Hyperdrive
+pooling; `delivery` runs at the edge with a KV + 15s in-memory L1 cache. Vectorize
+**requires metadata indexes** on `workspaceId`/`environmentId` (see §2) or scoped
+search silently returns nothing.
+
+**Known issue** — in this account `cdn.edgevault.io` is occupied by a pre-existing
+`delivery-service` worker, so the production delivery worker isn't reachable there
+yet (staging `cdn-staging` is fine). Resolve by either retiring that worker or
+pointing EdgeVault's delivery at a different free subdomain (update the
+`apps/delivery` route + redeploy). The smoke flags this (cdn check fails on prod).
+
 ## Continuous deployment
 
 `.github/workflows/deploy.yml` deploys **staging automatically on every push to

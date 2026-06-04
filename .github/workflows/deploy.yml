@@ -78,3 +78,9 @@ jobs:
               && CLOUDFLARE_ENV=staging pnpm exec wrangler deploy --env staging)
           fi
           echo "::endgroup::"
+
+      # Read-only health gate against the just-deployed environment.
+      - name: Post-deploy smoke
+        run: |
+          sleep 5
+          bash scripts/smoke.sh "$TARGET"
