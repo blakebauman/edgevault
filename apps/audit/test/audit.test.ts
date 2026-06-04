@@ -51,11 +51,13 @@ describe('audit consumer', () => {
     expect(b.ackAll).toHaveBeenCalled()
 
     const listed = await env.AUDIT_BUCKET.list({ prefix: 'audit/' })
-    expect(listed.objects.length).toBeGreaterThan(0)
-    const obj = await env.AUDIT_BUCKET.get(listed.objects[0]!.key)
-    const lines = (await obj!.text()).trim().split('\n')
+    const first = listed.objects[0]
+    expect(first).toBeDefined()
+    const obj = await env.AUDIT_BUCKET.get(first?.key ?? '')
+    expect(obj).not.toBeNull()
+    const lines = (obj ? await obj.text() : '').trim().split('\n')
     expect(lines).toHaveLength(2)
-    expect(JSON.parse(lines[0]!).key).toBe('one')
+    expect(JSON.parse(lines[0] ?? '{}').key).toBe('one')
   })
 
   it('ignores an empty batch', async () => {

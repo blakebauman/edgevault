@@ -83,7 +83,7 @@ app.get('/v1/configs/:key', async (c) => {
 app.get('/v1/flags/:key', async (c) => {
   const { value, source } = await resolve(c, c.req.param('key'))
   c.header('x-cache', source)
-  if (!value || value.kind !== 'flag') return c.json({ error: 'not_found' }, 404)
+  if (value?.kind !== 'flag') return c.json({ error: 'not_found' }, 404)
   return c.json({ key: c.req.param('key'), ...value })
 })
 

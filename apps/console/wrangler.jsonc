@@ -8,9 +8,14 @@
     "enabled": true
   },
   "vars": {
-    "ENVIRONMENT": "development"
-  }
-  // The @cloudflare/vite-plugin wires the ASSETS binding from the React Router
-  // build output (build/client) at build time. Service bindings to api/auth are
-  // added in later phases.
+    "ENVIRONMENT": "development",
+    // Public api base for browser WebSocket connections (BFF proxies HTTP).
+    "API_WS_BASE": "ws://localhost:8790"
+  },
+  // BFF: the console SSR worker proxies to auth + api via service bindings, so
+  // the browser only talks to the console origin (no CORS / cross-site cookies).
+  "services": [
+    { "binding": "AUTH_SERVICE", "service": "edgevault-auth" },
+    { "binding": "API_SERVICE", "service": "edgevault-api" }
+  ]
 }
