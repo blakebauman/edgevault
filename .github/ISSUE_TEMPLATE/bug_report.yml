@@ -1,0 +1,27 @@
+name: Bug report
+description: Report a problem with the EdgeVault core
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit / version
+  - type: markdown
+    attributes:
+      value: "⚠️ Do not report security vulnerabilities here — see [SECURITY.md](../blob/main/SECURITY.md)."

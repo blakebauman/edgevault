@@ -27,6 +27,9 @@ jobs:
       - name: Lint & format (Biome)
         run: pnpm exec biome ci .
 
+      - name: Open-core boundary
+        run: pnpm boundary
+
       - name: Generate Cloudflare types
         run: pnpm cf-typegen
 
