@@ -11,6 +11,8 @@ export default [
   route('sso/:orgId/callback', 'routes/sso.callback.tsx'),
   route('saml/:orgId/start', 'routes/saml.start.tsx'),
   route('saml/:orgId/acs', 'routes/saml.acs.tsx'),
+  route('oauth/:provider/start', 'routes/oauth.start.tsx'),
+  route('oauth/:provider/callback', 'routes/oauth.callback.tsx'),
   route('dashboard/:workspaceId', 'routes/dashboard.tsx'),
   route('dashboard/:workspaceId/assistant', 'routes/assistant.tsx'),
   route('orgs/:orgId/scim', 'routes/scim.tsx'),

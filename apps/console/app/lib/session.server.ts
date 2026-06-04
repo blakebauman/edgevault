@@ -127,3 +127,35 @@ export function getWebauthnChallenge(request: Request): string | null {
 export function clearWebauthnCookie(request: Request): string {
   return `${WEBAUTHN_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
 }
+
+// --- Social OAuth transaction cookie ----------------------------------------
+// Holds the state + PKCE verifier between the OAuth start and provider callback.
+
+const OAUTH_COOKIE = 'ev_oauth'
+
+export interface OAuthTransaction {
+  provider: string
+  state: string
+  codeVerifier?: string
+}
+
+export function setOAuthCookie(tx: OAuthTransaction, request: Request): string {
+  const value = encodeURIComponent(JSON.stringify(tx))
+  return `${OAUTH_COOKIE}=${value}; HttpOnly; Path=/; SameSite=Lax; Max-Age=600${secureAttr(request)}`
+}
+
+export function getOAuthTransaction(request: Request): OAuthTransaction | null {
+  const match = (request.headers.get('Cookie') ?? '').match(/(?:^|;\s*)ev_oauth=([^;]+)/)
+  if (!match?.[1]) return null
+  try {
+    const tx = JSON.parse(decodeURIComponent(match[1])) as Partial<OAuthTransaction>
+    if (tx.provider && tx.state) return tx as OAuthTransaction
+  } catch {
+    // malformed — ignore
+  }
+  return null
+}
+
+export function clearOAuthCookie(request: Request): string {
+  return `${OAUTH_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
+}

@@ -1,5 +1,6 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { Database } from './client'
+import { accounts } from './schema/auth'
 import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
 import { samlConnections } from './schema/saml'
@@ -290,4 +291,18 @@ export async function updateAuthenticatorCounter(
   counter: number,
 ): Promise<void> {
   await database.update(authenticators).set({ counter }).where(eq(authenticators.id, id))
+}
+
+/** Look up the user linked to an external (social/OIDC) account. */
+export async function getAccountByProvider(
+  database: Database,
+  providerId: string,
+  accountId: string,
+): Promise<{ userId: string } | null> {
+  const [row] = await database
+    .select({ userId: accounts.userId })
+    .from(accounts)
+    .where(and(eq(accounts.providerId, providerId), eq(accounts.accountId, accountId)))
+    .limit(1)
+  return row ?? null
 }

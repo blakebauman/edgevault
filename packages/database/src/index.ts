@@ -6,6 +6,7 @@ export {
   createAuthenticator,
   deleteTotpCredential,
   type EntitlementRow,
+  getAccountByProvider,
   getAuthenticatorById,
   getAuthenticatorsByUser,
   getEntitlements,

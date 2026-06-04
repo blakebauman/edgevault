@@ -1,5 +1,12 @@
 import { generateToken, hashPassword, hashToken, verifyPassword } from '@edgevault/auth'
-import { type Database, members, sessions, users } from '@edgevault/database'
+import {
+  accounts,
+  type Database,
+  getAccountByProvider,
+  members,
+  sessions,
+  users,
+} from '@edgevault/database'
 import { and, eq } from 'drizzle-orm'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
@@ -113,6 +120,46 @@ export async function invalidateSession(database: Database, token: string): Prom
 export async function getUserById(database: Database, userId: string): Promise<PublicUser | null> {
   const [user] = await database.select().from(users).where(eq(users.id, userId)).limit(1)
   return user ? toPublicUser(user) : null
+}
+
+/**
+ * Resolve a social-login identity to a user: by linked account, else by matching
+ * (verified) email, else create a new password-less user. Always ensures the
+ * provider account is linked. Requires a verified email to key on.
+ */
+export async function provisionOauthUser(
+  database: Database,
+  input: { providerId: string; providerAccountId: string; email: string; name?: string | null },
+): Promise<PublicUser> {
+  const linked = await getAccountByProvider(database, input.providerId, input.providerAccountId)
+  if (linked) {
+    const user = await getUserById(database, linked.userId)
+    if (user) return user
+  }
+
+  const email = input.email.toLowerCase()
+  const [existing] = await database.select().from(users).where(eq(users.email, email)).limit(1)
+  const user =
+    existing ??
+    (
+      await database
+        .insert(users)
+        .values({ email, name: input.name ?? null, emailVerified: true })
+        .returning()
+    )[0]
+  if (!user) throw new Error('Failed to provision OAuth user')
+
+  // Link the provider account (idempotent on the (provider, account) unique key).
+  await database
+    .insert(accounts)
+    .values({
+      userId: user.id,
+      providerId: input.providerId,
+      accountId: input.providerAccountId,
+    })
+    .onConflictDoNothing({ target: [accounts.providerId, accounts.accountId] })
+
+  return toPublicUser(user)
 }
 
 /**

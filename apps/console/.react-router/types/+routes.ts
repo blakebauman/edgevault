@@ -49,6 +49,16 @@ type Pages = {
       "orgId": string;
     };
   };
+  "/oauth/:provider/start": {
+    params: {
+      "provider": string;
+    };
+  };
+  "/oauth/:provider/callback": {
+    params: {
+      "provider": string;
+    };
+  };
   "/dashboard/:workspaceId": {
     params: {
       "workspaceId": string;
@@ -79,7 +89,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -121,6 +131,14 @@ type RouteFiles = {
     id: "routes/saml.acs";
     page: "/saml/:orgId/acs";
   };
+  "routes/oauth.start.tsx": {
+    id: "routes/oauth.start";
+    page: "/oauth/:provider/start";
+  };
+  "routes/oauth.callback.tsx": {
+    id: "routes/oauth.callback";
+    page: "/oauth/:provider/callback";
+  };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
     page: "/dashboard/:workspaceId";
@@ -155,6 +173,8 @@ type RouteModules = {
   "routes/sso.callback": typeof import("./app/routes/sso.callback.tsx");
   "routes/saml.start": typeof import("./app/routes/saml.start.tsx");
   "routes/saml.acs": typeof import("./app/routes/saml.acs.tsx");
+  "routes/oauth.start": typeof import("./app/routes/oauth.start.tsx");
+  "routes/oauth.callback": typeof import("./app/routes/oauth.callback.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/assistant": typeof import("./app/routes/assistant.tsx");
   "routes/scim": typeof import("./app/routes/scim.tsx");

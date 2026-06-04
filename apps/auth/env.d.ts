@@ -8,4 +8,9 @@ interface Env {
   INTERNAL_TOKEN: string
   /** Base64 master key for envelope-encrypting TOTP secrets (@edgevault/crypto). */
   MASTER_KEK: string
+  /** Social OAuth client credentials (optional; empty disables that provider). */
+  GITHUB_CLIENT_ID: string
+  GITHUB_CLIENT_SECRET: string
+  GOOGLE_CLIENT_ID: string
+  GOOGLE_CLIENT_SECRET: string
 }

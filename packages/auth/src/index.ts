@@ -16,6 +16,23 @@ export {
   verifyAccessToken,
   verifyWithJwkSet,
 } from './jwt'
+export type {
+  AuthUrlInput,
+  ExchangeInput,
+  OAuthIdentity,
+  OAuthProvider,
+  OAuthTokens,
+  Pkce,
+} from './oauth'
+export {
+  buildOAuthUrl,
+  exchangeOAuthCode,
+  fetchOAuthIdentity,
+  generatePkce,
+  isOAuthProvider,
+  providerUsesPkce,
+  randomState,
+} from './oauth'
 export { hashPassword, verifyPassword } from './password'
 export type { GeneratedApiKey } from './tokens'
 export { generateApiKey, generateToken, hashToken } from './tokens'

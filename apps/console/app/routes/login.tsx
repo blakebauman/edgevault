@@ -79,6 +79,18 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
           </div>
         </Form>
 
+        <div className="form">
+          <p className="muted">Or continue with</p>
+          <div className="row">
+            <a className="secondary button" href="/oauth/github/start">
+              GitHub
+            </a>
+            <a className="secondary button" href="/oauth/google/start">
+              Google
+            </a>
+          </div>
+        </div>
+
         <PasskeyButton />
         <SsoForm error={loaderData.ssoError} />
       </section>

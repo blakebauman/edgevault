@@ -1,6 +1,14 @@
 import {
   buildJwks,
+  buildOAuthUrl,
+  exchangeOAuthCode,
+  fetchOAuthIdentity,
+  generatePkce,
   importVerificationKey,
+  isOAuthProvider,
+  type OAuthProvider,
+  providerUsesPkce,
+  randomState,
   signAccessToken,
   verifyAccessToken,
 } from '@edgevault/auth'
@@ -27,6 +35,7 @@ import {
   createUser,
   getUserById,
   invalidateSession,
+  provisionOauthUser,
   provisionSsoUser,
   validateSessionToken,
   verifyCredentials,
@@ -273,6 +282,89 @@ app.post(
     })
     setSessionCookie(c, token, expiresAt)
     return c.json({ ok: true })
+  },
+)
+
+// --- Social OAuth (GitHub / Google) ----------------------------------------
+// The console BFF supplies the redirect URI (its own callback) and round-trips
+// state + PKCE verifier in a cookie. Public + IP rate-limited.
+
+function oauthCreds(
+  env: Env,
+  provider: OAuthProvider,
+): { clientId: string; clientSecret: string } | null {
+  const id = provider === 'github' ? env.GITHUB_CLIENT_ID : env.GOOGLE_CLIENT_ID
+  const secret = provider === 'github' ? env.GITHUB_CLIENT_SECRET : env.GOOGLE_CLIENT_SECRET
+  return id && secret ? { clientId: id, clientSecret: secret } : null
+}
+
+app.post(
+  '/oauth/:provider/start',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'oauth-ip'),
+  zValidator('json', z.object({ redirectUri: z.string().min(1) })),
+  async (c) => {
+    const provider = c.req.param('provider')
+    if (!isOAuthProvider(provider)) return c.json({ error: 'unknown_provider' }, 404)
+    const creds = oauthCreds(c.env, provider)
+    if (!creds) return c.json({ error: 'provider_not_configured' }, 501)
+
+    const state = randomState()
+    const pkce = providerUsesPkce(provider) ? await generatePkce() : null
+    const authorizeUrl = buildOAuthUrl(provider, {
+      clientId: creds.clientId,
+      redirectUri: c.req.valid('json').redirectUri,
+      state,
+      codeChallenge: pkce?.challenge,
+    })
+    return c.json({ authorizeUrl, state, codeVerifier: pkce?.verifier ?? null })
+  },
+)
+
+app.post(
+  '/oauth/:provider/callback',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'oauth-ip'),
+  zValidator(
+    'json',
+    z.object({
+      code: z.string().min(1),
+      redirectUri: z.string().min(1),
+      codeVerifier: z.string().optional(),
+    }),
+  ),
+  async (c) => {
+    const provider = c.req.param('provider')
+    if (!isOAuthProvider(provider)) return c.json({ error: 'unknown_provider' }, 404)
+    const creds = oauthCreds(c.env, provider)
+    if (!creds) return c.json({ error: 'provider_not_configured' }, 501)
+    const { code, redirectUri, codeVerifier } = c.req.valid('json')
+
+    try {
+      const tokens = await exchangeOAuthCode(provider, {
+        clientId: creds.clientId,
+        clientSecret: creds.clientSecret,
+        code,
+        redirectUri,
+        codeVerifier,
+      })
+      const identity = await fetchOAuthIdentity(provider, tokens, { clientId: creds.clientId })
+      if (!identity.email) return c.json({ error: 'no_verified_email' }, 400)
+
+      const user = await provisionOauthUser(c.var.database, {
+        providerId: provider,
+        providerAccountId: identity.providerAccountId,
+        email: identity.email,
+        name: identity.name,
+      })
+      const { token, expiresAt } = await createSession(c.var.database, user.id, {
+        ipAddress: c.req.header('cf-connecting-ip'),
+        userAgent: c.req.header('user-agent'),
+      })
+      setSessionCookie(c, token, expiresAt)
+      return c.json({ ok: true })
+    } catch (err) {
+      console.error('OAuth callback failed', err)
+      return c.json({ error: 'oauth_failed' }, 401)
+    }
   },
 )
 
