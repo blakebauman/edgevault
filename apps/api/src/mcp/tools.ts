@@ -4,6 +4,7 @@ import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
 import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 import { writeThrough } from '../edge-cache'
+import { prepareSecretContent, revealSecret } from '../secrets'
 import { defineTool, type McpToolContext } from './server'
 
 function stub(ctx: McpToolContext): DurableObjectStub<WorkspaceDurableObject> {
@@ -76,10 +77,12 @@ export const edgevaultTools = [
       contentType: z.string().optional(),
     }),
     handler: async (args, ctx) => {
+      const prepared = await prepareSecretContent(ctx.env, ctx.workspaceId, args.kind, args.content)
       const item = await stub(ctx).setConfig({
         environmentId: args.environmentId,
         key: args.key,
-        content: args.content,
+        content: prepared.content,
+        isEncrypted: prepared.isEncrypted,
         kind: args.kind,
         contentType: args.contentType,
         userId: ctx.userId,
@@ -87,6 +90,20 @@ export const edgevaultTools = [
       await writeThrough(ctx.env, ctx.workspaceId, item)
       await indexConfig(ctx.env, ctx.workspaceId, item)
       return redact(item)
+    },
+  }),
+  defineTool({
+    name: 'reveal_secret',
+    description: 'Decrypt and return a secret value. Use sparingly.',
+    inputSchema: objectSchema({ environmentId: { type: 'string' }, key: { type: 'string' } }, [
+      'environmentId',
+      'key',
+    ]),
+    schema: z.object({ environmentId: z.string(), key: z.string() }),
+    handler: async (args, ctx) => {
+      const item = await stub(ctx).getConfig(args.environmentId, args.key)
+      if (!item) return { error: 'not_found' }
+      return { key: item.key, content: await revealSecret(ctx.env, ctx.workspaceId, item) }
     },
   }),
   defineTool({

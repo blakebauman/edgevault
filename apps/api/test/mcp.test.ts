@@ -97,6 +97,21 @@ describe('MCP server', () => {
       params: { name: 'get_config', arguments: { environmentId: e.id, key: 'db.pw' } },
     })
     expect(getRes.body.result.content[0].text).not.toContain('hunter2')
+
+    // The DO stores an envelope, not the plaintext.
+    const stored = await workspace().getConfig(e.id, 'db.pw')
+    expect(stored?.isEncrypted).toBe(true)
+    expect(stored?.content).not.toContain('hunter2')
+    expect(JSON.parse(stored?.content ?? '{}').v).toBe(1)
+
+    // reveal_secret decrypts it back.
+    const revealRes = await call({
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'tools/call',
+      params: { name: 'reveal_secret', arguments: { environmentId: e.id, key: 'db.pw' } },
+    })
+    expect(JSON.parse(revealRes.body.result.content[0].text).content).toBe('hunter2')
   })
 
   it('returns an error for an unknown tool and unknown method', async () => {

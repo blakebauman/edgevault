@@ -16,6 +16,7 @@
     "@edgevault/ai": "workspace:*",
     "@edgevault/auth": "workspace:*",
     "@edgevault/config-formats": "workspace:*",
+    "@edgevault/crypto": "workspace:*",
     "@edgevault/database": "workspace:*",
     "@edgevault/diff": "workspace:*",
     "@edgevault/edge-protocol": "workspace:*",

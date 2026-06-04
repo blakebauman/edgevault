@@ -12,6 +12,8 @@ export default defineConfig({
           AUTH_SERVICE: () =>
             new Response('{"keys":[]}', { headers: { 'content-type': 'application/json' } }),
         },
+        // Deterministic master key for envelope-encryption tests.
+        bindings: { MASTER_KEK: Buffer.alloc(32, 7).toString('base64') },
       },
     }),
   ],

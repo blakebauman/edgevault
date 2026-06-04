@@ -10,6 +10,7 @@ import { createApiKey } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 import { deleteThrough, publishApiKey, writeThrough } from '../edge-cache'
+import { prepareSecretContent, revealSecret } from '../secrets'
 
 /**
  * Workspace config/flag/secret routes. Each request resolves the per-workspace
@@ -79,16 +80,18 @@ export const workspaceRoutes = new Hono<AppEnv>()
       if (!validation.valid) {
         return c.json({ error: 'invalid_content', detail: validation.error, format }, 400)
       }
-      const config = await stubFor(c, c.req.param('workspaceId')).setConfig({
+      const workspaceId = c.req.param('workspaceId')
+      // Envelope-encrypt secrets before they reach the DO (which stores ciphertext).
+      const prepared = await prepareSecretContent(c.env, workspaceId, body.kind, body.content)
+      const config = await stubFor(c, workspaceId).setConfig({
         environmentId: c.req.param('envId'),
         key: body.key,
         kind: body.kind,
-        content: body.content,
+        content: prepared.content,
         contentType: format,
-        isEncrypted: body.isEncrypted,
+        isEncrypted: prepared.isEncrypted,
         userId: c.var.userId,
       })
-      const workspaceId = c.req.param('workspaceId')
       // Write-through to the edge cache (KV) for the delivery worker.
       c.executionCtx.waitUntil(writeThrough(c.env, workspaceId, config))
       // Index for semantic search (never index secret plaintext).
@@ -122,6 +125,16 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const ok = await stubFor(c, workspaceId).deleteConfig(envId, key, c.var.userId)
     if (ok) c.executionCtx.waitUntil(deleteThrough(c.env, workspaceId, envId, key))
     return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
+  })
+  // Reveal a decrypted secret value (member-gated; tighten to admin RBAC later).
+  .get('/:workspaceId/environments/:envId/configs/:key/reveal', async (c) => {
+    const item = await stubFor(c, c.req.param('workspaceId')).getConfig(
+      c.req.param('envId'),
+      c.req.param('key'),
+    )
+    if (!item) return c.json({ error: 'not_found' }, 404)
+    const value = await revealSecret(c.env, c.req.param('workspaceId'), item)
+    return c.json({ key: item.key, kind: item.kind, content: value })
   })
   .get('/:workspaceId/environments/:envId/configs/:key/revisions', async (c) => {
     const revisions = await stubFor(c, c.req.param('workspaceId')).listRevisions(
