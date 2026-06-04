@@ -34,8 +34,19 @@ describe('embeddings', () => {
 })
 
 describe('search', () => {
-  it('uses a stable vector id per (workspace, env, key)', () => {
-    expect(configVectorId({ workspaceId: 'w', environmentId: 'e', key: 'k' })).toBe('w:e:k')
+  it('hashes a stable, Vectorize-safe (≤64 byte) vector id per (workspace, env, key)', async () => {
+    const ref = { workspaceId: 'w', environmentId: 'e', key: 'k' }
+    const id = await configVectorId(ref)
+    expect(id).toMatch(/^[A-Za-z0-9_-]{43}$/) // base64url SHA-256, well under 64 bytes
+    expect(await configVectorId(ref)).toBe(id) // deterministic
+    // Distinct inputs (even with long UUIDs) yield distinct, still-short ids.
+    const other = await configVectorId({
+      workspaceId: '11111111-1111-1111-1111-111111111111',
+      environmentId: '22222222-2222-2222-2222-222222222222',
+      key: 'some.very.long.config.key.name',
+    })
+    expect(other).not.toBe(id)
+    expect(other.length).toBeLessThanOrEqual(64)
   })
 
   it('upserts with workspace namespace + metadata', async () => {
@@ -51,7 +62,7 @@ describe('search', () => {
     })
     expect(vectorize.upsert).toHaveBeenCalledWith([
       expect.objectContaining({
-        id: 'w:e:k',
+        id: await configVectorId({ workspaceId: 'w', environmentId: 'e', key: 'k' }),
         namespace: 'w',
         metadata: expect.objectContaining({ key: 'k', kind: 'flag' }),
       }),

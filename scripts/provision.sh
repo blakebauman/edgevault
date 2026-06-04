@@ -22,6 +22,10 @@ w kv namespace create AUTH_CACHE            # apps/auth (session cache)
 
 echo "== Vectorize (match the embedding model dimensions) =="
 w vectorize create edgevault-configs --dimensions=768 --metric=cosine
+# Metadata indexes are REQUIRED for the workspace/environment-scoped search
+# filters — without them, filtered queries silently return no matches.
+w vectorize create-metadata-index edgevault-configs --property-name workspaceId --type string
+w vectorize create-metadata-index edgevault-configs --property-name environmentId --type string
 
 echo "== Queue + R2 (audit warehouse) =="
 w queues create edgevault-audit

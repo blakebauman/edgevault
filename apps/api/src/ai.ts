@@ -53,7 +53,8 @@ export async function indexConfig(env: Env, workspaceId: string, item: ConfigIte
       key: item.key,
       kind: item.kind,
     })
-  } catch {
-    // best-effort indexing
+  } catch (err) {
+    // Best-effort indexing — never blocks a write, but log so failures are visible.
+    console.error('indexConfig failed', err)
   }
 }

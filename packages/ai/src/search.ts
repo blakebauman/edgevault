@@ -8,13 +8,23 @@ export interface ConfigVectorRef {
   kind: string
 }
 
-/** Stable vector id per (workspace, env, key) so re-writes update in place. */
-export function configVectorId(ref: {
+/**
+ * Stable vector id per (workspace, env, key) so re-writes update in place.
+ * Hashed to a fixed-length base64url string (43 chars) because Vectorize caps ids
+ * at 64 bytes and two UUIDs + a key easily exceed that.
+ */
+export async function configVectorId(ref: {
   workspaceId: string
   environmentId: string
   key: string
-}): string {
-  return `${ref.workspaceId}:${ref.environmentId}:${ref.key}`
+}): Promise<string> {
+  const data = new Uint8Array(
+    new TextEncoder().encode(`${ref.workspaceId}:${ref.environmentId}:${ref.key}`),
+  )
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', data))
+  let bin = ''
+  for (const b of digest) bin += String.fromCharCode(b)
+  return btoa(bin).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
 }
 
 export async function upsertConfigVector(
@@ -24,7 +34,7 @@ export async function upsertConfigVector(
 ): Promise<void> {
   await vectorize.upsert([
     {
-      id: configVectorId(ref),
+      id: await configVectorId(ref),
       values: embedding,
       namespace: ref.workspaceId,
       metadata: {
