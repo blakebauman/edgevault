@@ -79,9 +79,37 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
           </div>
         </Form>
 
+        <PasskeyButton />
         <SsoForm error={loaderData.ssoError} />
       </section>
     </main>
+  )
+}
+
+function PasskeyButton() {
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function onClick() {
+    setError(null)
+    setBusy(true)
+    const { loginWithPasskey } = await import('../lib/passkey')
+    const result = await loginWithPasskey()
+    if (result.ok) {
+      window.location.href = '/'
+    } else {
+      setError(result.error ?? 'Passkey sign-in failed.')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="form">
+      <button type="button" className="secondary" onClick={onClick} disabled={busy}>
+        {busy ? 'Waiting for passkey…' : 'Sign in with a passkey'}
+      </button>
+      {error && <p className="error-text">{error}</p>}
+    </div>
   )
 }
 

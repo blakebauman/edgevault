@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Form, Link, redirect } from 'react-router'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/account-mfa'
@@ -142,7 +143,43 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
             </Form>
           </>
         )}
+
+        <PasskeySection />
       </section>
     </main>
+  )
+}
+
+function PasskeySection() {
+  const [status, setStatus] = useState<{ kind: 'idle' | 'ok' | 'error'; message?: string }>({
+    kind: 'idle',
+  })
+  const [busy, setBusy] = useState(false)
+
+  async function onAdd() {
+    setBusy(true)
+    setStatus({ kind: 'idle' })
+    const { registerPasskey } = await import('../lib/passkey')
+    const result = await registerPasskey()
+    setStatus(
+      result.ok
+        ? { kind: 'ok', message: 'Passkey added. You can now sign in with it.' }
+        : { kind: 'error', message: result.error ?? 'Could not add passkey.' },
+    )
+    setBusy(false)
+  }
+
+  return (
+    <div className="assistant">
+      <h2>Passkeys</h2>
+      <p className="muted">
+        Add a passkey (Touch ID, Windows Hello, a security key) for phishing-resistant sign-in.
+      </p>
+      {status.kind === 'ok' && <p className="muted">{status.message}</p>}
+      {status.kind === 'error' && <p className="error-text">{status.message}</p>}
+      <button type="button" onClick={onAdd} disabled={busy}>
+        {busy ? 'Waiting for passkey…' : 'Add a passkey'}
+      </button>
+    </div>
   )
 }

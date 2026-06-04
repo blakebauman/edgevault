@@ -31,6 +31,12 @@ import {
   validateSessionToken,
   verifyCredentials,
 } from './services'
+import {
+  buildAuthenticationOptions,
+  buildRegistrationOptions,
+  verifyAuthentication,
+  verifyRegistration,
+} from './webauthn'
 
 /** Constant-time string compare for the internal shared secret. */
 function timingSafeEqual(a: string, b: string): boolean {
@@ -200,6 +206,75 @@ app.post('/mfa/totp/disable', requireUser, zValidator('json', mfaCodeSchema), as
   const ok = await disableTotp(c.env, c.var.database, c.var.userId, c.req.valid('json').code)
   return ok ? c.json({ ok: true }) : c.json({ error: 'invalid_code' }, 400)
 })
+
+// --- WebAuthn / passkeys ---------------------------------------------------
+// The console BFF passes the expected rpID/origin (from its own request) and
+// round-trips the challenge in a cookie. Registration is access-token gated;
+// authentication is public (discoverable login).
+
+const rpSchema = z.object({ rpID: z.string().min(1) })
+const verifySchema = z.object({
+  response: z.unknown(),
+  expectedChallenge: z.string().min(1),
+  expectedOrigin: z.string().min(1),
+  expectedRPID: z.string().min(1),
+})
+
+app.post('/webauthn/register/options', requireUser, zValidator('json', rpSchema), async (c) => {
+  const user = await getUserById(c.var.database, c.var.userId)
+  if (!user) return c.json({ error: 'not_found' }, 404)
+  const options = await buildRegistrationOptions(c.var.database, {
+    userId: c.var.userId,
+    userName: user.email,
+    rpID: c.req.valid('json').rpID,
+  })
+  return c.json(options)
+})
+
+app.post('/webauthn/register/verify', requireUser, zValidator('json', verifySchema), async (c) => {
+  const body = c.req.valid('json')
+  const ok = await verifyRegistration(c.var.database, {
+    userId: c.var.userId,
+    // biome-ignore lint/suspicious/noExplicitAny: the browser response shape is validated by the library
+    response: body.response as any,
+    expectedChallenge: body.expectedChallenge,
+    expectedOrigin: body.expectedOrigin,
+    expectedRPID: body.expectedRPID,
+  })
+  return ok ? c.json({ verified: true }) : c.json({ error: 'verification_failed' }, 400)
+})
+
+app.post(
+  '/webauthn/auth/options',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'webauthn-ip'),
+  zValidator('json', rpSchema),
+  async (c) => {
+    return c.json(await buildAuthenticationOptions(c.req.valid('json').rpID))
+  },
+)
+
+app.post(
+  '/webauthn/auth/verify',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'webauthn-ip'),
+  zValidator('json', verifySchema),
+  async (c) => {
+    const body = c.req.valid('json')
+    const userId = await verifyAuthentication(c.var.database, {
+      // biome-ignore lint/suspicious/noExplicitAny: the browser response shape is validated by the library
+      response: body.response as any,
+      expectedChallenge: body.expectedChallenge,
+      expectedOrigin: body.expectedOrigin,
+      expectedRPID: body.expectedRPID,
+    })
+    if (!userId) return c.json({ error: 'verification_failed' }, 401)
+    const { token, expiresAt } = await createSession(c.var.database, userId, {
+      ipAddress: c.req.header('cf-connecting-ip'),
+      userAgent: c.req.header('user-agent'),
+    })
+    setSessionCookie(c, token, expiresAt)
+    return c.json({ ok: true })
+  },
+)
 
 app.post('/sign-out', async (c) => {
   const token = getSessionToken(c)

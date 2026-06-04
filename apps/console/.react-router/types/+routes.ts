@@ -26,6 +26,9 @@ type Pages = {
   "/account/mfa": {
     params: {};
   };
+  "/api/passkey": {
+    params: {};
+  };
   "/sso/:orgId/start": {
     params: {
       "orgId": string;
@@ -76,7 +79,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -97,6 +100,10 @@ type RouteFiles = {
   "routes/account-mfa.tsx": {
     id: "routes/account-mfa";
     page: "/account/mfa";
+  };
+  "routes/api.passkey.tsx": {
+    id: "routes/api.passkey";
+    page: "/api/passkey";
   };
   "routes/sso.start.tsx": {
     id: "routes/sso.start";
@@ -143,6 +150,7 @@ type RouteModules = {
   "routes/login.mfa": typeof import("./app/routes/login.mfa.tsx");
   "routes/logout": typeof import("./app/routes/logout.tsx");
   "routes/account-mfa": typeof import("./app/routes/account-mfa.tsx");
+  "routes/api.passkey": typeof import("./app/routes/api.passkey.tsx");
   "routes/sso.start": typeof import("./app/routes/sso.start.tsx");
   "routes/sso.callback": typeof import("./app/routes/sso.callback.tsx");
   "routes/saml.start": typeof import("./app/routes/saml.start.tsx");

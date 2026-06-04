@@ -4,6 +4,7 @@ import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
 import { samlConnections } from './schema/saml'
 import { ssoConnections } from './schema/sso'
+import { authenticators } from './schema/webauthn'
 
 /** Shared entitlement queries (used by api/auth read paths + the control plane). */
 
@@ -231,4 +232,62 @@ export async function confirmTotpCredential(database: Database, userId: string):
 
 export async function deleteTotpCredential(database: Database, userId: string): Promise<void> {
   await database.delete(totpCredentials).where(eq(totpCredentials.userId, userId))
+}
+
+/** A registered WebAuthn authenticator (publicKey is Base64URL of the COSE key). */
+export interface AuthenticatorRow {
+  id: string
+  userId: string
+  publicKey: string
+  counter: number
+  transports: string[]
+}
+
+export async function getAuthenticatorsByUser(
+  database: Database,
+  userId: string,
+): Promise<AuthenticatorRow[]> {
+  return database
+    .select({
+      id: authenticators.id,
+      userId: authenticators.userId,
+      publicKey: authenticators.publicKey,
+      counter: authenticators.counter,
+      transports: authenticators.transports,
+    })
+    .from(authenticators)
+    .where(eq(authenticators.userId, userId))
+}
+
+export async function getAuthenticatorById(
+  database: Database,
+  id: string,
+): Promise<AuthenticatorRow | null> {
+  const [row] = await database
+    .select({
+      id: authenticators.id,
+      userId: authenticators.userId,
+      publicKey: authenticators.publicKey,
+      counter: authenticators.counter,
+      transports: authenticators.transports,
+    })
+    .from(authenticators)
+    .where(eq(authenticators.id, id))
+    .limit(1)
+  return row ?? null
+}
+
+export async function createAuthenticator(
+  database: Database,
+  input: AuthenticatorRow,
+): Promise<void> {
+  await database.insert(authenticators).values(input)
+}
+
+export async function updateAuthenticatorCounter(
+  database: Database,
+  id: string,
+  counter: number,
+): Promise<void> {
+  await database.update(authenticators).set({ counter }).where(eq(authenticators.id, id))
 }

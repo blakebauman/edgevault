@@ -108,3 +108,22 @@ export function getMfaToken(request: Request): string | null {
 export function clearMfaCookie(request: Request): string {
   return `${MFA_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
 }
+
+// --- WebAuthn challenge cookie ----------------------------------------------
+// Holds the per-ceremony WebAuthn challenge between options-generation and
+// verification. httpOnly + short-lived; the whole ceremony is same-origin.
+
+const WEBAUTHN_COOKIE = 'ev_wa'
+
+export function setWebauthnCookie(challenge: string, request: Request): string {
+  return `${WEBAUTHN_COOKIE}=${encodeURIComponent(challenge)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=300${secureAttr(request)}`
+}
+
+export function getWebauthnChallenge(request: Request): string | null {
+  const match = (request.headers.get('Cookie') ?? '').match(/(?:^|;\s*)ev_wa=([^;]+)/)
+  return match?.[1] ? decodeURIComponent(match[1]) : null
+}
+
+export function clearWebauthnCookie(request: Request): string {
+  return `${WEBAUTHN_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
+}
