@@ -16,6 +16,11 @@
   // the browser only talks to the console origin (no CORS / cross-site cookies).
   "services": [
     { "binding": "AUTH_SERVICE", "service": "edgevault-auth" },
-    { "binding": "API_SERVICE", "service": "edgevault-api" }
+    { "binding": "API_SERVICE", "service": "edgevault-api" },
+    // Enterprise SSO (OIDC) is served by the commercial ee/enterprise worker.
+    // Bound only in EE/Managed Edge deployments; the SSO routes degrade
+    // gracefully when it is absent (OSS core without EE). INTERNAL_TOKEN (secret)
+    // authenticates this BFF to the auth + enterprise internal endpoints.
+    { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise" }
   ]
 }

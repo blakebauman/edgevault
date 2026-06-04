@@ -11,9 +11,18 @@ import {
   createSession,
   createUser,
   invalidateSession,
+  provisionSsoUser,
   validateSessionToken,
   verifyCredentials,
 } from './services'
+
+/** Constant-time string compare for the internal shared secret. */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
 
 /**
  * EdgeVault auth service. Custom, zero-telemetry: email/password (Argon2id),
@@ -141,5 +150,38 @@ app.post(
     return c.json({ accessToken, tokenType: 'Bearer', expiresIn: 900 })
   },
 )
+
+// Internal SSO provisioning — called only by the ee/enterprise worker (via the
+// console BFF) after it has verified the IdP identity. Authenticated by a shared
+// secret, not a user session. Establishes an EdgeVault session for the SSO user
+// (JIT-creating the user + org membership) and returns it as a cookie, exactly
+// like /sign-in, so the console can exchange it for an access token via /token.
+app.post('/internal/sso/provision', async (c) => {
+  const presented = c.req.header('x-internal-token') ?? ''
+  if (!c.env.INTERNAL_TOKEN || !timingSafeEqual(presented, c.env.INTERNAL_TOKEN)) {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    email?: unknown
+    name?: unknown
+    organizationId?: unknown
+  }
+  const email = typeof body.email === 'string' ? body.email : ''
+  const organizationId = typeof body.organizationId === 'string' ? body.organizationId : ''
+  if (!email || !organizationId) return c.json({ error: 'invalid_request' }, 400)
+
+  const user = await provisionSsoUser(c.var.database, {
+    email,
+    name: typeof body.name === 'string' ? body.name : null,
+    organizationId,
+  })
+  const { token, expiresAt } = await createSession(c.var.database, user.id, {
+    ipAddress: c.req.header('cf-connecting-ip'),
+    userAgent: c.req.header('user-agent'),
+  })
+  setSessionCookie(c, token, expiresAt)
+  return c.json({ user })
+})
 
 export default app

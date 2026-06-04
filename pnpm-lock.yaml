@@ -245,6 +245,9 @@ importers:
       '@edgevault/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@edgevault/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
       '@edgevault/database':
         specifier: workspace:*
         version: link:../../packages/database

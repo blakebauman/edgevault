@@ -11,6 +11,7 @@
   "include": [
     "app/**/*",
     "workers/**/*",
+    "env.d.ts",
     "worker-configuration.d.ts",
     ".react-router/types/**/*",
     "vite.config.ts",

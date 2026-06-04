@@ -3,6 +3,12 @@
   "compilerOptions": {
     "types": ["./worker-configuration.d.ts"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "worker-configuration.d.ts", "vitest.config.ts"],
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "env.d.ts",
+    "worker-configuration.d.ts",
+    "vitest.config.ts"
+  ],
   "exclude": ["dist", ".wrangler"]
 }

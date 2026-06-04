@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@edgevault/auth": "workspace:*",
+    "@edgevault/crypto": "workspace:*",
     "@edgevault/database": "workspace:*",
     "@edgevault/ee-scim": "workspace:*",
     "@edgevault/ee-sso-saml": "workspace:*",

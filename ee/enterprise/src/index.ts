@@ -6,7 +6,7 @@ import {
   type ScimUser,
   toScimListResponse,
 } from '@edgevault/ee-scim'
-import { assertSsoEntitled } from '@edgevault/ee-sso-saml'
+import { assertSsoEntitled, type OidcConnection } from '@edgevault/ee-sso-saml'
 import { EntitlementError, type License } from '@edgevault/licensing'
 import { Hono } from 'hono'
 import { rowToLicense } from './entitlements'
@@ -36,6 +36,20 @@ type Vars = { database: Database; license: License; orgId: string }
 const app = new Hono<{ Bindings: Env; Variables: Vars }>()
 
 app.get('/health', (c) => c.json({ status: 'ok', worker: 'enterprise', env: c.env.ENVIRONMENT }))
+
+// Authenticate the SSO surface (connection admin + OIDC start/callback) BEFORE
+// the org/license DB lookup, so unauthenticated calls never touch Neon. These
+// are called only by the console BFF (a trusted internal worker), which performs
+// the user-facing authz (verified session + org-admin role) first. The shared
+// INTERNAL_TOKEN keeps the endpoints from being driven directly by the public,
+// even though they reach the same fetch handler via the service binding.
+app.use('/orgs/:orgId/sso/*', async (c, next) => {
+  const presented = c.req.header('x-internal-token') ?? ''
+  if (!c.env.INTERNAL_TOKEN || !timingSafeEqualHex(presented, c.env.INTERNAL_TOKEN)) {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+  await next()
+})
 
 // Resolve the org and load its license for every org-scoped route.
 app.use('/orgs/:orgId/*', async (c, next) => {
@@ -100,17 +114,133 @@ app.get('/orgs/:orgId/scim/v2/Users', async (c) => {
   return c.json(toScimListResponse(resources))
 })
 
-// Enterprise SSO (OIDC) — start authorization (gated by `sso`).
-app.get('/orgs/:orgId/sso/oidc/start', (c) => {
-  // SECURITY: this is browser/admin-initiated, not machine-to-machine, so it
-  // must gain a console-session gate (verified session + org membership) when
-  // the SSO admin flow is wired — the SCIM bearer-token scheme above does not
-  // apply here. It exposes nothing today (501 below), so no data is at risk yet.
+/** Load + decrypt the org's OIDC connection into the ee-sso-saml shape. */
+async function loadOidcConnection(
+  env: Env,
+  database: Database,
+  orgId: string,
+): Promise<OidcConnection | null> {
+  const { getSsoConnection } = await import('@edgevault/database')
+  const row = await getSsoConnection(database, orgId)
+  if (!row) return null
+  const { decryptSecret } = await import('@edgevault/crypto')
+  const clientSecret = await decryptSecret(
+    env.MASTER_KEK,
+    orgId,
+    JSON.parse(row.encryptedClientSecret),
+  )
+  return {
+    organizationId: orgId,
+    issuer: row.issuer,
+    clientId: row.clientId,
+    clientSecret,
+    redirectUri: row.redirectUri,
+    scopes: row.scopes,
+  }
+}
+
+function str(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() ? v : null
+}
+
+// Configure (or rotate) the org's OIDC connection. The client secret is
+// envelope-encrypted (keyed by org id) before it ever touches the database.
+app.put('/orgs/:orgId/sso/connection', async (c) => {
   assertSsoEntitled(c.var.license)
-  // The per-org OIDC connection (issuer/clientId/encrypted secret) is stored by
-  // the auth worker and lands with the SSO admin UI. The entitlement gate is
-  // live now; until a connection is configured the flow cannot begin.
-  return c.json({ error: 'sso_not_configured', detail: 'no OIDC connection for this org' }, 501)
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+  const issuer = str(body.issuer)
+  const clientId = str(body.clientId)
+  const clientSecret = str(body.clientSecret)
+  const redirectUri = str(body.redirectUri)
+  if (!issuer || !clientId || !clientSecret || !redirectUri) {
+    return c.json(
+      { error: 'invalid_request', detail: 'issuer/clientId/clientSecret/redirectUri required' },
+      400,
+    )
+  }
+  const scopes = Array.isArray(body.scopes)
+    ? body.scopes.filter((s): s is string => typeof s === 'string')
+    : ['openid', 'email', 'profile']
+
+  const { encryptSecret } = await import('@edgevault/crypto')
+  const envelope = await encryptSecret(c.env.MASTER_KEK, c.var.orgId, clientSecret)
+  const { upsertSsoConnection } = await import('@edgevault/database')
+  await upsertSsoConnection(c.var.database, {
+    organizationId: c.var.orgId,
+    issuer,
+    clientId,
+    encryptedClientSecret: JSON.stringify(envelope),
+    redirectUri,
+    scopes,
+  })
+  return c.json({ ok: true, connection: { issuer, clientId, redirectUri, scopes } })
+})
+
+// Non-secret view of the connection (for the admin UI).
+app.get('/orgs/:orgId/sso/connection', async (c) => {
+  assertSsoEntitled(c.var.license)
+  const { getSsoConnection } = await import('@edgevault/database')
+  const row = await getSsoConnection(c.var.database, c.var.orgId)
+  if (!row) return c.json({ configured: false }, 404)
+  return c.json({
+    configured: true,
+    issuer: row.issuer,
+    clientId: row.clientId,
+    redirectUri: row.redirectUri,
+    scopes: row.scopes,
+  })
+})
+
+// Begin the OIDC authorization-code + PKCE flow. Returns the IdP authorize URL
+// plus the state/nonce/codeVerifier for the console to stash in a signed cookie.
+app.post('/orgs/:orgId/sso/start', async (c) => {
+  assertSsoEntitled(c.var.license)
+  const conn = await loadOidcConnection(c.env, c.var.database, c.var.orgId)
+  if (!conn) return c.json({ error: 'sso_not_configured' }, 409)
+
+  const { buildAuthorizationUrl, fetchDiscovery, generatePkce, randomToken } = await import(
+    '@edgevault/ee-sso-saml'
+  )
+  const discovery = await fetchDiscovery(conn.issuer)
+  const pkce = await generatePkce()
+  const state = randomToken()
+  const nonce = randomToken()
+  const authorizeUrl = buildAuthorizationUrl(conn, discovery, {
+    state,
+    nonce,
+    codeChallenge: pkce.challenge,
+  })
+  return c.json({ authorizeUrl, state, nonce, codeVerifier: pkce.verifier })
+})
+
+// Complete the flow: verify the returned state, exchange the code, verify the
+// ID token, and return the verified identity claims. The console turns these
+// into an EdgeVault session via the auth worker — this worker never mints one.
+app.post('/orgs/:orgId/sso/callback', async (c) => {
+  assertSsoEntitled(c.var.license)
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+  const code = str(body.code)
+  const state = str(body.state)
+  const expectedState = str(body.expectedState)
+  const nonce = str(body.nonce)
+  const codeVerifier = str(body.codeVerifier)
+  if (!code || !state || !expectedState || !nonce || !codeVerifier) {
+    return c.json({ error: 'invalid_request' }, 400)
+  }
+  if (!timingSafeEqualHex(state, expectedState)) {
+    return c.json({ error: 'state_mismatch' }, 400)
+  }
+
+  const conn = await loadOidcConnection(c.env, c.var.database, c.var.orgId)
+  if (!conn) return c.json({ error: 'sso_not_configured' }, 409)
+
+  const { exchangeCode, fetchDiscovery, verifyIdToken } = await import('@edgevault/ee-sso-saml')
+  const discovery = await fetchDiscovery(conn.issuer)
+  const tokens = await exchangeCode(conn, discovery, { code, codeVerifier })
+  const claims = await verifyIdToken(tokens.id_token, conn, discovery, nonce)
+  const email = str(claims.email)
+  if (!email) return c.json({ error: 'no_email_claim' }, 400)
+  return c.json({ email, name: str(claims.name), subject: claims.sub })
 })
 
 export default app

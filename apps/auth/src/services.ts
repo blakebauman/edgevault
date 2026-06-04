@@ -1,6 +1,6 @@
 import { generateToken, hashPassword, hashToken, verifyPassword } from '@edgevault/auth'
-import { type Database, sessions, users } from '@edgevault/database'
-import { eq } from 'drizzle-orm'
+import { type Database, members, sessions, users } from '@edgevault/database'
+import { and, eq } from 'drizzle-orm'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
@@ -108,4 +108,42 @@ export async function validateSessionToken(
 
 export async function invalidateSession(database: Database, token: string): Promise<void> {
   await database.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)))
+}
+
+/**
+ * JIT-provision an SSO user: find them by email or create a password-less account
+ * (SSO is the only credential), then ensure org membership. Used by the internal
+ * SSO endpoint after the ee/enterprise worker has verified the IdP identity.
+ * Email is treated as the IdP-asserted identifier and lower-cased for matching.
+ */
+export async function provisionSsoUser(
+  database: Database,
+  input: { email: string; name?: string | null; organizationId: string },
+): Promise<PublicUser> {
+  const email = input.email.toLowerCase()
+  const [existing] = await database.select().from(users).where(eq(users.email, email)).limit(1)
+
+  const user =
+    existing ??
+    (
+      await database
+        .insert(users)
+        .values({ email, name: input.name ?? null, emailVerified: true })
+        .returning()
+    )[0]
+  if (!user) throw new Error('Failed to provision SSO user')
+
+  // Ensure org membership (idempotent — unique on (org, user)).
+  const [member] = await database
+    .select({ id: members.id })
+    .from(members)
+    .where(and(eq(members.organizationId, input.organizationId), eq(members.userId, user.id)))
+    .limit(1)
+  if (!member) {
+    await database
+      .insert(members)
+      .values({ organizationId: input.organizationId, userId: user.id, role: 'member' })
+  }
+
+  return toPublicUser(user)
 }

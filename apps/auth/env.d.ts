@@ -4,4 +4,6 @@
 interface Env {
   /** EdDSA private signing key as a JWK JSON string (JWT_PRIVATE_JWK secret). */
   JWT_PRIVATE_JWK: string
+  /** Shared secret authenticating internal callers (ee/enterprise SSO provisioning). */
+  INTERNAL_TOKEN: string
 }

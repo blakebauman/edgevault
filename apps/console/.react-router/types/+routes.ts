@@ -20,6 +20,16 @@ type Pages = {
   "/logout": {
     params: {};
   };
+  "/sso/:orgId/start": {
+    params: {
+      "orgId": string;
+    };
+  };
+  "/sso/:orgId/callback": {
+    params: {
+      "orgId": string;
+    };
+  };
   "/dashboard/:workspaceId": {
     params: {
       "workspaceId": string;
@@ -40,7 +50,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/logout" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim";
+    page: "/" | "/login" | "/logout" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -53,6 +63,14 @@ type RouteFiles = {
   "routes/logout.tsx": {
     id: "routes/logout";
     page: "/logout";
+  };
+  "routes/sso.start.tsx": {
+    id: "routes/sso.start";
+    page: "/sso/:orgId/start";
+  };
+  "routes/sso.callback.tsx": {
+    id: "routes/sso.callback";
+    page: "/sso/:orgId/callback";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -73,6 +91,8 @@ type RouteModules = {
   "routes/home": typeof import("./app/routes/home.tsx");
   "routes/login": typeof import("./app/routes/login.tsx");
   "routes/logout": typeof import("./app/routes/logout.tsx");
+  "routes/sso.start": typeof import("./app/routes/sso.start.tsx");
+  "routes/sso.callback": typeof import("./app/routes/sso.callback.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/assistant": typeof import("./app/routes/assistant.tsx");
   "routes/scim": typeof import("./app/routes/scim.tsx");

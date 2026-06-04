@@ -1,9 +1,24 @@
+import { type FormEvent, useState } from 'react'
 import { Form, redirect } from 'react-router'
 import { setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/login'
 
 export function meta(_: Route.MetaArgs) {
   return [{ title: 'Sign in · EdgeVault' }]
+}
+
+const SSO_MESSAGES: Record<string, string> = {
+  error: 'Single sign-on could not be completed. Please try again.',
+  denied: 'Your identity provider denied the sign-in.',
+  unavailable: 'Single sign-on is not enabled for this deployment.',
+}
+
+export function loader({ request }: Route.LoaderArgs) {
+  const reason = new URL(request.url).searchParams.get('sso')
+  const ssoError = reason
+    ? (SSO_MESSAGES[reason] ?? 'Single sign-on could not be completed. Please try again.')
+    : null
+  return { ssoError }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -35,7 +50,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   return redirect('/', { headers: { 'Set-Cookie': setTokenCookie(token, request) } })
 }
 
-export default function Login({ actionData }: Route.ComponentProps) {
+export default function Login({ actionData, loaderData }: Route.ComponentProps) {
   return (
     <main className="shell">
       <section className="hero">
@@ -54,7 +69,37 @@ export default function Login({ actionData }: Route.ComponentProps) {
             </button>
           </div>
         </Form>
+
+        <SsoForm error={loaderData.ssoError} />
       </section>
     </main>
+  )
+}
+
+function SsoForm({ error }: { error: string | null }) {
+  const [org, setOrg] = useState('')
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    const id = org.trim()
+    // Full-page navigation so the browser follows the loader's redirect out to
+    // the identity provider.
+    if (id) window.location.href = `/sso/${encodeURIComponent(id)}/start`
+  }
+
+  return (
+    <form className="form sso" onSubmit={onSubmit}>
+      <p className="muted">Enterprise SSO</p>
+      <input
+        value={org}
+        onChange={(e) => setOrg(e.target.value)}
+        placeholder="organization id"
+        aria-label="Organization ID"
+      />
+      {error && <p className="error-text">{error}</p>}
+      <button type="submit" className="secondary" disabled={!org.trim()}>
+        Sign in with SSO
+      </button>
+    </form>
   )
 }

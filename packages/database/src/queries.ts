@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type { Database } from './client'
 import { entitlements } from './schema/entitlements'
+import { ssoConnections } from './schema/sso'
 
 /** Shared entitlement queries (used by api/auth read paths + the control plane). */
 
@@ -71,5 +72,63 @@ export async function upsertEntitlements(
     .onConflictDoUpdate({
       target: entitlements.organizationId,
       set: { plan: input.plan, entitlements: input.entitlements, updatedAt: new Date() },
+    })
+}
+
+/** A per-org OIDC SSO connection row (the client secret stays encrypted). */
+export interface SsoConnectionRow {
+  organizationId: string
+  provider: string
+  issuer: string
+  clientId: string
+  encryptedClientSecret: string
+  redirectUri: string
+  scopes: string[]
+}
+
+export async function getSsoConnection(
+  database: Database,
+  organizationId: string,
+): Promise<SsoConnectionRow | null> {
+  const [row] = await database
+    .select({
+      organizationId: ssoConnections.organizationId,
+      provider: ssoConnections.provider,
+      issuer: ssoConnections.issuer,
+      clientId: ssoConnections.clientId,
+      encryptedClientSecret: ssoConnections.encryptedClientSecret,
+      redirectUri: ssoConnections.redirectUri,
+      scopes: ssoConnections.scopes,
+    })
+    .from(ssoConnections)
+    .where(eq(ssoConnections.organizationId, organizationId))
+    .limit(1)
+  return row ?? null
+}
+
+export async function upsertSsoConnection(
+  database: Database,
+  input: {
+    organizationId: string
+    issuer: string
+    clientId: string
+    encryptedClientSecret: string
+    redirectUri: string
+    scopes: string[]
+  },
+): Promise<void> {
+  await database
+    .insert(ssoConnections)
+    .values({ ...input, provider: 'oidc' })
+    .onConflictDoUpdate({
+      target: ssoConnections.organizationId,
+      set: {
+        issuer: input.issuer,
+        clientId: input.clientId,
+        encryptedClientSecret: input.encryptedClientSecret,
+        redirectUri: input.redirectUri,
+        scopes: input.scopes,
+        updatedAt: new Date(),
+      },
     })
 }
