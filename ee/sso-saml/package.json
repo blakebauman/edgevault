@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@edgevault/licensing": "workspace:*",
+    "@xmldom/xmldom": "^0.9.8",
     "jose": "^6.2.3"
   },
   "devDependencies": {

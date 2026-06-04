@@ -133,7 +133,14 @@ export function assertSsoEntitled(license: License): void {
   requireEntitlement(license, ENTITLEMENTS.SSO)
 }
 
-/** SAML 2.0 (Phase B) — XML-DSig verification on Workers; not yet implemented. */
-export function verifySamlResponse(_xml: string): never {
-  throw new Error('SAML 2.0 support is not yet implemented (EE Phase B).')
-}
+// SAML 2.0 (Phase B) — hand-rolled XML-DSig verification on @xmldom/xmldom +
+// WebCrypto. See saml.ts (NOT yet security-audited / live-IdP-tested).
+export {
+  type AuthnRequest,
+  type AuthnRequestInput,
+  buildAuthnRequest,
+  importCertPublicKey,
+  type SamlIdentity,
+  type VerifyOptions,
+  verifySamlResponse,
+} from './saml'

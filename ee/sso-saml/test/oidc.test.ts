@@ -7,7 +7,6 @@ import {
   generatePkce,
   type OidcConnection,
   type OidcDiscovery,
-  verifySamlResponse,
 } from '../src/index'
 
 const connection: OidcConnection = {
@@ -67,11 +66,8 @@ describe('OIDC', () => {
   })
 })
 
-describe('entitlement gate + SAML stub', () => {
+describe('entitlement gate', () => {
   it('blocks SSO without the entitlement', () => {
     expect(() => assertSsoEntitled(freeLicense('org-1'))).toThrow()
-  })
-  it('SAML is not yet implemented', () => {
-    expect(() => verifySamlResponse('<xml/>')).toThrow(/not yet implemented/)
   })
 })
