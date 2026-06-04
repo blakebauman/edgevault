@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a new capability or improvement to the EdgeVault core
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what's missing or painful today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like EdgeVault to do? API/UX sketches welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you've weighed, and why they fall short.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Config / flags
+        - Secrets
+        - Auth / RBAC
+        - Real-time
+        - AI / MCP
+        - Edge delivery
+        - Other
+  - type: markdown
+    attributes:
+      value: "Enterprise SSO/SCIM, advanced RBAC, and audit retention are `ee/` features — note if your request targets the Enterprise Edition."
