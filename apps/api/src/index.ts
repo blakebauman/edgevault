@@ -7,6 +7,7 @@ import { requireWorkspaceMember } from './middleware/workspace'
 import { organizationRoutes } from './routes/organizations'
 import { workspaceRoutes } from './routes/workspaces'
 
+export { EdgeVaultAgent } from './agent/agent'
 export { WorkspaceDurableObject } from './durable-objects/workspace'
 export { PromotionWorkflow } from './workflows/promotion'
 

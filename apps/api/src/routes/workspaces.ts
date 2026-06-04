@@ -251,6 +251,26 @@ export const workspaceRoutes = new Hono<AppEnv>()
     return c.json({ query, hits })
   })
 
+  // --- AI assistant ("what changed & why"), grounded in workspace activity ---
+  .post(
+    '/:workspaceId/assistant',
+    zValidator('json', z.object({ question: z.string().min(1).max(1000) })),
+    async (c) => {
+      const workspaceId = c.req.param('workspaceId')
+      const agent = c.env.AGENT.get(c.env.AGENT.idFromName(workspaceId))
+      const result = await agent.ask({
+        workspaceId,
+        question: c.req.valid('json').question,
+        userId: c.var.userId,
+      })
+      return c.json(result)
+    },
+  )
+  .get('/:workspaceId/assistant/history', async (c) => {
+    const agent = c.env.AGENT.get(c.env.AGENT.idFromName(c.req.param('workspaceId')))
+    return c.json({ history: await agent.getHistory() })
+  })
+
   // --- Environment API keys (for the delivery edge read path) ---
   .post(
     '/:workspaceId/environments/:envId/api-keys',

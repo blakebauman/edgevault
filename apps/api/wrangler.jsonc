@@ -25,9 +25,15 @@
     { "binding": "ENVIRONMENT_API_KEYS", "id": "env_api_keys_placeholder_id" }
   ],
   "durable_objects": {
-    "bindings": [{ "name": "WORKSPACE", "class_name": "WorkspaceDurableObject" }]
+    "bindings": [
+      { "name": "WORKSPACE", "class_name": "WorkspaceDurableObject" },
+      { "name": "AGENT", "class_name": "EdgeVaultAgent" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceDurableObject"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["WorkspaceDurableObject"] },
+    { "tag": "v2", "new_sqlite_classes": ["EdgeVaultAgent"] }
+  ],
   "workflows": [
     {
       "name": "edgevault-promotion",
