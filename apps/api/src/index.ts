@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import type { AppEnv } from './context'
+import { mcpRoutes } from './mcp'
 import { requireAuth } from './middleware/auth'
 import { withDatabase } from './middleware/database'
 import { requireWorkspaceMember } from './middleware/workspace'
@@ -70,5 +71,9 @@ app.use('/api/v1/workspaces/:workspaceId/*', requireWorkspaceMember)
 
 app.route('/api/v1/organizations', organizationRoutes)
 app.route('/api/v1/workspaces', workspaceRoutes)
+
+// Remote MCP server (Streamable HTTP), one per workspace, same auth + membership.
+app.use('/mcp/:workspaceId', withDatabase, requireAuth, requireWorkspaceMember)
+app.route('/mcp', mcpRoutes)
 
 export default app

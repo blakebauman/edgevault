@@ -1,10 +1,10 @@
-import { configEmbeddingText, embedText, searchConfigs, upsertConfigVector } from '@edgevault/ai'
+import { searchConfigs } from '@edgevault/ai'
 import { generateApiKey } from '@edgevault/auth'
 import { type ConfigFormat, isConfigFormat, validateContent } from '@edgevault/config-formats'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
-import { aiRunner, embeddingModel, vectorize } from '../ai'
+import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
 import type { AppEnv } from '../context'
 import { createApiKey } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
@@ -28,21 +28,6 @@ function stubFor(
 /** Never return secret plaintext over the API (envelope decryption is gated, Phase 9). */
 function redact(item: ConfigItem): ConfigItem {
   return item.kind === 'secret' ? { ...item, content: '' } : item
-}
-
-/** Embed a config item and upsert it to Vectorize. Failures must not break writes. */
-async function indexConfig(env: Env, workspaceId: string, item: ConfigItem): Promise<void> {
-  try {
-    const vector = await embedText(aiRunner(env), embeddingModel(env), configEmbeddingText(item))
-    await upsertConfigVector(vectorize(env), vector, {
-      workspaceId,
-      environmentId: item.environmentId,
-      key: item.key,
-      kind: item.kind,
-    })
-  } catch {
-    // best-effort indexing
-  }
 }
 
 const kindSchema = z.enum(['config', 'flag', 'secret'])

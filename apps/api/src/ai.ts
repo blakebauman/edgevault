@@ -1,10 +1,14 @@
 import {
+  configEmbeddingText,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_TEXT_MODEL,
   type EmbeddingRunner,
+  embedText,
   type TextRunner,
+  upsertConfigVector,
   type VectorizeBinding,
 } from '@edgevault/ai'
+import type { ConfigItem } from './durable-objects/types'
 
 /**
  * Wrap `env.AI` so all inference routes through AI Gateway (caching, rate
@@ -36,4 +40,20 @@ export function textModel(env: Env): string {
  */
 export function vectorize(env: Env): VectorizeBinding {
   return env.VECTORIZE as unknown as VectorizeBinding
+}
+
+/** Embed a config item and upsert it to Vectorize. Skips secrets; never throws. */
+export async function indexConfig(env: Env, workspaceId: string, item: ConfigItem): Promise<void> {
+  if (item.kind === 'secret') return
+  try {
+    const vector = await embedText(aiRunner(env), embeddingModel(env), configEmbeddingText(item))
+    await upsertConfigVector(vectorize(env), vector, {
+      workspaceId,
+      environmentId: item.environmentId,
+      key: item.key,
+      kind: item.kind,
+    })
+  } catch {
+    // best-effort indexing
+  }
 }
