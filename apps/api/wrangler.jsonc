@@ -10,13 +10,21 @@
   },
   "vars": {
     "ENVIRONMENT": "development",
-    "SERVICE_NAME": "edgevault-api"
+    "SERVICE_NAME": "edgevault-api",
+    "AUTH_ISSUER": "http://localhost:8788"
   },
   "durable_objects": {
     "bindings": [{ "name": "WORKSPACE", "class_name": "WorkspaceDurableObject" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceDurableObject"] }]
-  // Remaining bindings (Hyperdrive/Neon, AGENT DO, AI, VECTORIZE, QUEUES,
-  // SECRETS_STORE, KV, Analytics Engine, service bindings) are added in later
-  // phases per the architecture plan.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceDurableObject"] }],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000000000000000000000000api",
+      "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+    }
+  ],
+  "services": [{ "binding": "AUTH_SERVICE", "service": "edgevault-auth" }]
+  // Remaining bindings (AGENT DO, AI, VECTORIZE, QUEUES, SECRETS_STORE, KV,
+  // Analytics Engine, DELIVERY_SERVICE) are added in later phases.
 }

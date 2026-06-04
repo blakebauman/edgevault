@@ -6,7 +6,7 @@ export type Schema = typeof schema
 export type Database = ReturnType<typeof drizzle<Schema>>
 
 export interface DatabaseConnection {
-  db: Database
+  database: Database
   /**
    * Close the underlying pool. On Workers, call this via `ctx.waitUntil(...)`
    * after the response so the request isn't blocked on connection teardown.
@@ -21,6 +21,6 @@ export interface DatabaseConnection {
  */
 export function createDatabase(connectionString: string, max = 5): DatabaseConnection {
   const pool = new Pool({ connectionString, max })
-  const db = drizzle(pool, { schema })
-  return { db, close: () => pool.end() }
+  const database = drizzle(pool, { schema })
+  return { database, close: () => pool.end() }
 }

@@ -1,29 +1,23 @@
 import { type ConfigFormat, isConfigFormat, validateContent } from '@edgevault/config-formats'
 import { zValidator } from '@hono/zod-validator'
-import { Hono } from 'hono'
+import { type Context, Hono } from 'hono'
 import { z } from 'zod'
+import type { AppEnv } from '../context'
 import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 
 /**
  * Workspace config/flag/secret routes. Each request resolves the per-workspace
- * Durable Object (the system of record) and calls it over RPC.
- *
- * NOTE: `userId` is read from the `x-user-id` header for now. The JWT-verify
- * middleware (validating tokens against the auth worker's JWKS) replaces this in
- * the api↔auth integration step.
+ * Durable Object (the system of record) and calls it over RPC. These routes run
+ * behind requireAuth + requireWorkspaceMember, so `c.var.userId` is the verified
+ * caller and org membership has already been checked.
  */
 
-type Bindings = { Bindings: Env }
-
-type Ctx = { env: Env; req: { header(name: string): string | undefined } }
-
-function stubFor(c: Ctx, workspaceId: string): DurableObjectStub<WorkspaceDurableObject> {
+function stubFor(
+  c: Context<AppEnv>,
+  workspaceId: string,
+): DurableObjectStub<WorkspaceDurableObject> {
   return c.env.WORKSPACE.get(c.env.WORKSPACE.idFromName(workspaceId))
-}
-
-function userId(c: Ctx): string {
-  return c.req.header('x-user-id') ?? 'system'
 }
 
 /** Never return secret plaintext over the API (envelope decryption is gated, Phase 9). */
@@ -47,7 +41,7 @@ const promoteSchema = z.object({
   key: z.string().min(1),
 })
 
-export const workspaceRoutes = new Hono<Bindings>()
+export const workspaceRoutes = new Hono<AppEnv>()
   // --- Environments ---
   .post(
     '/:workspaceId/environments',
@@ -57,7 +51,7 @@ export const workspaceRoutes = new Hono<Bindings>()
       const environment = await stubFor(c, c.req.param('workspaceId')).createEnvironment({
         name,
         slug,
-        userId: userId(c),
+        userId: c.var.userId,
       })
       return c.json({ environment }, 201)
     },
@@ -87,7 +81,7 @@ export const workspaceRoutes = new Hono<Bindings>()
         content: body.content,
         contentType: format,
         isEncrypted: body.isEncrypted,
-        userId: userId(c),
+        userId: c.var.userId,
       })
       return c.json({ config: redact(config) }, 201)
     },
@@ -113,7 +107,7 @@ export const workspaceRoutes = new Hono<Bindings>()
     const ok = await stubFor(c, c.req.param('workspaceId')).deleteConfig(
       c.req.param('envId'),
       c.req.param('key'),
-      userId(c),
+      c.var.userId,
     )
     return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
   })
@@ -129,7 +123,7 @@ export const workspaceRoutes = new Hono<Bindings>()
   .post('/:workspaceId/revisions/:revisionId/revert', async (c) => {
     const config = await stubFor(c, c.req.param('workspaceId')).revertToRevision(
       c.req.param('revisionId'),
-      userId(c),
+      c.var.userId,
     )
     if (!config) return c.json({ error: 'not_found' }, 404)
     return c.json({ config: redact(config) })
@@ -137,7 +131,7 @@ export const workspaceRoutes = new Hono<Bindings>()
   .post('/:workspaceId/promotions', zValidator('json', promoteSchema), async (c) => {
     const promotion = await stubFor(c, c.req.param('workspaceId')).promote({
       ...c.req.valid('json'),
-      userId: userId(c),
+      userId: c.var.userId,
     })
     return c.json({ promotion }, 201)
   })

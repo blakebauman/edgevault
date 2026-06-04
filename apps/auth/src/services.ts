@@ -17,10 +17,10 @@ function toPublicUser(u: typeof users.$inferSelect): PublicUser {
 
 /** Create a user with an Argon2id password hash. Returns null if email taken. */
 export async function createUser(
-  db: Database,
+  database: Database,
   input: { email: string; password: string; name?: string },
 ): Promise<PublicUser | null> {
-  const existing = await db
+  const existing = await database
     .select({ id: users.id })
     .from(users)
     .where(eq(users.email, input.email))
@@ -28,7 +28,7 @@ export async function createUser(
   if (existing.length > 0) return null
 
   const passwordHash = await hashPassword(input.password)
-  const [created] = await db
+  const [created] = await database
     .insert(users)
     .values({ email: input.email, name: input.name ?? null, passwordHash })
     .returning()
@@ -37,24 +37,24 @@ export async function createUser(
 
 /** Verify email + password. Returns the user on success, else null. */
 export async function verifyCredentials(
-  db: Database,
+  database: Database,
   email: string,
   password: string,
 ): Promise<PublicUser | null> {
-  const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1)
+  const [user] = await database.select().from(users).where(eq(users.email, email)).limit(1)
   if (!user?.passwordHash) return null
   const ok = await verifyPassword(password, user.passwordHash)
   return ok ? toPublicUser(user) : null
 }
 
 export async function createSession(
-  db: Database,
+  database: Database,
   userId: string,
   meta: { ipAddress?: string; userAgent?: string },
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = generateToken()
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
-  await db.insert(sessions).values({
+  await database.insert(sessions).values({
     userId,
     tokenHash: hashToken(token),
     expiresAt,
@@ -71,10 +71,10 @@ export type ValidatedSession = {
 }
 
 export async function validateSessionToken(
-  db: Database,
+  database: Database,
   token: string,
 ): Promise<ValidatedSession | null> {
-  const [row] = await db
+  const [row] = await database
     .select()
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
@@ -83,7 +83,7 @@ export async function validateSessionToken(
   if (!row) return null
 
   if (row.sessions.expiresAt.getTime() <= Date.now()) {
-    await db.delete(sessions).where(eq(sessions.id, row.sessions.id))
+    await database.delete(sessions).where(eq(sessions.id, row.sessions.id))
     return null
   }
 
@@ -94,6 +94,6 @@ export async function validateSessionToken(
   }
 }
 
-export async function invalidateSession(db: Database, token: string): Promise<void> {
-  await db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)))
+export async function invalidateSession(database: Database, token: string): Promise<void> {
+  await database.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)))
 }

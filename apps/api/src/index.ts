@@ -1,4 +1,9 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+import type { AppEnv } from './context'
+import { requireAuth } from './middleware/auth'
+import { withDatabase } from './middleware/database'
+import { requireWorkspaceMember } from './middleware/workspace'
+import { organizationRoutes } from './routes/organizations'
 import { workspaceRoutes } from './routes/workspaces'
 
 export { WorkspaceDurableObject } from './durable-objects/workspace'
@@ -12,7 +17,7 @@ export { WorkspaceDurableObject } from './durable-objects/workspace'
  * later phases per the architecture plan.
  */
 
-const app = new OpenAPIHono<{ Bindings: Env }>()
+const app = new OpenAPIHono<AppEnv>()
 
 const HealthResponse = z
   .object({
@@ -57,7 +62,12 @@ app.doc31('/openapi.json', {
 
 app.get('/', (c) => c.json({ name: 'EdgeVault API', docs: '/openapi.json' }))
 
-// Workspace config/flag/secret operations, backed by the per-workspace DO.
+// Authenticated API surface (Neon via Hyperdrive + JWT verified against auth's JWKS).
+app.use('/api/v1/*', withDatabase, requireAuth)
+// Workspace config routes additionally require org membership.
+app.use('/api/v1/workspaces/:workspaceId/*', requireWorkspaceMember)
+
+app.route('/api/v1/organizations', organizationRoutes)
 app.route('/api/v1/workspaces', workspaceRoutes)
 
 export default app

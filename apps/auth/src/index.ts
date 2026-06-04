@@ -26,7 +26,7 @@ const app = new Hono<AppEnv>()
 // response so the request isn't blocked on connection teardown.
 app.use('*', async (c, next) => {
   const conn = createDatabase(c.env.HYPERDRIVE.connectionString)
-  c.set('db', conn.db)
+  c.set('database', conn.database)
   try {
     await next()
   } finally {
@@ -49,10 +49,10 @@ const signUpSchema = z.object({
 
 app.post('/sign-up/email', zValidator('json', signUpSchema), async (c) => {
   const input = c.req.valid('json')
-  const user = await createUser(c.var.db, input)
+  const user = await createUser(c.var.database, input)
   if (!user) return c.json({ error: 'email_taken' }, 409)
 
-  const { token, expiresAt } = await createSession(c.var.db, user.id, {
+  const { token, expiresAt } = await createSession(c.var.database, user.id, {
     ipAddress: c.req.header('cf-connecting-ip'),
     userAgent: c.req.header('user-agent'),
   })
@@ -67,10 +67,10 @@ const signInSchema = z.object({
 
 app.post('/sign-in/email', zValidator('json', signInSchema), async (c) => {
   const { email, password } = c.req.valid('json')
-  const user = await verifyCredentials(c.var.db, email, password)
+  const user = await verifyCredentials(c.var.database, email, password)
   if (!user) return c.json({ error: 'invalid_credentials' }, 401)
 
-  const { token, expiresAt } = await createSession(c.var.db, user.id, {
+  const { token, expiresAt } = await createSession(c.var.database, user.id, {
     ipAddress: c.req.header('cf-connecting-ip'),
     userAgent: c.req.header('user-agent'),
   })
@@ -80,7 +80,7 @@ app.post('/sign-in/email', zValidator('json', signInSchema), async (c) => {
 
 app.post('/sign-out', async (c) => {
   const token = getSessionToken(c)
-  if (token) await invalidateSession(c.var.db, token)
+  if (token) await invalidateSession(c.var.database, token)
   clearSessionCookie(c)
   return c.json({ ok: true })
 })
@@ -88,7 +88,7 @@ app.post('/sign-out', async (c) => {
 app.get('/session', async (c) => {
   const token = getSessionToken(c)
   if (!token) return c.json({ session: null })
-  const session = await validateSessionToken(c.var.db, token)
+  const session = await validateSessionToken(c.var.database, token)
   if (!session) {
     clearSessionCookie(c)
     return c.json({ session: null })
@@ -107,7 +107,7 @@ app.get('/session', async (c) => {
 app.post('/token', async (c) => {
   const token = getSessionToken(c)
   if (!token) return c.json({ error: 'no_session' }, 401)
-  const session = await validateSessionToken(c.var.db, token)
+  const session = await validateSessionToken(c.var.database, token)
   if (!session) return c.json({ error: 'no_session' }, 401)
 
   const { signing } = await getKeys(c.env)

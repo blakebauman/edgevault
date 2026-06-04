@@ -13,10 +13,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@edgevault/auth": "workspace:*",
     "@edgevault/config-formats": "workspace:*",
+    "@edgevault/database": "workspace:*",
     "@edgevault/diff": "workspace:*",
     "@hono/zod-openapi": "^1.1.0",
     "@hono/zod-validator": "^0.7.0",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.9.2",
     "zod": "^4.0.17"
   },

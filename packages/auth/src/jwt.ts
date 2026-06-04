@@ -93,4 +93,24 @@ export function buildJwks(publicJwks: jose.JWK[]): { keys: jose.JWK[] } {
   return { keys: publicJwks.map((jwk) => ({ ...jwk, use: 'sig', alg: ALG })) }
 }
 
+export type JwkSet = ReturnType<typeof jose.createLocalJWKSet>
+
+/** Build a reusable key resolver from a JWKS document (handles multiple kids). */
+export function createJwkSet(jwks: { keys: jose.JWK[] }): JwkSet {
+  return jose.createLocalJWKSet(jwks as jose.JSONWebKeySet)
+}
+
+/** Verify an access token against a JWKS resolver (for api/delivery). */
+export async function verifyWithJwkSet(
+  token: string,
+  jwkSet: JwkSet,
+  opts: { issuer: string; audience?: string },
+): Promise<AccessTokenClaims> {
+  const { payload } = await jose.jwtVerify(token, jwkSet, {
+    issuer: opts.issuer,
+    audience: opts.audience ?? opts.issuer,
+  })
+  return payload as AccessTokenClaims
+}
+
 export type { JWK } from 'jose'

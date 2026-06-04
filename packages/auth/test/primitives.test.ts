@@ -9,6 +9,7 @@ import {
 } from '../src/encoding'
 import {
   buildJwks,
+  createJwkSet,
   generateApiKey,
   generateSigningKeyPair,
   generateToken,
@@ -19,6 +20,7 @@ import {
   signAccessToken,
   verifyAccessToken,
   verifyPassword,
+  verifyWithJwkSet,
 } from '../src/index'
 
 describe('encoding', () => {
@@ -108,6 +110,28 @@ describe('jwt (EdDSA)', () => {
     const token = await signAccessToken({ sub: 'u' }, signing, { issuer: 'https://a.test' })
     await expect(
       verifyAccessToken(token, verification, { issuer: 'https://b.test' }),
+    ).rejects.toThrow()
+  })
+
+  it('verifies against a JWKS resolver (as api does)', async () => {
+    const { privateJwk, publicJwk } = await generateSigningKeyPair()
+    const signing = await importSigningKey(privateJwk)
+    const jwkSet = createJwkSet(buildJwks([publicJwk]))
+
+    const token = await signAccessToken({ sub: 'user-9', org: 'org-9' }, signing, {
+      issuer: 'https://auth.edgevault.test',
+    })
+    const claims = await verifyWithJwkSet(token, jwkSet, {
+      issuer: 'https://auth.edgevault.test',
+    })
+    expect(claims.sub).toBe('user-9')
+    expect(claims.org).toBe('org-9')
+
+    // A different key's JWKS must not verify it.
+    const other = await generateSigningKeyPair()
+    const otherSet = createJwkSet(buildJwks([other.publicJwk]))
+    await expect(
+      verifyWithJwkSet(token, otherSet, { issuer: 'https://auth.edgevault.test' }),
     ).rejects.toThrow()
   })
 })
