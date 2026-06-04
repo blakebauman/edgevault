@@ -1,0 +1,10 @@
+{
+  "extends": "@edgevault/typescript-config/base.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "drizzle.config.ts"],
+  "exclude": ["dist", "migrations"]
+}

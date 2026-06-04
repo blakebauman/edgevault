@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-auth",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "ENVIRONMENT": "development",
+    "SERVICE_NAME": "edgevault-auth",
+    "AUTH_ISSUER": "http://localhost:8788"
+  },
+  "hyperdrive": [
+    {
+      // Placeholder id — replace with the output of `wrangler hyperdrive create`
+      // at deploy time. For `wrangler dev`/tests, the connection string comes
+      // from CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (no secret
+      // committed).
+      "binding": "HYPERDRIVE",
+      "id": "0000000000000000000000000000auth",
+      "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+    }
+  ]
+  // JWT_PRIVATE_JWK is provided as a secret (.dev.vars locally, Secrets Store in
+  // production). AUTH_CACHE (KV) session caching is added in a later refinement.
+}
