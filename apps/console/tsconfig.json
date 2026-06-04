@@ -1,0 +1,20 @@
+{
+  "extends": "@edgevault/typescript-config/react-router.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/vite-plugin", "vite/client", "./worker-configuration.d.ts"],
+    "rootDirs": [".", "./.react-router/types"],
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./app/*"]
+    }
+  },
+  "include": [
+    "app/**/*",
+    "workers/**/*",
+    "worker-configuration.d.ts",
+    ".react-router/types/**/*",
+    "vite.config.ts",
+    "react-router.config.ts"
+  ],
+  "exclude": ["build", ".wrangler"]
+}

@@ -1,0 +1,41 @@
+{
+  "name": "edgevault",
+  "version": "0.0.0",
+  "private": true,
+  "description": "EdgeVault — edge-native configuration, secrets, and feature-flag platform on Cloudflare",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "deploy": "turbo run deploy",
+    "lint": "biome lint .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "cf-typegen": "turbo run cf-typegen",
+    "check": "biome check --write .",
+    "format": "biome format --write .",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "@edgevault/typescript-config": "workspace:*",
+    "lefthook": "^2.1.9",
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2",
+    "wrangler": "^4.97.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@biomejs/biome",
+      "esbuild",
+      "lefthook",
+      "sharp",
+      "workerd"
+    ]
+  }
+}

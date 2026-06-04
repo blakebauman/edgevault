@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.turbo/
+.wrangler/
+*.tsbuildinfo
+
+# Generated Cloudflare types
+worker-configuration.d.ts
+
+# Env / secrets
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.env.example
+
+# Coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

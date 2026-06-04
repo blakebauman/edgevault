@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "ENVIRONMENT": "development",
+    "SERVICE_NAME": "edgevault-api"
+  }
+  // Bindings (Hyperdrive/Neon, WORKSPACE DO, AGENT DO, AI, VECTORIZE, QUEUES,
+  // SECRETS_STORE, KV, Analytics Engine, service bindings) are added in later
+  // phases per the architecture plan.
+}

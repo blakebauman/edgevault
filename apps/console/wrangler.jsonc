@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-console",
+  "main": "./workers/app.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENVIRONMENT": "development"
+  }
+  // The @cloudflare/vite-plugin wires the ASSETS binding from the React Router
+  // build output (build/client) at build time. Service bindings to api/auth are
+  // added in later phases.
+}
