@@ -1,0 +1,80 @@
+name: Deploy
+
+# Staging deploys automatically on every push to main (after the checks pass).
+# Production is manual + gated: run this workflow via the Actions tab with
+# environment=production. Protect the `production` GitHub Environment with
+# required reviewers so the prod deploy needs an approval.
+#
+# Prerequisites (one-time, in repo settings):
+#   - Secret CLOUDFLARE_API_TOKEN with Workers/KV/R2/Vectorize/Queues/Hyperdrive
+#     edit scope.
+#   - Worker secrets already set on the account (scripts/gen-secrets.mjs) — CI
+#     does not manage them.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # push → staging; manual dispatch → the chosen environment. The GitHub
+    # Environment of the same name supplies protection rules (prod = approval).
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Gate every deploy on the full check suite.
+      - name: Verify (boundary, typecheck, test, build)
+        run: |
+          pnpm boundary
+          pnpm cf-typegen
+          pnpm typecheck
+          pnpm test
+          pnpm build
+
+      - name: Deploy workers
+        run: |
+          set -euo pipefail
+          if [ "$TARGET" = "production" ]; then ENV_ARG=""; else ENV_ARG="--env staging"; fi
+          echo "Deploying to: $TARGET"
+
+          # Order matters: services must exist before the workers that bind them.
+          for app in auth api delivery audit; do
+            echo "::group::deploy $app"
+            (cd "apps/$app" && pnpm exec wrangler deploy $ENV_ARG)
+            echo "::endgroup::"
+          done
+
+          # Console is Vite-built; the Cloudflare plugin selects the environment
+          # at BUILD time via CLOUDFLARE_ENV (unset = top-level/production).
+          echo "::group::deploy console"
+          if [ "$TARGET" = "production" ]; then
+            (cd apps/console && pnpm exec react-router build && pnpm exec wrangler deploy)
+          else
+            (cd apps/console \
+              && CLOUDFLARE_ENV=staging pnpm exec react-router build \
+              && CLOUDFLARE_ENV=staging pnpm exec wrangler deploy --env staging)
+          fi
+          echo "::endgroup::"

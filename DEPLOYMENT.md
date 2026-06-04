@@ -92,6 +92,17 @@ Then set the cross-worker URLs:
   deployed console origin: `/oauth/:provider/callback`, `/saml/:orgId/acs`,
   `/sso/:orgId/callback`.
 
+## Continuous deployment
+
+`.github/workflows/deploy.yml` deploys **staging automatically on every push to
+`main`** (after boundary/typecheck/test/build pass), and **production manually**
+via the Actions tab (`workflow_dispatch` → environment `production`). Gate prod
+by protecting the `production` GitHub Environment with required reviewers.
+
+One-time setup: add a `CLOUDFLARE_API_TOKEN` repo secret (Workers/KV/R2/Vectorize/
+Queues/Hyperdrive edit scope). Worker secrets are set out-of-band
+(`scripts/gen-secrets.mjs`); CI never manages them.
+
 ## Local development
 
 ```sh
