@@ -45,7 +45,10 @@ export async function action({ request, context }: Route.ActionArgs) {
     const res = await authFetch(env, token, '/mfa/totp/setup', {})
     if (!res.ok) return { error: 'Could not start setup.' }
     const { secret, otpauthUri } = (await res.json()) as { secret: string; otpauthUri: string }
-    return { secret, otpauthUri }
+    // Render the provisioning QR server-side (zero client JS).
+    const { encodeQR } = await import('@paulmillr/qr')
+    const qrSvg = encodeQR(otpauthUri, 'svg')
+    return { secret, otpauthUri, qrSvg }
   }
   if (intent === 'confirm') {
     const res = await authFetch(env, token, '/mfa/totp/confirm', {
@@ -66,6 +69,7 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
   const { status } = loaderData
   const secret = actionData && 'secret' in actionData ? actionData.secret : null
   const otpauthUri = actionData && 'otpauthUri' in actionData ? actionData.otpauthUri : null
+  const qrSvg = actionData && 'qrSvg' in actionData ? actionData.qrSvg : null
   const error = actionData && 'error' in actionData ? actionData.error : null
   const confirmed = actionData && 'confirmed' in actionData ? actionData.confirmed : false
   const disabled = actionData && 'disabled' in actionData ? actionData.disabled : false
@@ -104,8 +108,17 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
         ) : secret ? (
           <>
             <p className="lede">
-              Add this secret to your authenticator app, then enter a code to confirm.
+              Scan this QR with your authenticator app (or enter the secret manually), then enter a
+              code to confirm.
             </p>
+            {qrSvg && (
+              <div
+                className="qr"
+                // The SVG is generated server-side from the otpauth URI (@paulmillr/qr).
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted, self-generated SVG
+                dangerouslySetInnerHTML={{ __html: qrSvg }}
+              />
+            )}
             <div className="token-box">
               <p className="token-note">Secret (or use the otpauth URI):</p>
               <code className="token-value">{secret}</code>

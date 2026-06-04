@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@edgevault/realtime": "workspace:*",
+    "@paulmillr/qr": "^0.3.0",
     "@simplewebauthn/browser": "^13.3.0",
     "isbot": "^5.1.0",
     "react": "^19.2.0",

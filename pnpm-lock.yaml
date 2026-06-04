@@ -155,6 +155,9 @@ importers:
       '@edgevault/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
+      '@paulmillr/qr':
+        specifier: ^0.3.0
+        version: 0.3.0
       '@simplewebauthn/browser':
         specifier: ^13.3.0
         version: 13.3.0
@@ -1722,6 +1725,10 @@ packages:
 
   '@oxc-project/types@0.133.0':
     resolution: {integrity: sha512-KzkdCd6Uxqnf6l3HOw1xfatAlUURA0g14cvBYFyJ5SaNOQbOUvBr9PKArcPcrNIeRsBdgcUzOGrhKveVpvOIGA==}
+
+  '@paulmillr/qr@0.3.0':
+    resolution: {integrity: sha512-3s/cagXuoXTA2gWSfSfJNanNgm2ifmqgoX8WLOs5//3qrIJ3WWHFjqFqCxvYGf46Afwv6PctT9eAOXLDGwp96Q==}
+    deprecated: 'Switch to "qr" (new package name) for security updates: npm install qr'
 
   '@peculiar/asn1-android@2.7.0':
     resolution: {integrity: sha512-iD3VskhVQnM4nE3PN9cBdPTR7JrqZy3FYk+uD2CeG6DUqKoANqaEfx0f7izPmW+Qm5JBM35ek+viLCmjy18ByQ==}
@@ -3909,6 +3916,8 @@ snapshots:
   '@noble/hashes@2.2.0': {}
 
   '@oxc-project/types@0.133.0': {}
+
+  '@paulmillr/qr@0.3.0': {}
 
   '@peculiar/asn1-android@2.7.0':
     dependencies:

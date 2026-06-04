@@ -6,6 +6,7 @@ import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
 import { emitAudit } from '../audit'
+import { queryAuditHistory } from '../audit-query'
 import type { AppEnv } from '../context'
 import { createApiKey } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
@@ -248,6 +249,18 @@ export const workspaceRoutes = new Hono<AppEnv>()
   .get('/:workspaceId/activity', async (c) => {
     const activity = await stubFor(c, c.req.param('workspaceId')).listActivity()
     return c.json({ activity })
+  })
+  // Cold audit history from the R2 warehouse (infinite retention). ?from&to are
+  // YYYY-MM-DD (default last 7 days); ?env restricts to one environment.
+  .get('/:workspaceId/audit', async (c) => {
+    const events = await queryAuditHistory(c.env.AUDIT_BUCKET, {
+      workspaceId: c.req.param('workspaceId'),
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+      environmentId: c.req.query('env'),
+      limit: c.req.query('limit') ? Number(c.req.query('limit')) : undefined,
+    })
+    return c.json({ events })
   })
 
   // --- AI semantic search over the workspace's configs (Vectorize) ---
