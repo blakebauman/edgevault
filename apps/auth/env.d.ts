@@ -1,7 +1,8 @@
-// Augments the wrangler-generated `Env` with secret-provided values that are not
-// declared in wrangler.jsonc `vars` (provided via .dev.vars locally / Secrets
-// Store in production).
-interface Env {
+// Secret-provided values not declared in wrangler.jsonc `vars` (.dev.vars locally
+// / Secrets Store in production). Augment `__BaseEnv_Env` — the base both the
+// global `Env` and `Cloudflare.Env` extend — so the types hold even when
+// `cf-typegen` runs without .dev.vars present (e.g. CI).
+interface __BaseEnv_Env {
   /** EdDSA private signing key as a JWK JSON string (JWT_PRIVATE_JWK secret). */
   JWT_PRIVATE_JWK: string
   /** Shared secret authenticating internal callers (ee/enterprise SSO provisioning). */
