@@ -43,6 +43,13 @@
       "when": 1780584968551,
       "tag": "0005_cool_red_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780585612780,
+      "tag": "0006_fearless_darkhawk",
+      "breakpoints": true
     }
   ]
 }

@@ -6,4 +6,6 @@ interface Env {
   JWT_PRIVATE_JWK: string
   /** Shared secret authenticating internal callers (ee/enterprise SSO provisioning). */
   INTERNAL_TOKEN: string
+  /** Base64 master key for envelope-encrypting TOTP secrets (@edgevault/crypto). */
+  MASTER_KEK: string
 }

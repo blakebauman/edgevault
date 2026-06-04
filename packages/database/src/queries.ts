@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type { Database } from './client'
 import { entitlements } from './schema/entitlements'
+import { totpCredentials } from './schema/mfa'
 import { samlConnections } from './schema/saml'
 import { ssoConnections } from './schema/sso'
 
@@ -181,4 +182,53 @@ export async function upsertSamlConnection(
         updatedAt: new Date(),
       },
     })
+}
+
+/** A user's TOTP credential (secret stays encrypted; confirmedAt null until verified). */
+export interface TotpCredentialRow {
+  userId: string
+  encryptedSecret: string
+  confirmedAt: Date | null
+}
+
+export async function getTotpCredential(
+  database: Database,
+  userId: string,
+): Promise<TotpCredentialRow | null> {
+  const [row] = await database
+    .select({
+      userId: totpCredentials.userId,
+      encryptedSecret: totpCredentials.encryptedSecret,
+      confirmedAt: totpCredentials.confirmedAt,
+    })
+    .from(totpCredentials)
+    .where(eq(totpCredentials.userId, userId))
+    .limit(1)
+  return row ?? null
+}
+
+/** Start (or restart) enrollment: store an unconfirmed encrypted secret. */
+export async function upsertTotpSecret(
+  database: Database,
+  userId: string,
+  encryptedSecret: string,
+): Promise<void> {
+  await database
+    .insert(totpCredentials)
+    .values({ userId, encryptedSecret })
+    .onConflictDoUpdate({
+      target: totpCredentials.userId,
+      set: { encryptedSecret, confirmedAt: null, createdAt: new Date() },
+    })
+}
+
+export async function confirmTotpCredential(database: Database, userId: string): Promise<void> {
+  await database
+    .update(totpCredentials)
+    .set({ confirmedAt: new Date() })
+    .where(eq(totpCredentials.userId, userId))
+}
+
+export async function deleteTotpCredential(database: Database, userId: string): Promise<void> {
+  await database.delete(totpCredentials).where(eq(totpCredentials.userId, userId))
 }

@@ -3,7 +3,9 @@ import { index, type RouteConfig, route } from '@react-router/dev/routes'
 export default [
   index('routes/home.tsx'),
   route('login', 'routes/login.tsx'),
+  route('login/mfa', 'routes/login.mfa.tsx'),
   route('logout', 'routes/logout.tsx'),
+  route('account/mfa', 'routes/account-mfa.tsx'),
   route('sso/:orgId/start', 'routes/sso.start.tsx'),
   route('sso/:orgId/callback', 'routes/sso.callback.tsx'),
   route('saml/:orgId/start', 'routes/saml.start.tsx'),

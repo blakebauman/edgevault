@@ -1,6 +1,6 @@
 import { type FormEvent, useState } from 'react'
 import { Form, redirect } from 'react-router'
-import { setTokenCookie } from '../lib/session.server'
+import { setMfaCookie, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/login'
 
 export function meta(_: Route.MetaArgs) {
@@ -36,6 +36,15 @@ export async function action({ request, context }: Route.ActionArgs) {
   })
   if (!auth.ok) {
     return { error: intent === 'signup' ? 'Could not create account.' : 'Invalid credentials.' }
+  }
+
+  // MFA-enabled accounts get a challenge instead of a session — stash it and
+  // send the user to the second-factor prompt.
+  const result = (await auth.clone().json()) as { mfaRequired?: boolean; mfaToken?: string }
+  if (result.mfaRequired && result.mfaToken) {
+    return redirect('/login/mfa', {
+      headers: { 'Set-Cookie': setMfaCookie(result.mfaToken, request) },
+    })
   }
 
   // Exchange the session cookie for a short-lived access token (BFF; server-side).

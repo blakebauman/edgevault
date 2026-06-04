@@ -110,6 +110,11 @@ export async function invalidateSession(database: Database, token: string): Prom
   await database.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)))
 }
 
+export async function getUserById(database: Database, userId: string): Promise<PublicUser | null> {
+  const [user] = await database.select().from(users).where(eq(users.id, userId)).limit(1)
+  return user ? toPublicUser(user) : null
+}
+
 /**
  * JIT-provision an SSO user: find them by email or create a password-less account
  * (SSO is the only credential), then ensure org membership. Used by the internal

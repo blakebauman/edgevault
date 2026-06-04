@@ -1,15 +1,31 @@
-import { buildJwks, signAccessToken } from '@edgevault/auth'
+import {
+  buildJwks,
+  importVerificationKey,
+  signAccessToken,
+  verifyAccessToken,
+} from '@edgevault/auth'
 import { createDatabase } from '@edgevault/database'
 import { zValidator } from '@hono/zod-validator'
-import { Hono } from 'hono'
+import { Hono, type MiddlewareHandler } from 'hono'
 import { z } from 'zod'
 import type { AppEnv } from './context'
 import { clearSessionCookie, getSessionToken, setSessionCookie } from './cookies'
 import { getKeys } from './keys'
+import {
+  confirmTotpEnrollment,
+  disableTotp,
+  signMfaChallenge,
+  startTotpEnrollment,
+  totpStatus,
+  userHasMfa,
+  verifyMfaChallenge,
+  verifyUserTotp,
+} from './mfa'
 import { enforceRateLimit, rateLimitByIp } from './rate-limit'
 import {
   createSession,
   createUser,
+  getUserById,
   invalidateSession,
   provisionSsoUser,
   validateSessionToken,
@@ -22,6 +38,26 @@ function timingSafeEqual(a: string, b: string): boolean {
   let diff = 0
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
   return diff === 0
+}
+
+/**
+ * Authenticate a request by its Bearer access token (the same JWT api/delivery
+ * verify), setting `userId`. Used by the MFA management routes, which the console
+ * BFF calls on behalf of a signed-in user — they need the user, not a session.
+ */
+const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const header = c.req.header('authorization')
+  const token = header?.toLowerCase().startsWith('bearer ') ? header.slice(7) : undefined
+  if (!token) return c.json({ error: 'unauthorized' }, 401)
+  try {
+    const { publicJwk } = await getKeys(c.env)
+    const key = await importVerificationKey(publicJwk)
+    const claims = await verifyAccessToken(token, key, { issuer: c.env.AUTH_ISSUER })
+    c.set('userId', claims.sub)
+  } catch {
+    return c.json({ error: 'invalid_token' }, 401)
+  }
+  await next()
 }
 
 /**
@@ -97,6 +133,13 @@ app.post(
     const user = await verifyCredentials(c.var.database, email, password)
     if (!user) return c.json({ error: 'invalid_credentials' }, 401)
 
+    // If the user has MFA enabled, stop here and return a short-lived challenge
+    // instead of a session — the second factor is required at /mfa/totp/authenticate.
+    if (await userHasMfa(c.var.database, user.id)) {
+      const mfaToken = await signMfaChallenge(c.env, user.id)
+      return c.json({ mfaRequired: true, mfaToken })
+    }
+
     const { token, expiresAt } = await createSession(c.var.database, user.id, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
@@ -105,6 +148,58 @@ app.post(
     return c.json({ user })
   },
 )
+
+const mfaCodeSchema = z.object({ code: z.string().min(6).max(10) })
+
+// Complete sign-in's second factor: exchange a valid MFA challenge + TOTP code
+// for a real session. Rate-limited per IP like the other unauthenticated steps.
+app.post(
+  '/mfa/totp/authenticate',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'mfa-ip'),
+  zValidator('json', z.object({ mfaToken: z.string().min(1), code: z.string().min(6).max(10) })),
+  async (c) => {
+    const { mfaToken, code } = c.req.valid('json')
+    const userId = await verifyMfaChallenge(c.env, mfaToken)
+    if (!userId) return c.json({ error: 'mfa_challenge_invalid' }, 401)
+    if (!(await verifyUserTotp(c.env, c.var.database, userId, code))) {
+      return c.json({ error: 'invalid_code' }, 401)
+    }
+    const { token, expiresAt } = await createSession(c.var.database, userId, {
+      ipAddress: c.req.header('cf-connecting-ip'),
+      userAgent: c.req.header('user-agent'),
+    })
+    setSessionCookie(c, token, expiresAt)
+    return c.json({ ok: true })
+  },
+)
+
+// --- MFA management (access-token authenticated; the console BFF acts for the user) ---
+
+app.get('/mfa/status', requireUser, async (c) => {
+  return c.json(await totpStatus(c.var.database, c.var.userId))
+})
+
+app.post('/mfa/totp/setup', requireUser, async (c) => {
+  const user = await getUserById(c.var.database, c.var.userId)
+  if (!user) return c.json({ error: 'not_found' }, 404)
+  const provisioning = await startTotpEnrollment(c.env, c.var.database, c.var.userId, user.email)
+  return c.json(provisioning)
+})
+
+app.post('/mfa/totp/confirm', requireUser, zValidator('json', mfaCodeSchema), async (c) => {
+  const ok = await confirmTotpEnrollment(
+    c.env,
+    c.var.database,
+    c.var.userId,
+    c.req.valid('json').code,
+  )
+  return ok ? c.json({ ok: true }) : c.json({ error: 'invalid_code' }, 400)
+})
+
+app.post('/mfa/totp/disable', requireUser, zValidator('json', mfaCodeSchema), async (c) => {
+  const ok = await disableTotp(c.env, c.var.database, c.var.userId, c.req.valid('json').code)
+  return ok ? c.json({ ok: true }) : c.json({ error: 'invalid_code' }, 400)
+})
 
 app.post('/sign-out', async (c) => {
   const token = getSessionToken(c)

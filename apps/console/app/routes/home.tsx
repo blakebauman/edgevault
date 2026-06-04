@@ -62,11 +62,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <section className="panel">
         <header className="panel-head">
           <h1>Your workspaces</h1>
-          <Form method="post" action="/logout">
-            <button type="submit" className="secondary">
-              Sign out
-            </button>
-          </Form>
+          <span className="org-links">
+            <Link to="/account/mfa" className="muted">
+              Two-factor auth →
+            </Link>
+            <Form method="post" action="/logout">
+              <button type="submit" className="secondary">
+                Sign out
+              </button>
+            </Form>
+          </span>
         </header>
         {loaderData.orgs.length === 0 && <p className="lede">No organizations yet.</p>}
         {loaderData.orgs.map((org) => (

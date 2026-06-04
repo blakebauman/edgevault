@@ -89,3 +89,22 @@ export function getSamlTransaction(request: Request): { orgId: string; authnId: 
 export function clearSamlCookie(request: Request): string {
   return `${SAML_COOKIE}=; HttpOnly; Path=/; Max-Age=0${samlSameSite(request)}`
 }
+
+// --- MFA challenge cookie ---------------------------------------------------
+// Holds the short-lived MFA challenge token between password sign-in and the
+// second-factor prompt. httpOnly so client JS can't read it.
+
+const MFA_COOKIE = 'ev_mfa'
+
+export function setMfaCookie(token: string, request: Request): string {
+  return `${MFA_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=300${secureAttr(request)}`
+}
+
+export function getMfaToken(request: Request): string | null {
+  const match = (request.headers.get('Cookie') ?? '').match(/(?:^|;\s*)ev_mfa=([^;]+)/)
+  return match?.[1] ? decodeURIComponent(match[1]) : null
+}
+
+export function clearMfaCookie(request: Request): string {
+  return `${MFA_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
+}

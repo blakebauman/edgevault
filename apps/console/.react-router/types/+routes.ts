@@ -17,7 +17,13 @@ type Pages = {
   "/login": {
     params: {};
   };
+  "/login/mfa": {
+    params: {};
+  };
   "/logout": {
+    params: {};
+  };
+  "/account/mfa": {
     params: {};
   };
   "/sso/:orgId/start": {
@@ -70,7 +76,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/logout" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -80,9 +86,17 @@ type RouteFiles = {
     id: "routes/login";
     page: "/login";
   };
+  "routes/login.mfa.tsx": {
+    id: "routes/login.mfa";
+    page: "/login/mfa";
+  };
   "routes/logout.tsx": {
     id: "routes/logout";
     page: "/logout";
+  };
+  "routes/account-mfa.tsx": {
+    id: "routes/account-mfa";
+    page: "/account/mfa";
   };
   "routes/sso.start.tsx": {
     id: "routes/sso.start";
@@ -126,7 +140,9 @@ type RouteModules = {
   "root": typeof import("./app/root.tsx");
   "routes/home": typeof import("./app/routes/home.tsx");
   "routes/login": typeof import("./app/routes/login.tsx");
+  "routes/login.mfa": typeof import("./app/routes/login.mfa.tsx");
   "routes/logout": typeof import("./app/routes/logout.tsx");
+  "routes/account-mfa": typeof import("./app/routes/account-mfa.tsx");
   "routes/sso.start": typeof import("./app/routes/sso.start.tsx");
   "routes/sso.callback": typeof import("./app/routes/sso.callback.tsx");
   "routes/saml.start": typeof import("./app/routes/saml.start.tsx");
