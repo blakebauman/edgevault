@@ -47,8 +47,24 @@ export interface ScimPatchRequest {
   Operations: ScimPatchOperation[]
 }
 
-function setPath(target: Record<string, unknown>, path: string, value: unknown): void {
+// IdP-supplied attribute paths must never reach Object.prototype: a segment
+// like `__proto__`, `constructor`, or `prototype` would let a SCIM PATCH walk
+// out of the resource and pollute the prototype chain (the `typeof === object`
+// guards below pass for `__proto__`). Reject those segments outright.
+const FORBIDDEN_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype'])
+
+function assertSafePath(path: string): string[] {
   const segments = path.split('.')
+  for (const segment of segments) {
+    if (FORBIDDEN_SEGMENTS.has(segment)) {
+      throw new Error(`Unsafe SCIM path segment: ${segment}`)
+    }
+  }
+  return segments
+}
+
+function setPath(target: Record<string, unknown>, path: string, value: unknown): void {
+  const segments = assertSafePath(path)
   let node = target
   for (let i = 0; i < segments.length - 1; i++) {
     const key = segments[i] as string
@@ -59,7 +75,7 @@ function setPath(target: Record<string, unknown>, path: string, value: unknown):
 }
 
 function removePath(target: Record<string, unknown>, path: string): void {
-  const segments = path.split('.')
+  const segments = assertSafePath(path)
   let node = target
   for (let i = 0; i < segments.length - 1; i++) {
     const next = node[segments[i] as string]
@@ -90,7 +106,11 @@ export function applyScimPatch<T extends Record<string, unknown>>(
       if (operation.path) {
         setPath(result, operation.path, operation.value)
       } else if (operation.value && typeof operation.value === 'object') {
-        Object.assign(result, operation.value)
+        // Path-less merge: copy own keys but skip the prototype-poisoning ones
+        // (a `__proto__` own-key would retarget result's prototype via [[Set]]).
+        for (const [key, val] of Object.entries(operation.value)) {
+          if (!FORBIDDEN_SEGMENTS.has(key)) result[key as keyof T] = val as T[keyof T]
+        }
       }
     }
   }

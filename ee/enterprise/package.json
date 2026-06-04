@@ -14,6 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@edgevault/auth": "workspace:*",
     "@edgevault/database": "workspace:*",
     "@edgevault/ee-scim": "workspace:*",
     "@edgevault/ee-sso-saml": "workspace:*",

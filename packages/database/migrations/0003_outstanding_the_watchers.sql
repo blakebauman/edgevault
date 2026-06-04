@@ -1,0 +1,1 @@
+ALTER TABLE "entitlements" ADD COLUMN "scim_token_hash" text;

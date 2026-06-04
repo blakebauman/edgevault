@@ -1,3 +1,4 @@
+import { hashToken } from '@edgevault/auth'
 import type { Database } from '@edgevault/database'
 import {
   assertScimEntitled,
@@ -9,6 +10,14 @@ import { assertSsoEntitled } from '@edgevault/ee-sso-saml'
 import { EntitlementError, type License } from '@edgevault/licensing'
 import { Hono } from 'hono'
 import { rowToLicense } from './entitlements'
+
+/** Constant-time compare of two equal-length hex digests. */
+function timingSafeEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
 
 /**
  * EdgeVault Enterprise worker (commercial — see ee/LICENSE).
@@ -44,6 +53,23 @@ app.use('/orgs/:orgId/*', async (c, next) => {
   }
 })
 
+// Authenticate the SCIM surface: the IdP must present the org's provisioning
+// bearer token, whose SHA-256 we compare (constant-time) against the stored
+// hash. No stored hash means SCIM isn't provisioned for this org — deny. This
+// runs after the org middleware above, so c.var.database is set.
+app.use('/orgs/:orgId/scim/*', async (c, next) => {
+  const header = c.req.header('authorization')
+  const token = header?.toLowerCase().startsWith('bearer ') ? header.slice(7) : undefined
+  if (!token) return c.json({ error: 'unauthorized' }, 401)
+
+  const { getScimTokenHash } = await import('@edgevault/database')
+  const expected = await getScimTokenHash(c.var.database, c.var.orgId)
+  if (!expected || !timingSafeEqualHex(hashToken(token), expected)) {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+  await next()
+})
+
 // A missing entitlement becomes 402 Payment Required, naming the entitlement key.
 app.onError((err, c) => {
   if (err instanceof EntitlementError) {
@@ -76,6 +102,10 @@ app.get('/orgs/:orgId/scim/v2/Users', async (c) => {
 
 // Enterprise SSO (OIDC) — start authorization (gated by `sso`).
 app.get('/orgs/:orgId/sso/oidc/start', (c) => {
+  // SECURITY: this is browser/admin-initiated, not machine-to-machine, so it
+  // must gain a console-session gate (verified session + org membership) when
+  // the SSO admin flow is wired — the SCIM bearer-token scheme above does not
+  // apply here. It exposes nothing today (501 below), so no data is at risk yet.
   assertSsoEntitled(c.var.license)
   // The per-org OIDC connection (issuer/clientId/encrypted secret) is stored by
   // the auth worker and lands with the SSO admin UI. The entitlement gate is

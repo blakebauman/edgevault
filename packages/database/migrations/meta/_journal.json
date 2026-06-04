@@ -22,6 +22,13 @@
       "when": 1780576917801,
       "tag": "0002_rapid_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780578929528,
+      "tag": "0003_outstanding_the_watchers",
+      "breakpoints": true
     }
   ]
 }

@@ -51,6 +51,25 @@ describe('applyScimPatch', () => {
     applyScimPatch(original, [{ op: 'replace', path: 'active', value: false }])
     expect(original.active).toBe(true)
   })
+
+  it('rejects prototype-poisoning paths', () => {
+    expect(() =>
+      applyScimPatch(user(), [{ op: 'replace', path: '__proto__.polluted', value: true }]),
+    ).toThrow(/unsafe/i)
+    expect(() =>
+      applyScimPatch(user(), [{ op: 'add', path: 'constructor.prototype.polluted', value: true }]),
+    ).toThrow(/unsafe/i)
+    // biome-ignore lint/suspicious/noExplicitAny: probing the global prototype
+    expect(({} as any).polluted).toBeUndefined()
+  })
+
+  it('drops prototype keys from a path-less merge', () => {
+    const malicious = JSON.parse('{"active": false, "__proto__": {"polluted": true}}')
+    const result = applyScimPatch(user(), [{ op: 'replace', value: malicious }])
+    expect(result.active).toBe(false)
+    // biome-ignore lint/suspicious/noExplicitAny: probing the global prototype
+    expect(({} as any).polluted).toBeUndefined()
+  })
 })
 
 describe('SCIM list + entitlement', () => {

@@ -32,7 +32,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const token = ((await tokenRes.json()) as { accessToken?: string }).accessToken
   if (!token) return { error: 'Could not obtain an access token.' }
 
-  return redirect('/', { headers: { 'Set-Cookie': setTokenCookie(token) } })
+  return redirect('/', { headers: { 'Set-Cookie': setTokenCookie(token, request) } })
 }
 
 export default function Login({ actionData }: Route.ComponentProps) {

@@ -71,7 +71,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         {loaderData.orgs.length === 0 && <p className="lede">No organizations yet.</p>}
         {loaderData.orgs.map((org) => (
           <div key={org.id} className="org">
-            <h2>{org.name}</h2>
+            <div className="panel-head">
+              <h2>{org.name}</h2>
+              <Link to={`/orgs/${org.id}/scim`} className="muted">
+                SCIM provisioning →
+              </Link>
+            </div>
             <ul className="ws-list">
               {org.workspaces.map((ws) => (
                 <li key={ws.id}>

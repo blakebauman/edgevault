@@ -20,6 +20,7 @@
     "@edgevault/database": "workspace:*",
     "@edgevault/diff": "workspace:*",
     "@edgevault/edge-protocol": "workspace:*",
+    "@edgevault/licensing": "workspace:*",
     "@edgevault/realtime": "workspace:*",
     "@hono/zod-openapi": "^1.1.0",
     "@hono/zod-validator": "^0.7.0",

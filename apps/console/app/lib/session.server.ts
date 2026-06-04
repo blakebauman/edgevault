@@ -2,13 +2,19 @@
 
 const COOKIE = 'ev_console'
 
-export function setTokenCookie(token: string): string {
-  // Token TTL is ~15m; the cookie matches so the UI re-auths when it expires.
-  return `${COOKIE}=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=900`
+// Mark the cookie Secure whenever we're served over https (production); omit it
+// on plain-http dev so the cookie still sets locally. Mirrors apps/auth/cookies.
+function secureAttr(request: Request): string {
+  return new URL(request.url).protocol === 'https:' ? '; Secure' : ''
 }
 
-export function clearTokenCookie(): string {
-  return `${COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`
+export function setTokenCookie(token: string, request: Request): string {
+  // Token TTL is ~15m; the cookie matches so the UI re-auths when it expires.
+  return `${COOKIE}=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=900${secureAttr(request)}`
+}
+
+export function clearTokenCookie(request: Request): string {
+  return `${COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
 }
 
 export function getToken(request: Request): string | null {

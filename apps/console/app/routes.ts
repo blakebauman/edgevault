@@ -5,4 +5,5 @@ export default [
   route('login', 'routes/login.tsx'),
   route('logout', 'routes/logout.tsx'),
   route('dashboard/:workspaceId', 'routes/dashboard.tsx'),
+  route('orgs/:orgId/scim', 'routes/scim.tsx'),
 ] satisfies RouteConfig

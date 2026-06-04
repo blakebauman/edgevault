@@ -50,6 +50,9 @@ importers:
       '@edgevault/edge-protocol':
         specifier: workspace:*
         version: link:../../packages/edge-protocol
+      '@edgevault/licensing':
+        specifier: workspace:*
+        version: link:../../packages/licensing
       '@edgevault/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
@@ -239,6 +242,9 @@ importers:
 
   ee/enterprise:
     dependencies:
+      '@edgevault/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@edgevault/database':
         specifier: workspace:*
         version: link:../../packages/database

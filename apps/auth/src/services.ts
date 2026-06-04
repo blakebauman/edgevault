@@ -4,6 +4,16 @@ import { eq } from 'drizzle-orm'
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
+/**
+ * A valid Argon2id hash (same cost params as live hashes) of a password no one
+ * holds. When sign-in hits an unknown email — or a user with no password set —
+ * we still verify against this decoy so the response time matches the real
+ * path. Without it, the absent-user branch returns instantly and the timing
+ * delta leaks whether an email is registered (account enumeration).
+ */
+const DECOY_PASSWORD_HASH =
+  '$argon2id$v=19$m=19456,t=2,p=1$AAAAAAAAAAAAAAAAAAAAAA==$Yupwism0luQZ6BFwnVvjDh2dSdxwPnGE7Q0hztHp6V8='
+
 export type PublicUser = {
   id: string
   email: string
@@ -42,9 +52,11 @@ export async function verifyCredentials(
   password: string,
 ): Promise<PublicUser | null> {
   const [user] = await database.select().from(users).where(eq(users.email, email)).limit(1)
-  if (!user?.passwordHash) return null
-  const ok = await verifyPassword(password, user.passwordHash)
-  return ok ? toPublicUser(user) : null
+  // Always run one Argon2id verification — against the user's hash if present,
+  // else a decoy — so timing doesn't reveal whether the email exists.
+  const ok = await verifyPassword(password, user?.passwordHash ?? DECOY_PASSWORD_HASH)
+  if (!user?.passwordHash || !ok) return null
+  return toPublicUser(user)
 }
 
 export async function createSession(

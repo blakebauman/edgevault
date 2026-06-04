@@ -13,5 +13,9 @@ export const entitlements = pgTable('entitlements', {
     .references(() => organizations.id, { onDelete: 'cascade' }),
   plan: text('plan').notNull().default('free'),
   entitlements: jsonb('entitlements').$type<string[]>().notNull().default([]),
+  // SHA-256 hash of the org's SCIM provisioning bearer token (the secret the
+  // admin pastes into their IdP). Null until SCIM is configured; the raw token
+  // is shown once at creation and never stored. Authenticates the SCIM surface.
+  scimTokenHash: text('scim_token_hash'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
