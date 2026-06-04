@@ -1,0 +1,23 @@
+{
+  "name": "@edgevault/ee-scim",
+  "version": "0.0.0",
+  "private": true,
+  "license": "SEE ee/LICENSE",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@edgevault/licensing": "workspace:*"
+  },
+  "devDependencies": {
+    "@edgevault/typescript-config": "workspace:*",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.8"
+  }
+}
