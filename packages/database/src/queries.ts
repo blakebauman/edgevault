@@ -1,9 +1,9 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, lt } from 'drizzle-orm'
 import type { Database } from './client'
 import { accounts } from './schema/auth'
 import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
-import { samlConnections } from './schema/saml'
+import { samlAssertionReplay, samlConnections } from './schema/saml'
 import { ssoConnections } from './schema/sso'
 import { authenticators } from './schema/webauthn'
 
@@ -184,6 +184,32 @@ export async function upsertSamlConnection(
         updatedAt: new Date(),
       },
     })
+}
+
+/**
+ * Atomically consume a SAML assertion ID for replay protection. Returns `true`
+ * if this is the first time the assertion is seen (the caller may proceed), or
+ * `false` if it has already been consumed (a replay — reject the login). The
+ * primary-key insert is the atomic guard, so concurrent ACS posts of the same
+ * assertion cannot both succeed. Expired records are pruned opportunistically.
+ */
+export async function consumeSamlAssertion(
+  database: Database,
+  input: { assertionId: string; organizationId: string; expiresAt: Date },
+): Promise<boolean> {
+  // Keep the table bounded: an assertion past its NotOnOrAfter is already
+  // rejected by the time-window check, so its replay record is no longer needed.
+  await database.delete(samlAssertionReplay).where(lt(samlAssertionReplay.expiresAt, new Date()))
+  const inserted = await database
+    .insert(samlAssertionReplay)
+    .values({
+      assertionId: input.assertionId,
+      organizationId: input.organizationId,
+      expiresAt: input.expiresAt,
+    })
+    .onConflictDoNothing({ target: samlAssertionReplay.assertionId })
+    .returning({ assertionId: samlAssertionReplay.assertionId })
+  return inserted.length > 0
 }
 
 /** A user's TOTP credential (secret stays encrypted; confirmedAt null until verified). */

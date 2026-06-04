@@ -244,6 +244,14 @@ export interface SamlIdentity {
   name: string | null
   attributes: Record<string, string[]>
   sessionIndex: string | null
+  /** The assertion's `ID` — the key for one-time-use (replay) enforcement. */
+  assertionId: string
+  /**
+   * Earliest `NotOnOrAfter` (Conditions / SubjectConfirmationData), in epoch ms,
+   * after which the assertion is expired. Use as the TTL for the replay record.
+   * Null if the IdP supplied no expiry (callers should apply a bounded default).
+   */
+  notOnOrAfter: number | null
 }
 
 class SamlError extends Error {
@@ -364,6 +372,15 @@ function checkTimeWindow(
   return true
 }
 
+/** The element's `NotOnOrAfter` as epoch ms, or null if absent/unparseable. */
+function notOnOrAfterMs(el: XmlNode | null): number | null {
+  if (!el) return null
+  const na = attr(el, 'NotOnOrAfter')
+  if (!na) return null
+  const t = Date.parse(na)
+  return Number.isFinite(t) ? t : null
+}
+
 const EMAIL_ATTR_NAMES = new Set([
   'email',
   'mail',
@@ -475,5 +492,13 @@ export async function verifySamlResponse(
   const authnStatement = firstChildNS(assertion, NS.SAML, 'AuthnStatement')
   const sessionIndex = authnStatement ? attr(authnStatement, 'SessionIndex') : null
 
-  return { nameId, email, name, attributes, sessionIndex }
+  // Replay-enforcement metadata: the assertion ID, and the earliest expiry
+  // across Conditions + SubjectConfirmationData (the window the IdP vouches for).
+  const assertionId = attr(assertion, 'ID') ?? ''
+  const expiries = [notOnOrAfterMs(conditions), notOnOrAfterMs(confData)].filter(
+    (t): t is number => t !== null,
+  )
+  const notOnOrAfter = expiries.length > 0 ? Math.min(...expiries) : null
+
+  return { nameId, email, name, attributes, sessionIndex, assertionId, notOnOrAfter }
 }

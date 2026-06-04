@@ -57,6 +57,13 @@
       "when": 1780586569303,
       "tag": "0007_motionless_zombie",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780612905246,
+      "tag": "0008_fixed_nightmare",
+      "breakpoints": true
     }
   ]
 }

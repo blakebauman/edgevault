@@ -124,6 +124,31 @@ pooling; `delivery` runs at the edge with a KV + 15s in-memory L1 cache. Vectori
 **requires metadata indexes** on `workspaceId`/`environmentId` (see §2) or scoped
 search silently returns nothing.
 
+## Observability & alerting
+
+Every worker has Workers Logs enabled (`observability.enabled` in each
+`wrangler.jsonc`). Tail a worker live with `wrangler tail --name edgevault-<app>`;
+query historical logs/invocations in the Cloudflare dashboard (Workers →
+Observability).
+
+**Edge read latency (the <10ms target).** The `delivery` worker emits
+`Server-Timing: resolve;dur=<ms>;desc="l1|kv"` on every `/v1/configs|flags|batch`
+response — this is the *server-side* resolve time (L1 or KV read), the figure to
+compare against the target. External round-trip latency is dominated by client→
+edge network RTT and is **not** a valid measurement. Read it from any real
+request (`curl -D - … | grep -i server-timing`) or sample it with
+`scripts/loadtest-delivery.sh <url> [N] [concurrency]` (set `EDGEVAULT_API_KEY`
+to exercise a real config-hit path).
+
+**Recommended Cloudflare Notifications** (dashboard → Notifications):
+- Workers **error rate** spike on `edgevault-{auth,api,delivery}` — auth/api
+  errors block logins/writes; delivery errors break the read path.
+- Workers **CPU / wall-time** alert on `edgevault-delivery` to catch regressions
+  against the <10ms target (corroborate with the `Server-Timing` numbers).
+- **Hyperdrive** connection errors and **Queue** consumer backlog (audit lag).
+- Critical paths already log structured errors (`indexConfig failed`, `SAML
+  verification failed`, `OAuth callback failed`) — alert on their log patterns.
+
 ## Continuous deployment
 
 `.github/workflows/deploy.yml` deploys **staging automatically on every push to

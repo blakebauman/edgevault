@@ -323,7 +323,7 @@ app.post('/orgs/:orgId/saml/acs', async (c) => {
   if (!samlResponse) return c.json({ error: 'invalid_request' }, 400)
   const expectedInResponseTo = str(body.expectedInResponseTo) ?? undefined
 
-  const { getSamlConnection } = await import('@edgevault/database')
+  const { getSamlConnection, consumeSamlAssertion } = await import('@edgevault/database')
   const row = await getSamlConnection(c.var.database, c.var.orgId)
   if (!row) return c.json({ error: 'saml_not_configured' }, 409)
 
@@ -341,6 +341,21 @@ app.post('/orgs/:orgId/saml/acs', async (c) => {
       expectedInResponseTo,
     })
     if (!identity.email) return c.json({ error: 'no_email_claim' }, 400)
+
+    // One-time use: only after the signature + conditions verified, atomically
+    // claim the assertion ID. A missing ID can't be replay-protected, and a
+    // second claim of the same ID (within its validity window) is a replay.
+    if (!identity.assertionId) return c.json({ error: 'assertion_missing_id' }, 400)
+    // Bound the replay window if the IdP gave no NotOnOrAfter (assertions normally
+    // do); 10 minutes comfortably covers the 3-minute clock-skew allowance.
+    const expiresAt = new Date(identity.notOnOrAfter ?? Date.now() + 10 * 60 * 1000)
+    const fresh = await consumeSamlAssertion(c.var.database, {
+      assertionId: identity.assertionId,
+      organizationId: c.var.orgId,
+      expiresAt,
+    })
+    if (!fresh) return c.json({ error: 'assertion_replayed' }, 401)
+
     return c.json({ email: identity.email, name: identity.name, subject: identity.nameId })
   } catch (err) {
     console.error('SAML verification failed', err)

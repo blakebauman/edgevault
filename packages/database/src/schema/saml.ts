@@ -21,3 +21,19 @@ export const samlConnections = pgTable('saml_connections', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+/**
+ * One-time-use record for consumed SAML assertion IDs (replay protection). The
+ * assertion ID is the primary key, so the first successful insert wins and any
+ * replay of the same assertion within its validity window fails the unique
+ * constraint. Rows are pruned once `expiresAt` (the assertion's NotOnOrAfter)
+ * has passed — an expired assertion is already rejected by the time-window check.
+ */
+export const samlAssertionReplay = pgTable('saml_assertion_replay', {
+  assertionId: text('assertion_id').primaryKey(),
+  organizationId: uuid('organization_id')
+    .notNull()
+    .references(() => organizations.id, { onDelete: 'cascade' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }).notNull().defaultNow(),
+})

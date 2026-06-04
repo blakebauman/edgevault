@@ -46,11 +46,15 @@ The OIDC path in this package (built on `jose`) does **not** carry these caveats
    the certificate's chain, validity dates, or revocation. This matches common
    SAML practice (the configured cert *is* the trust anchor), but means a
    compromised/expired IdP cert is only mitigated by the admin rotating it.
-3. **Assertion replay within validity window** — `NotOnOrAfter` bounds the
-   window and `InResponseTo` helps when present, but there is **no one-time-use
-   assertion-ID cache**. An attacker who captures a valid assertion could replay
-   it until it expires. **Recommended hardening:** persist consumed assertion IDs
-   (e.g., in KV with TTL = NotOnOrAfter) and reject duplicates.
+3. **Assertion replay within validity window** — ✅ **Addressed.** After the
+   signature + conditions verify, the ACS handler atomically claims the
+   assertion `ID` via `consumeSamlAssertion` (a `saml_assertion_replay` table
+   whose primary key is the assertion ID). The first claim wins; any replay of
+   the same ID within its validity window fails the unique constraint and the
+   login is rejected (`assertion_replayed`). Records are pruned once their
+   `NotOnOrAfter` passes. An assertion with no `ID` is rejected outright. The
+   Postgres PK makes this race-safe (no two concurrent ACS posts can both win),
+   which a read-modify-write KV cache could not guarantee.
 4. **`InResponseTo` is optional** — the transaction cookie is `SameSite=None` to
    survive the IdP's cross-site POST, but if absent the check is skipped (the
    assertion is still fully signature+conditions verified). IdP-initiated SSO has
@@ -65,6 +69,7 @@ The OIDC path in this package (built on `jose`) does **not** carry these caveats
 - **OIDC SSO**: production-ready (jose-based).
 - **SAML SSO**: deploy the worker (the surface is gated and unused until an admin
   configures a connection), but **do not enable SAML connections for real
-  production orgs until** (a) the canonicalizer is independently reviewed, (b)
-  interop is validated against the IdPs you must support, and (c) the
-  assertion-replay cache (residual risk #3) is added.
+  production orgs until** (a) the canonicalizer is independently reviewed and
+  (b) interop is validated against the IdPs you must support. The assertion-replay
+  cache (residual risk #3) is now in place; the remaining blockers are the
+  external c14n review and live-IdP interop testing.

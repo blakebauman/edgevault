@@ -3,6 +3,7 @@ export { createDatabase } from './client'
 export {
   type AuthenticatorRow,
   confirmTotpCredential,
+  consumeSamlAssertion,
   createAuthenticator,
   deleteTotpCredential,
   type EntitlementRow,

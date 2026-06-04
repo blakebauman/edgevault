@@ -156,6 +156,19 @@ describe('verifySamlResponse', () => {
     expect(identity.sessionIndex).toBe('sess-1')
   })
 
+  it('surfaces the assertion ID and expiry for replay enforcement', async () => {
+    const { privateKey, publicKey } = await genKey()
+    const notOnOrAfter = new Date(Date.now() + 5 * 60_000).toISOString()
+    const xml = await signedResponse(privateKey, { assertionId: '_assertion-xyz', notOnOrAfter })
+    const identity = await verifySamlResponse(xml, {
+      idpPublicKey: publicKey,
+      audience: AUDIENCE,
+      acsUrl: ACS,
+    })
+    expect(identity.assertionId).toBe('_assertion-xyz')
+    expect(identity.notOnOrAfter).toBe(Date.parse(notOnOrAfter))
+  })
+
   it('rejects a tampered attribute (digest mismatch)', async () => {
     const { privateKey, publicKey } = await genKey()
     const xml = (await signedResponse(privateKey)).replace('ada@example.com', 'mallory@evil.test')

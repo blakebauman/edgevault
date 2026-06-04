@@ -49,6 +49,11 @@ describe('delivery reads', () => {
     expect(res.headers.get('x-cache')).toBe('l1')
   })
 
+  it('reports the resolve time via Server-Timing (the <10ms target metric)', async () => {
+    const res = await call('/v1/configs/feature.x', auth)
+    expect(res.headers.get('server-timing')).toMatch(/^resolve;dur=\d+;desc="(l1|kv)"$/)
+  })
+
   it('serves flags via the flag route', async () => {
     const res = await call('/v1/flags/feature.x', auth)
     expect(res.status).toBe(200)

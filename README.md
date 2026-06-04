@@ -1,20 +1,20 @@
 # EdgeVault
 
 Edge-native **configuration**, **secrets**, and **feature-flag** management built on
-the 2026 Cloudflare Developer Platform. Sub-10ms reads at the edge, strong
+the Cloudflare Developer Platform. Sub-10ms reads at the edge, strong
 per-workspace consistency, real-time updates, AI-native authoring, and a remote
 MCP server — open-core, self-hostable on your own Cloudflare account.
 
 ## Workers
 
-| Worker | Role |
-| --- | --- |
-| `apps/api` | Control plane (OpenAPI Hono): authz, config R/W via the workspace Durable Object, real-time WebSockets, AI search + risk + assistant, promotion Workflows, MCP server. |
-| `apps/delivery` | <10ms edge data plane: pre-resolved configs/flags from KV + an in-memory L1, API-key authenticated. |
-| `apps/auth` | Custom, zero-telemetry auth: Argon2id passwords, opaque sessions, EdDSA JWT/JWKS. |
-| `apps/console` | React Router 7 admin UI on Workers (BFF): login + a live workspace dashboard. |
-| `apps/audit` | Queue consumer: archives audit events to R2 (NDJSON) — the cold warehouse. |
-| `edge/control-plane` | _(proprietary)_ Stripe billing + usage metering for Managed Edge. |
+| Worker               | Role                                                                                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api`           | Control plane (OpenAPI Hono): authz, config R/W via the workspace Durable Object, real-time WebSockets, AI search + risk + assistant, promotion Workflows, MCP server. |
+| `apps/delivery`      | <10ms edge data plane: pre-resolved configs/flags from KV + an in-memory L1, API-key authenticated.                                                                    |
+| `apps/auth`          | Custom, zero-telemetry auth: Argon2id passwords, opaque sessions, EdDSA JWT/JWKS.                                                                                      |
+| `apps/console`       | React Router 7 admin UI on Workers (BFF): login + a live workspace dashboard.                                                                                          |
+| `apps/audit`         | Queue consumer: archives audit events to R2 (NDJSON) — the cold warehouse.                                                                                             |
+| `edge/control-plane` | _(proprietary)_ Stripe billing + usage metering for Managed Edge.                                                                                                      |
 
 **Storage:** Neon Postgres (via Hyperdrive) for orgs/workspaces/members + API
 keys; per-workspace SQLite **Durable Objects** as the config system of record;
