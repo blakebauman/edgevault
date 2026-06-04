@@ -1,4 +1,7 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+import { workspaceRoutes } from './routes/workspaces'
+
+export { WorkspaceDurableObject } from './durable-objects/workspace'
 
 /**
  * EdgeVault control-plane API.
@@ -53,5 +56,8 @@ app.doc31('/openapi.json', {
 })
 
 app.get('/', (c) => c.json({ name: 'EdgeVault API', docs: '/openapi.json' }))
+
+// Workspace config/flag/secret operations, backed by the per-workspace DO.
+app.route('/api/v1/workspaces', workspaceRoutes)
 
 export default app

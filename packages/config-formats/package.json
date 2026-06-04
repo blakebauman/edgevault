@@ -1,0 +1,26 @@
+{
+  "name": "@edgevault/config-formats",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ini": "^7.0.0",
+    "js-yaml": "^4.2.0",
+    "smol-toml": "^1.6.1"
+  },
+  "devDependencies": {
+    "@edgevault/typescript-config": "workspace:*",
+    "@types/ini": "^4.1.1",
+    "@types/js-yaml": "^4.0.9",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.8"
+  }
+}
