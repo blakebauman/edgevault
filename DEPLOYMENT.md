@@ -124,12 +124,6 @@ pooling; `delivery` runs at the edge with a KV + 15s in-memory L1 cache. Vectori
 **requires metadata indexes** on `workspaceId`/`environmentId` (see §2) or scoped
 search silently returns nothing.
 
-**Known issue** — in this account `cdn.edgevault.io` is occupied by a pre-existing
-`delivery-service` worker, so the production delivery worker isn't reachable there
-yet (staging `cdn-staging` is fine). Resolve by either retiring that worker or
-pointing EdgeVault's delivery at a different free subdomain (update the
-`apps/delivery` route + redeploy). The smoke flags this (cdn check fails on prod).
-
 ## Continuous deployment
 
 `.github/workflows/deploy.yml` deploys **staging automatically on every push to
