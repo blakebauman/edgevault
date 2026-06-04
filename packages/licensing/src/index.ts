@@ -54,7 +54,10 @@ export async function issueLicense(
 /** Verify a license token (core/self-host side; public key). Throws if invalid. */
 export async function verifyLicense(token: string, publicJwk: jose.JWK): Promise<License> {
   const key = (await jose.importJWK(publicJwk, ALG)) as jose.CryptoKey
-  const { payload } = await jose.jwtVerify(token, key, { issuer: 'edgevault-licensing' })
+  const { payload } = await jose.jwtVerify(token, key, {
+    algorithms: [ALG],
+    issuer: 'edgevault-licensing',
+  })
   const entitlements = Array.isArray(payload.entitlements)
     ? payload.entitlements.filter((e): e is Entitlement => typeof e === 'string')
     : []

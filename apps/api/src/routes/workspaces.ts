@@ -160,6 +160,18 @@ export const workspaceRoutes = new Hono<AppEnv>()
     )
     if (!item) return c.json({ error: 'not_found' }, 404)
     const value = await revealSecret(c.env, c.req.param('workspaceId'), item)
+    // Revealing a secret is the single most sensitive action in the product —
+    // always leave an audit trail (who, what, where), regardless of outcome.
+    c.executionCtx.waitUntil(
+      emitAudit(c.env, {
+        workspaceId: c.req.param('workspaceId'),
+        environmentId: c.req.param('envId'),
+        action: 'secret.revealed',
+        resourceType: item.kind,
+        key: item.key,
+        userId: c.var.userId,
+      }),
+    )
     return c.json({ key: item.key, kind: item.kind, content: value })
   })
   .get('/:workspaceId/environments/:envId/configs/:key/revisions', async (c) => {

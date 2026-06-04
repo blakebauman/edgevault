@@ -23,6 +23,18 @@
       "id": "0000000000000000000000000000auth",
       "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
     }
+  ],
+  // Rate limiting for the unauthenticated auth surface. Per-IP across all auth
+  // POSTs, plus a tighter per-account cap on sign-in. period must be 10 or 60;
+  // these are per-Cloudflare-location — pair with WAF rate-limiting rules for a
+  // global ceiling.
+  "ratelimits": [
+    { "name": "AUTH_IP_LIMITER", "namespace_id": "2001", "simple": { "limit": 30, "period": 60 } },
+    {
+      "name": "AUTH_ACCOUNT_LIMITER",
+      "namespace_id": "2002",
+      "simple": { "limit": 6, "period": 60 }
+    }
   ]
   // JWT_PRIVATE_JWK is provided as a secret (.dev.vars locally, Secrets Store in
   // production). AUTH_CACHE (KV) session caching is added in a later refinement.

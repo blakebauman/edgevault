@@ -6,6 +6,7 @@ import { z } from 'zod'
 import type { AppEnv } from './context'
 import { clearSessionCookie, getSessionToken, setSessionCookie } from './cookies'
 import { getKeys } from './keys'
+import { enforceRateLimit, rateLimitByIp } from './rate-limit'
 import {
   createSession,
   createUser,
@@ -47,36 +48,54 @@ const signUpSchema = z.object({
   name: z.string().min(1).max(120).optional(),
 })
 
-app.post('/sign-up/email', zValidator('json', signUpSchema), async (c) => {
-  const input = c.req.valid('json')
-  const user = await createUser(c.var.database, input)
-  if (!user) return c.json({ error: 'email_taken' }, 409)
+app.post(
+  '/sign-up/email',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'signup-ip'),
+  zValidator('json', signUpSchema),
+  async (c) => {
+    const input = c.req.valid('json')
+    const user = await createUser(c.var.database, input)
+    if (!user) return c.json({ error: 'email_taken' }, 409)
 
-  const { token, expiresAt } = await createSession(c.var.database, user.id, {
-    ipAddress: c.req.header('cf-connecting-ip'),
-    userAgent: c.req.header('user-agent'),
-  })
-  setSessionCookie(c, token, expiresAt)
-  return c.json({ user }, 201)
-})
+    const { token, expiresAt } = await createSession(c.var.database, user.id, {
+      ipAddress: c.req.header('cf-connecting-ip'),
+      userAgent: c.req.header('user-agent'),
+    })
+    setSessionCookie(c, token, expiresAt)
+    return c.json({ user }, 201)
+  },
+)
 
 const signInSchema = z.object({
   email: z.email(),
   password: z.string().min(1).max(256),
 })
 
-app.post('/sign-in/email', zValidator('json', signInSchema), async (c) => {
-  const { email, password } = c.req.valid('json')
-  const user = await verifyCredentials(c.var.database, email, password)
-  if (!user) return c.json({ error: 'invalid_credentials' }, 401)
+app.post(
+  '/sign-in/email',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'signin-ip'),
+  zValidator('json', signInSchema),
+  async (c) => {
+    const { email, password } = c.req.valid('json')
+    // Per-account throttle: slows targeted brute force of one email across IPs.
+    const blocked = await enforceRateLimit(
+      c,
+      c.env.AUTH_ACCOUNT_LIMITER,
+      `signin-acct:${email.toLowerCase()}`,
+    )
+    if (blocked) return blocked
 
-  const { token, expiresAt } = await createSession(c.var.database, user.id, {
-    ipAddress: c.req.header('cf-connecting-ip'),
-    userAgent: c.req.header('user-agent'),
-  })
-  setSessionCookie(c, token, expiresAt)
-  return c.json({ user })
-})
+    const user = await verifyCredentials(c.var.database, email, password)
+    if (!user) return c.json({ error: 'invalid_credentials' }, 401)
+
+    const { token, expiresAt } = await createSession(c.var.database, user.id, {
+      ipAddress: c.req.header('cf-connecting-ip'),
+      userAgent: c.req.header('user-agent'),
+    })
+    setSessionCookie(c, token, expiresAt)
+    return c.json({ user })
+  },
+)
 
 app.post('/sign-out', async (c) => {
   const token = getSessionToken(c)
@@ -104,19 +123,23 @@ app.get('/session', async (c) => {
 
 // Mint a short-lived access JWT for the current session, for api/delivery to
 // verify statelessly against the JWKS.
-app.post('/token', async (c) => {
-  const token = getSessionToken(c)
-  if (!token) return c.json({ error: 'no_session' }, 401)
-  const session = await validateSessionToken(c.var.database, token)
-  if (!session) return c.json({ error: 'no_session' }, 401)
+app.post(
+  '/token',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'token-ip'),
+  async (c) => {
+    const token = getSessionToken(c)
+    if (!token) return c.json({ error: 'no_session' }, 401)
+    const session = await validateSessionToken(c.var.database, token)
+    if (!session) return c.json({ error: 'no_session' }, 401)
 
-  const { signing } = await getKeys(c.env)
-  const accessToken = await signAccessToken(
-    { sub: session.user.id, org: session.activeOrganizationId ?? undefined },
-    signing,
-    { issuer: c.env.AUTH_ISSUER, expiresIn: '15m' },
-  )
-  return c.json({ accessToken, tokenType: 'Bearer', expiresIn: 900 })
-})
+    const { signing } = await getKeys(c.env)
+    const accessToken = await signAccessToken(
+      { sub: session.user.id, org: session.activeOrganizationId ?? undefined },
+      signing,
+      { issuer: c.env.AUTH_ISSUER, expiresIn: '15m' },
+    )
+    return c.json({ accessToken, tokenType: 'Bearer', expiresIn: 900 })
+  },
+)
 
 export default app

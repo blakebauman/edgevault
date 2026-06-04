@@ -1,8 +1,9 @@
 import type { WorkspaceEvent } from '@edgevault/realtime'
 import { useWorkspaceEvents } from '@edgevault/realtime/react'
-import { useState } from 'react'
+import { type FormEvent, useState } from 'react'
 import { Link, redirect } from 'react-router'
 import { getToken } from '../lib/session.server'
+import { useAgentChat } from '../lib/use-agent-chat'
 import type { Route } from './+types/dashboard'
 
 export function meta(_: Route.MetaArgs) {
@@ -94,7 +95,54 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             </ul>
           </div>
         </div>
+
+        <Assistant workspaceId={workspaceId} />
       </section>
     </main>
+  )
+}
+
+function Assistant({ workspaceId }: { workspaceId: string }) {
+  const { messages, isLoading, error, send } = useAgentChat(workspaceId)
+  const [input, setInput] = useState('')
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    const q = input
+    setInput('')
+    await send(q)
+  }
+
+  return (
+    <div className="assistant">
+      <h2>Assistant</h2>
+      <p className="muted">Ask what changed in this workspace and why.</p>
+      <ul className="chat">
+        {messages.map((m) => (
+          <li key={m.id} className={`chat-msg ${m.role}`}>
+            <span className="role">{m.role === 'user' ? 'You' : 'Agent'}</span>
+            <span className="content">{m.content}</span>
+            {m.role === 'assistant' && m.source === 'fallback' && (
+              <span className="muted tag"> (offline summary)</span>
+            )}
+          </li>
+        ))}
+        {messages.length === 0 && <li className="muted">No questions yet.</li>}
+      </ul>
+      {error && <p className="error">{error}</p>}
+      <form className="chat-form" onSubmit={onSubmit}>
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="e.g. what changed recently?"
+          disabled={isLoading}
+          aria-label="Ask the assistant"
+        />
+        <button type="submit" disabled={isLoading || !input.trim()}>
+          {isLoading ? 'Thinking…' : 'Ask'}
+        </button>
+      </form>
+    </div>
   )
 }

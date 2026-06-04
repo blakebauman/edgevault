@@ -82,6 +82,7 @@ export async function verifyAccessToken(
   opts: { issuer: string; audience?: string },
 ): Promise<AccessTokenClaims> {
   const { payload } = await jose.jwtVerify(token, key.publicKey, {
+    algorithms: [ALG],
     issuer: opts.issuer,
     audience: opts.audience ?? opts.issuer,
   })
@@ -107,6 +108,7 @@ export async function verifyWithJwkSet(
   opts: { issuer: string; audience?: string },
 ): Promise<AccessTokenClaims> {
   const { payload } = await jose.jwtVerify(token, jwkSet, {
+    algorithms: [ALG],
     issuer: opts.issuer,
     audience: opts.audience ?? opts.issuer,
   })

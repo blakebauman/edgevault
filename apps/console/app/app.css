@@ -204,3 +204,53 @@ button {
 .dot.closed {
   color: #ff6b6b;
 }
+
+.assistant {
+  margin-top: 1.5rem;
+  border-top: 1px solid #1c2333;
+  padding-top: 1rem;
+}
+.chat {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+.chat-msg {
+  padding: 0.45rem 0.6rem;
+  background: #0e1422;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.chat-msg.user {
+  background: #15203a;
+}
+.chat-msg .role {
+  font-weight: 600;
+  margin-right: 0.4rem;
+  color: var(--muted);
+}
+.chat-msg .tag {
+  font-size: 0.75rem;
+}
+.chat-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.chat-form input {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  background: #0e1422;
+  border: 1px solid #1c2333;
+  border-radius: 6px;
+  color: inherit;
+}
+.error {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+}

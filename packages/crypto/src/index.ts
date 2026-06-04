@@ -22,6 +22,18 @@ function utf8(text: string): Uint8Array<ArrayBuffer> {
 
 const KEK_SALT = utf8('edgevault-kek-v1')
 
+// Additional authenticated data (AAD) binds each ciphertext to its context so a
+// stored blob cannot be silently moved to another workspace or replayed under a
+// different KEK version, even by an attacker with write access to the DO store.
+// The payload is bound to the workspace; the wrapped DEK is bound to the
+// workspace + KEK version (downgrade protection across rotations).
+function payloadAad(workspaceId: string): Uint8Array<ArrayBuffer> {
+  return utf8(`edgevault:payload:${workspaceId}`)
+}
+function wrapAad(workspaceId: string, kekVersion: number): Uint8Array<ArrayBuffer> {
+  return utf8(`edgevault:dek:${workspaceId}:v${kekVersion}`)
+}
+
 export interface SecretEnvelope {
   v: 1
   kekVersion: number
@@ -67,9 +79,17 @@ async function deriveKek(master: CryptoKey, workspaceId: string): Promise<Crypto
   )
 }
 
-async function unwrapDek(kek: CryptoKey, envelope: SecretEnvelope): Promise<CryptoKey> {
+async function unwrapDek(
+  kek: CryptoKey,
+  workspaceId: string,
+  envelope: SecretEnvelope,
+): Promise<CryptoKey> {
   const rawDek = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: fromBase64(envelope.dekIv) },
+    {
+      name: 'AES-GCM',
+      iv: fromBase64(envelope.dekIv),
+      additionalData: wrapAad(workspaceId, envelope.kekVersion),
+    },
     kek,
     fromBase64(envelope.wrappedDek),
   )
@@ -91,13 +111,21 @@ export async function encryptSecret(
 
   const iv = randomIv()
   const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, dek, utf8(plaintext)),
+    await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv, additionalData: payloadAad(workspaceId) },
+      dek,
+      utf8(plaintext),
+    ),
   )
 
   const dekIv = randomIv()
   const rawDek = new Uint8Array((await crypto.subtle.exportKey('raw', dek)) as ArrayBuffer)
   const wrappedDek = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: dekIv }, kek, rawDek),
+    await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: dekIv, additionalData: wrapAad(workspaceId, kekVersion) },
+      kek,
+      rawDek,
+    ),
   )
 
   return {
@@ -116,9 +144,9 @@ export async function decryptSecret(
   envelope: SecretEnvelope,
 ): Promise<string> {
   const kek = await deriveKek(await importMaster(masterKeyB64), workspaceId)
-  const dek = await unwrapDek(kek, envelope)
+  const dek = await unwrapDek(kek, workspaceId, envelope)
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: fromBase64(envelope.iv) },
+    { name: 'AES-GCM', iv: fromBase64(envelope.iv), additionalData: payloadAad(workspaceId) },
     dek,
     fromBase64(envelope.ciphertext),
   )
@@ -135,14 +163,22 @@ export async function rewrapEnvelope(
 ): Promise<SecretEnvelope> {
   const oldKek = await deriveKek(await importMaster(oldMasterKeyB64), workspaceId)
   const rawDek = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: fromBase64(envelope.dekIv) },
+    {
+      name: 'AES-GCM',
+      iv: fromBase64(envelope.dekIv),
+      additionalData: wrapAad(workspaceId, envelope.kekVersion),
+    },
     oldKek,
     fromBase64(envelope.wrappedDek),
   )
   const newKek = await deriveKek(await importMaster(newMasterKeyB64), workspaceId)
   const dekIv = randomIv()
   const wrappedDek = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: dekIv }, newKek, new Uint8Array(rawDek)),
+    await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: dekIv, additionalData: wrapAad(workspaceId, newKekVersion) },
+      newKek,
+      new Uint8Array(rawDek),
+    ),
   )
   return {
     ...envelope,

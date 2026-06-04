@@ -66,3 +66,54 @@ describe('POST /sign-up/email (validation)', () => {
     expect(res.status).toBe(400)
   })
 })
+
+describe('rate limiting', () => {
+  // A fake limiter that blocks once `key` has been seen `limit` times, mirroring
+  // the Workers Rate Limiting binding's { success } contract.
+  function fakeLimiter(limit: number): RateLimit {
+    const counts = new Map<string, number>()
+    return {
+      limit: async ({ key }: { key: string }) => {
+        const next = (counts.get(key) ?? 0) + 1
+        counts.set(key, next)
+        return { success: next <= limit }
+      },
+    } as unknown as RateLimit
+  }
+
+  function callWith(envOverride: Partial<Record<string, unknown>>, body: unknown) {
+    const e = { ...env, ...envOverride } as unknown as Env
+    return app.fetch(
+      new Request('https://auth.test/sign-up/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7' },
+        body: JSON.stringify(body),
+      }),
+      e,
+      ctx,
+    )
+  }
+
+  it('429s once the per-IP limit is exceeded (and sets Retry-After)', async () => {
+    const limiter = fakeLimiter(2)
+    const valid = { email: 'rate@b.com', password: 'longenough' }
+    // First two pass the limiter (then fail later at the DB, which we never reach
+    // because the body is valid and createUser would query) — use an invalid
+    // body so the request stops at validation, after the limiter runs.
+    const bad = { email: 'not-an-email', password: 'longenough' }
+    expect((await callWith({ AUTH_IP_LIMITER: limiter }, bad)).status).toBe(400)
+    expect((await callWith({ AUTH_IP_LIMITER: limiter }, bad)).status).toBe(400)
+    const blocked = await callWith({ AUTH_IP_LIMITER: limiter }, bad)
+    expect(blocked.status).toBe(429)
+    expect(blocked.headers.get('Retry-After')).toBe('60')
+    expect(await blocked.json()).toMatchObject({ error: 'rate_limited' })
+    void valid
+  })
+
+  it('fails open when no limiter binding is configured', async () => {
+    // No AUTH_IP_LIMITER on env -> limiter is skipped, request proceeds to
+    // validation (400 for a bad body), never a 429.
+    const res = await callWith({}, { email: 'bad', password: 'longenough' })
+    expect(res.status).toBe(400)
+  })
+})

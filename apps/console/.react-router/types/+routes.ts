@@ -25,6 +25,11 @@ type Pages = {
       "workspaceId": string;
     };
   };
+  "/dashboard/:workspaceId/assistant": {
+    params: {
+      "workspaceId": string;
+    };
+  };
   "/orgs/:orgId/scim": {
     params: {
       "orgId": string;
@@ -35,7 +40,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/logout" | "/dashboard/:workspaceId" | "/orgs/:orgId/scim";
+    page: "/" | "/login" | "/logout" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -53,6 +58,10 @@ type RouteFiles = {
     id: "routes/dashboard";
     page: "/dashboard/:workspaceId";
   };
+  "routes/assistant.tsx": {
+    id: "routes/assistant";
+    page: "/dashboard/:workspaceId/assistant";
+  };
   "routes/scim.tsx": {
     id: "routes/scim";
     page: "/orgs/:orgId/scim";
@@ -65,5 +74,6 @@ type RouteModules = {
   "routes/login": typeof import("./app/routes/login.tsx");
   "routes/logout": typeof import("./app/routes/logout.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
+  "routes/assistant": typeof import("./app/routes/assistant.tsx");
   "routes/scim": typeof import("./app/routes/scim.tsx");
 };

@@ -47,6 +47,13 @@ describe('envelope encryption', () => {
     await expect(decryptSecret(master, ws, rewrapped)).rejects.toThrow() // old key no longer works
   })
 
+  it('rejects a downgraded kekVersion (AAD binds the wrap to its version)', async () => {
+    const env = await encryptSecret(master, ws, 'secret', 1)
+    // Tamper: claim a different KEK version than the one the DEK was wrapped under.
+    const tampered = { ...env, kekVersion: 2 }
+    await expect(decryptSecret(master, ws, tampered)).rejects.toThrow()
+  })
+
   it('recognizes a secret envelope', () => {
     expect(isSecretEnvelope({ v: 1, ciphertext: 'x' })).toBe(true)
     expect(isSecretEnvelope({ foo: 'bar' })).toBe(false)
