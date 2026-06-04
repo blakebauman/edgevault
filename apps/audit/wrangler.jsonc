@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-audit",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "queues": {
+    "consumers": [
+      {
+        "queue": "edgevault-audit",
+        "max_batch_size": 100,
+        "max_batch_timeout": 30,
+        "max_retries": 3
+      }
+    ]
+  },
+  "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit" }]
+  // The cold warehouse: this worker writes NDJSON to R2. A Pipeline +
+  // R2 Data Catalog (Iceberg) + R2 SQL provide the queryable layer on top.
+}

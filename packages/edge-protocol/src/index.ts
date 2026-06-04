@@ -30,3 +30,20 @@ export function configCacheKey(workspaceId: string, environmentId: string, key: 
 export function apiKeyCacheKey(keyHash: string): string {
   return `apikey:${keyHash}`
 }
+
+/**
+ * Audit event emitted to AUDIT_QUEUE by the api worker on every change, consumed
+ * by the audit worker and archived to R2 (the cold, queryable warehouse — vs the
+ * DO's hot recent activity log).
+ */
+export interface AuditEvent {
+  at: number
+  workspaceId: string
+  environmentId?: string
+  /** e.g. config.created, config.updated, config.deleted, config.promoted */
+  action: string
+  /** config | flag | secret | environment */
+  resourceType: string
+  key?: string
+  userId: string
+}

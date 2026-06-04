@@ -5,6 +5,7 @@ import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
+import { emitAudit } from '../audit'
 import type { AppEnv } from '../context'
 import { createApiKey } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
@@ -98,6 +99,16 @@ export const workspaceRoutes = new Hono<AppEnv>()
       if (config.kind !== 'secret') {
         c.executionCtx.waitUntil(indexConfig(c.env, workspaceId, config))
       }
+      c.executionCtx.waitUntil(
+        emitAudit(c.env, {
+          workspaceId,
+          environmentId: config.environmentId,
+          action: config.version === 1 ? 'config.created' : 'config.updated',
+          resourceType: config.kind,
+          key: config.key,
+          userId: c.var.userId,
+        }),
+      )
       return c.json({ config: redact(config) }, 201)
     },
   )
@@ -123,7 +134,19 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const envId = c.req.param('envId')
     const key = c.req.param('key')
     const ok = await stubFor(c, workspaceId).deleteConfig(envId, key, c.var.userId)
-    if (ok) c.executionCtx.waitUntil(deleteThrough(c.env, workspaceId, envId, key))
+    if (ok) {
+      c.executionCtx.waitUntil(deleteThrough(c.env, workspaceId, envId, key))
+      c.executionCtx.waitUntil(
+        emitAudit(c.env, {
+          workspaceId,
+          environmentId: envId,
+          action: 'config.deleted',
+          resourceType: 'config',
+          key,
+          userId: c.var.userId,
+        }),
+      )
+    }
     return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
   })
   // Reveal a decrypted secret value (member-gated; tighten to admin RBAC later).
@@ -160,6 +183,16 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const promotion = await stubFor(c, workspaceId).promote({ ...body, userId: c.var.userId })
     const target = await stubFor(c, workspaceId).getConfig(body.targetEnvironmentId, body.key)
     if (target) c.executionCtx.waitUntil(writeThrough(c.env, workspaceId, target))
+    c.executionCtx.waitUntil(
+      emitAudit(c.env, {
+        workspaceId,
+        environmentId: body.targetEnvironmentId,
+        action: 'config.promoted',
+        resourceType: target?.kind ?? 'config',
+        key: body.key,
+        userId: c.var.userId,
+      }),
+    )
     return c.json({ promotion }, 201)
   })
   .get('/:workspaceId/promotions', async (c) => {

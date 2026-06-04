@@ -1,0 +1,25 @@
+{
+  "name": "@edgevault/audit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "cf-typegen": "wrangler types",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@edgevault/edge-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.16.12",
+    "@edgevault/typescript-config": "workspace:*",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.8",
+    "wrangler": "^4.97.0"
+  }
+}

@@ -42,7 +42,10 @@
       "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
     }
   ],
-  "services": [{ "binding": "AUTH_SERVICE", "service": "edgevault-auth" }]
+  "services": [{ "binding": "AUTH_SERVICE", "service": "edgevault-auth" }],
+  "queues": {
+    "producers": [{ "queue": "edgevault-audit", "binding": "AUDIT_QUEUE" }]
+  }
   // Remaining bindings (AGENT DO, AI, VECTORIZE, QUEUES, SECRETS_STORE, KV,
   // Analytics Engine, DELIVERY_SERVICE) are added in later phases.
 }
