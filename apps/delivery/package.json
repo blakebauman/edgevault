@@ -1,5 +1,5 @@
 {
-  "name": "@edgevault/api",
+  "name": "@edgevault/delivery",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,16 +14,8 @@
   },
   "dependencies": {
     "@edgevault/auth": "workspace:*",
-    "@edgevault/config-formats": "workspace:*",
-    "@edgevault/database": "workspace:*",
-    "@edgevault/diff": "workspace:*",
     "@edgevault/edge-protocol": "workspace:*",
-    "@edgevault/realtime": "workspace:*",
-    "@hono/zod-openapi": "^1.1.0",
-    "@hono/zod-validator": "^0.7.0",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.9.2",
-    "zod": "^4.0.17"
+    "hono": "^4.9.2"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.12",

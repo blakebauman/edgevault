@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-delivery",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "ENVIRONMENT": "development",
+    "SERVICE_NAME": "edgevault-delivery"
+  },
+  // Same KV namespaces as the api worker (shared by id in production) — api
+  // writes pre-resolved values + key mappings; delivery reads them.
+  "kv_namespaces": [
+    { "binding": "CONFIGS_CACHE", "id": "configs_cache_placeholder_id" },
+    { "binding": "ENVIRONMENT_API_KEYS", "id": "env_api_keys_placeholder_id" }
+  ]
+  // No Smart Placement: the delivery worker must run close to the user.
+}

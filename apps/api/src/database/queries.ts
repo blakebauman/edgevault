@@ -1,5 +1,5 @@
 import type { Database } from '@edgevault/database'
-import { members, organizations, workspaces } from '@edgevault/database/schema'
+import { apiKeys, members, organizations, workspaces } from '@edgevault/database/schema'
 import { and, eq } from 'drizzle-orm'
 
 /** Neon (via Hyperdrive) queries for org/workspace metadata + membership. */
@@ -76,4 +76,37 @@ export async function getWorkspaceWithOrg(
     .where(eq(workspaces.id, workspaceId))
     .limit(1)
   return row ?? null
+}
+
+export async function createApiKey(
+  database: Database,
+  input: {
+    workspaceId: string
+    environmentId: string
+    name: string
+    prefix: string
+    keyHash: string
+    createdByUserId: string
+    scopes?: string[]
+  },
+) {
+  const [created] = await database
+    .insert(apiKeys)
+    .values({
+      workspaceId: input.workspaceId,
+      environmentId: input.environmentId,
+      name: input.name,
+      prefix: input.prefix,
+      keyHash: input.keyHash,
+      createdByUserId: input.createdByUserId,
+      scopes: input.scopes ?? ['read'],
+    })
+    .returning({
+      id: apiKeys.id,
+      prefix: apiKeys.prefix,
+      name: apiKeys.name,
+      createdAt: apiKeys.createdAt,
+    })
+  if (!created) throw new Error('Failed to create API key')
+  return created
 }

@@ -8,11 +8,17 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
+  // Place the control plane near the Neon primary region (multiple DB round-trips).
+  "placement": { "mode": "smart" },
   "vars": {
     "ENVIRONMENT": "development",
     "SERVICE_NAME": "edgevault-api",
     "AUTH_ISSUER": "http://localhost:8788"
   },
+  "kv_namespaces": [
+    { "binding": "CONFIGS_CACHE", "id": "configs_cache_placeholder_id" },
+    { "binding": "ENVIRONMENT_API_KEYS", "id": "env_api_keys_placeholder_id" }
+  ],
   "durable_objects": {
     "bindings": [{ "name": "WORKSPACE", "class_name": "WorkspaceDurableObject" }]
   },

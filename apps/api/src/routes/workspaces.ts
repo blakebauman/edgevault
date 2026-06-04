@@ -1,10 +1,13 @@
+import { generateApiKey } from '@edgevault/auth'
 import { type ConfigFormat, isConfigFormat, validateContent } from '@edgevault/config-formats'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 import type { AppEnv } from '../context'
+import { createApiKey } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
+import { deleteThrough, publishApiKey, writeThrough } from '../edge-cache'
 
 /**
  * Workspace config/flag/secret routes. Each request resolves the per-workspace
@@ -83,6 +86,8 @@ export const workspaceRoutes = new Hono<AppEnv>()
         isEncrypted: body.isEncrypted,
         userId: c.var.userId,
       })
+      // Write-through to the edge cache (KV) for the delivery worker.
+      c.executionCtx.waitUntil(writeThrough(c.env, c.req.param('workspaceId'), config))
       return c.json({ config: redact(config) }, 201)
     },
   )
@@ -104,11 +109,11 @@ export const workspaceRoutes = new Hono<AppEnv>()
     return c.json({ config: redact(config) })
   })
   .delete('/:workspaceId/environments/:envId/configs/:key', async (c) => {
-    const ok = await stubFor(c, c.req.param('workspaceId')).deleteConfig(
-      c.req.param('envId'),
-      c.req.param('key'),
-      c.var.userId,
-    )
+    const workspaceId = c.req.param('workspaceId')
+    const envId = c.req.param('envId')
+    const key = c.req.param('key')
+    const ok = await stubFor(c, workspaceId).deleteConfig(envId, key, c.var.userId)
+    if (ok) c.executionCtx.waitUntil(deleteThrough(c.env, workspaceId, envId, key))
     return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
   })
   .get('/:workspaceId/environments/:envId/configs/:key/revisions', async (c) => {
@@ -126,13 +131,15 @@ export const workspaceRoutes = new Hono<AppEnv>()
       c.var.userId,
     )
     if (!config) return c.json({ error: 'not_found' }, 404)
+    c.executionCtx.waitUntil(writeThrough(c.env, c.req.param('workspaceId'), config))
     return c.json({ config: redact(config) })
   })
   .post('/:workspaceId/promotions', zValidator('json', promoteSchema), async (c) => {
-    const promotion = await stubFor(c, c.req.param('workspaceId')).promote({
-      ...c.req.valid('json'),
-      userId: c.var.userId,
-    })
+    const body = c.req.valid('json')
+    const workspaceId = c.req.param('workspaceId')
+    const promotion = await stubFor(c, workspaceId).promote({ ...body, userId: c.var.userId })
+    const target = await stubFor(c, workspaceId).getConfig(body.targetEnvironmentId, body.key)
+    if (target) c.executionCtx.waitUntil(writeThrough(c.env, workspaceId, target))
     return c.json({ promotion }, 201)
   })
   .get('/:workspaceId/promotions', async (c) => {
@@ -143,6 +150,31 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const activity = await stubFor(c, c.req.param('workspaceId')).listActivity()
     return c.json({ activity })
   })
+
+  // --- Environment API keys (for the delivery edge read path) ---
+  .post(
+    '/:workspaceId/environments/:envId/api-keys',
+    zValidator('json', z.object({ name: z.string().min(1).max(120) })),
+    async (c) => {
+      const generated = generateApiKey('live')
+      const key = await createApiKey(c.var.database, {
+        workspaceId: c.req.param('workspaceId'),
+        environmentId: c.req.param('envId'),
+        name: c.req.valid('json').name,
+        prefix: generated.prefix,
+        keyHash: generated.keyHash,
+        createdByUserId: c.var.userId,
+      })
+      // Publish the key->environment mapping so delivery can validate fast (KV).
+      await publishApiKey(c.env, generated.keyHash, {
+        workspaceId: c.req.param('workspaceId'),
+        environmentId: c.req.param('envId'),
+        scopes: ['read'],
+      })
+      // The plaintext key is shown exactly once.
+      return c.json({ apiKey: generated.key, key }, 201)
+    },
+  )
 
   // --- Real-time: WebSocket upgrade ---
   // Auth + membership already enforced by the route middleware. We forward the

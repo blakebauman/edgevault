@@ -1,0 +1,8 @@
+{
+  "extends": "@edgevault/typescript-config/workers.json",
+  "compilerOptions": {
+    "types": ["./worker-configuration.d.ts", "@cloudflare/vitest-pool-workers/types"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "worker-configuration.d.ts", "vitest.config.ts"],
+  "exclude": ["dist", ".wrangler"]
+}
