@@ -1,8 +1,10 @@
+import { configEmbeddingText, embedText, searchConfigs, upsertConfigVector } from '@edgevault/ai'
 import { generateApiKey } from '@edgevault/auth'
 import { type ConfigFormat, isConfigFormat, validateContent } from '@edgevault/config-formats'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
+import { aiRunner, embeddingModel, vectorize } from '../ai'
 import type { AppEnv } from '../context'
 import { createApiKey } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
@@ -26,6 +28,21 @@ function stubFor(
 /** Never return secret plaintext over the API (envelope decryption is gated, Phase 9). */
 function redact(item: ConfigItem): ConfigItem {
   return item.kind === 'secret' ? { ...item, content: '' } : item
+}
+
+/** Embed a config item and upsert it to Vectorize. Failures must not break writes. */
+async function indexConfig(env: Env, workspaceId: string, item: ConfigItem): Promise<void> {
+  try {
+    const vector = await embedText(aiRunner(env), embeddingModel(env), configEmbeddingText(item))
+    await upsertConfigVector(vectorize(env), vector, {
+      workspaceId,
+      environmentId: item.environmentId,
+      key: item.key,
+      kind: item.kind,
+    })
+  } catch {
+    // best-effort indexing
+  }
 }
 
 const kindSchema = z.enum(['config', 'flag', 'secret'])
@@ -86,8 +103,13 @@ export const workspaceRoutes = new Hono<AppEnv>()
         isEncrypted: body.isEncrypted,
         userId: c.var.userId,
       })
+      const workspaceId = c.req.param('workspaceId')
       // Write-through to the edge cache (KV) for the delivery worker.
-      c.executionCtx.waitUntil(writeThrough(c.env, c.req.param('workspaceId'), config))
+      c.executionCtx.waitUntil(writeThrough(c.env, workspaceId, config))
+      // Index for semantic search (never index secret plaintext).
+      if (config.kind !== 'secret') {
+        c.executionCtx.waitUntil(indexConfig(c.env, workspaceId, config))
+      }
       return c.json({ config: redact(config) }, 201)
     },
   )
@@ -180,6 +202,22 @@ export const workspaceRoutes = new Hono<AppEnv>()
   .get('/:workspaceId/activity', async (c) => {
     const activity = await stubFor(c, c.req.param('workspaceId')).listActivity()
     return c.json({ activity })
+  })
+
+  // --- AI semantic search over the workspace's configs (Vectorize) ---
+  .get('/:workspaceId/search', async (c) => {
+    const query = c.req.query('q')
+    if (!query) return c.json({ error: 'missing_query' }, 400)
+    const hits = await searchConfigs(
+      { ai: aiRunner(c.env), vectorize: vectorize(c.env), embeddingModel: embeddingModel(c.env) },
+      {
+        workspaceId: c.req.param('workspaceId'),
+        query,
+        environmentId: c.req.query('env') ?? undefined,
+        topK: 10,
+      },
+    )
+    return c.json({ query, hits })
   })
 
   // --- Environment API keys (for the delivery edge read path) ---

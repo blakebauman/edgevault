@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@edgevault/ai": "workspace:*",
     "@edgevault/auth": "workspace:*",
     "@edgevault/config-formats": "workspace:*",
     "@edgevault/database": "workspace:*",

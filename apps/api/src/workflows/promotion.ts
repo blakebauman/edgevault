@@ -1,4 +1,6 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers'
+import { scoreConfigRisk } from '@edgevault/ai'
+import { aiRunner, textModel } from '../ai'
 import type { ConfigItem, Promotion } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 import { writeThrough } from '../edge-cache'
@@ -44,11 +46,23 @@ export class PromotionWorkflow extends WorkflowEntrypoint<Env, PromotionParams> 
       return { ...created }
     })
 
-    // 2. Risk scan (heuristic for now: promotions to prod-like envs need approval).
+    // 2. Risk scan: AI scoring with a deterministic heuristic floor + fallback.
     const risk = await step.do('risk-scan', async () => {
       const target = await workspace().getEnvironment(params.targetEnvironmentId)
-      const requiresApproval = /prod/i.test(target?.slug ?? '')
-      return { requiresApproval, level: requiresApproval ? 'high' : 'low' }
+      const source = await workspace().getConfig(params.sourceEnvironmentId, params.key)
+      const existing = await workspace().getConfig(params.targetEnvironmentId, params.key)
+      const score = await scoreConfigRisk(aiRunner(this.env), textModel(this.env), {
+        key: params.key,
+        kind: source?.kind ?? 'config',
+        targetEnvironmentSlug: target?.slug ?? '',
+        oldContent: existing?.content ?? null,
+        newContent: source?.content ?? '',
+      })
+      return {
+        requiresApproval: score.requiresApproval,
+        level: score.level,
+        reasons: score.reasons,
+      }
     })
 
     // 3. Approval gate.
