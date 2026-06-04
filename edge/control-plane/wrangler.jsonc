@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-control-plane",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "vars": { "ENVIRONMENT": "development" },
+  // Usage-metering cron: aggregate billable usage and report to Stripe meters.
+  "triggers": { "crons": ["0 * * * *"] }
+  // Proprietary, SaaS-only. Bindings added at deploy: HYPERDRIVE (Neon
+  // entitlements), ANALYTICS/audit source for metering. Secrets: STRIPE_SECRET_KEY,
+  // STRIPE_WEBHOOK_SECRET (Secrets Store). Excluded from the OSS distribution.
+}

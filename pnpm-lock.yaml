@@ -215,6 +215,25 @@ importers:
         specifier: ^4.97.0
         version: 4.97.0
 
+  edge/control-plane:
+    dependencies:
+      '@edgevault/licensing':
+        specifier: workspace:*
+        version: link:../../packages/licensing
+    devDependencies:
+      '@edgevault/typescript-config':
+        specifier: workspace:*
+        version: link:../../packages/typescript-config
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@25.9.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.9.0))
+      wrangler:
+        specifier: ^4.97.0
+        version: 4.97.0
+
   ee/scim:
     dependencies:
       '@edgevault/licensing':

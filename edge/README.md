@@ -11,14 +11,20 @@ for redistribution.
 - All billing / Stripe / metering / provisioning logic lives here and **nowhere
   else** — the OSS distribution ships without it.
 
-## Planned worker + packages (added in Phase 9c)
+## `control-plane` (`@edgevault/edge-control-plane`)
 
-- `control-plane` — a separate Worker: Stripe Billing Meters (Checkout, Customer
-  Portal, webhooks → entitlements), tenant provisioning/onboarding, and the
-  Analytics-Engine → Stripe usage-metering cron (idempotent, watermarked).
+A separate, proprietary Worker:
 
-It writes tenant **entitlements** into the shared Neon database that the OSS
-`api`/`auth` workers read, so Managed Edge subscriptions and self-host license
-keys converge on one entitlement model.
+- **Stripe webhooks** — WebCrypto HMAC signature verification (no Stripe SDK),
+  subscription events → tenant **entitlement** updates (`planToEntitlements`).
+- **Usage metering** — a cron that aggregates billable counters off the durable
+  audit pipeline (Queues→R2 SQL, not sampled Analytics) and reports to Stripe
+  Billing Meters (`reportMeterEvents`).
 
-> Empty for now; this directory documents the boundary explicitly.
+It writes entitlements into the shared Neon database that the OSS `api`/`auth`
+read, so Managed Edge subscriptions and self-host license keys converge on one
+entitlement model (`@edgevault/licensing`).
+
+Live Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) + the Neon
+entitlements table + the metering source are wired at deploy; the signature
+verification + plan mapping + reporting logic are complete and tested.
