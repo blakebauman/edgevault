@@ -34,12 +34,11 @@ import {
   createSession,
   createUser,
   getUserById,
-  invalidateSession,
   provisionOauthUser,
   provisionSsoUser,
-  validateSessionToken,
   verifyCredentials,
 } from './services'
+import { invalidateSessionCached, validateSessionCached } from './session-cache'
 import {
   buildAuthenticationOptions,
   buildRegistrationOptions,
@@ -77,8 +76,9 @@ const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 /**
  * EdgeVault auth service. Custom, zero-telemetry: email/password (Argon2id),
- * opaque DB-backed sessions, and EdDSA JWT/JWKS for service-to-service verify.
- * Social OAuth, SSO/SCIM (ee/), passkeys, and KV session caching land later.
+ * opaque DB-backed sessions (cached in AUTH_CACHE KV), EdDSA JWT/JWKS for
+ * service-to-service verify, TOTP MFA, passkeys/WebAuthn, and social OAuth.
+ * Enterprise SSO/SCIM live in the ee/ enterprise worker.
  */
 
 const app = new Hono<AppEnv>()
@@ -370,7 +370,7 @@ app.post(
 
 app.post('/sign-out', async (c) => {
   const token = getSessionToken(c)
-  if (token) await invalidateSession(c.var.database, token)
+  if (token) await invalidateSessionCached(c, token)
   clearSessionCookie(c)
   return c.json({ ok: true })
 })
@@ -378,7 +378,7 @@ app.post('/sign-out', async (c) => {
 app.get('/session', async (c) => {
   const token = getSessionToken(c)
   if (!token) return c.json({ session: null })
-  const session = await validateSessionToken(c.var.database, token)
+  const session = await validateSessionCached(c, token)
   if (!session) {
     clearSessionCookie(c)
     return c.json({ session: null })
@@ -400,7 +400,7 @@ app.post(
   async (c) => {
     const token = getSessionToken(c)
     if (!token) return c.json({ error: 'no_session' }, 401)
-    const session = await validateSessionToken(c.var.database, token)
+    const session = await validateSessionCached(c, token)
     if (!session) return c.json({ error: 'no_session' }, 401)
 
     const { signing } = await getKeys(c.env)
