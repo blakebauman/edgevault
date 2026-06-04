@@ -79,16 +79,15 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
 function SsoForm({ error }: { error: string | null }) {
   const [org, setOrg] = useState('')
 
-  function onSubmit(e: FormEvent) {
-    e.preventDefault()
+  function go(protocol: 'sso' | 'saml') {
     const id = org.trim()
     // Full-page navigation so the browser follows the loader's redirect out to
     // the identity provider.
-    if (id) window.location.href = `/sso/${encodeURIComponent(id)}/start`
+    if (id) window.location.href = `/${protocol}/${encodeURIComponent(id)}/start`
   }
 
   return (
-    <form className="form sso" onSubmit={onSubmit}>
+    <form className="form sso" onSubmit={(e: FormEvent) => e.preventDefault()}>
       <p className="muted">Enterprise SSO</p>
       <input
         value={org}
@@ -97,9 +96,24 @@ function SsoForm({ error }: { error: string | null }) {
         aria-label="Organization ID"
       />
       {error && <p className="error-text">{error}</p>}
-      <button type="submit" className="secondary" disabled={!org.trim()}>
-        Sign in with SSO
-      </button>
+      <div className="row">
+        <button
+          type="button"
+          className="secondary"
+          disabled={!org.trim()}
+          onClick={() => go('sso')}
+        >
+          Sign in with OIDC
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          disabled={!org.trim()}
+          onClick={() => go('saml')}
+        >
+          Sign in with SAML
+        </button>
+      </div>
     </form>
   )
 }

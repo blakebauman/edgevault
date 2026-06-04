@@ -75,10 +75,13 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               <h2>{org.name}</h2>
               <span className="org-links">
                 <Link to={`/orgs/${org.id}/sso`} className="muted">
-                  SSO →
+                  OIDC →
+                </Link>
+                <Link to={`/orgs/${org.id}/saml`} className="muted">
+                  SAML →
                 </Link>
                 <Link to={`/orgs/${org.id}/scim`} className="muted">
-                  SCIM provisioning →
+                  SCIM →
                 </Link>
               </span>
             </div>

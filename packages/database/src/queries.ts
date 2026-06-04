@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import type { Database } from './client'
 import { entitlements } from './schema/entitlements'
+import { samlConnections } from './schema/saml'
 import { ssoConnections } from './schema/sso'
 
 /** Shared entitlement queries (used by api/auth read paths + the control plane). */
@@ -128,6 +129,55 @@ export async function upsertSsoConnection(
         encryptedClientSecret: input.encryptedClientSecret,
         redirectUri: input.redirectUri,
         scopes: input.scopes,
+        updatedAt: new Date(),
+      },
+    })
+}
+
+/** A per-org SAML 2.0 connection row (the IdP certificate is public). */
+export interface SamlConnectionRow {
+  organizationId: string
+  idpEntityId: string
+  idpSsoUrl: string
+  idpCertificate: string
+  spEntityId: string
+  acsUrl: string
+}
+
+export async function getSamlConnection(
+  database: Database,
+  organizationId: string,
+): Promise<SamlConnectionRow | null> {
+  const [row] = await database
+    .select({
+      organizationId: samlConnections.organizationId,
+      idpEntityId: samlConnections.idpEntityId,
+      idpSsoUrl: samlConnections.idpSsoUrl,
+      idpCertificate: samlConnections.idpCertificate,
+      spEntityId: samlConnections.spEntityId,
+      acsUrl: samlConnections.acsUrl,
+    })
+    .from(samlConnections)
+    .where(eq(samlConnections.organizationId, organizationId))
+    .limit(1)
+  return row ?? null
+}
+
+export async function upsertSamlConnection(
+  database: Database,
+  input: SamlConnectionRow,
+): Promise<void> {
+  await database
+    .insert(samlConnections)
+    .values(input)
+    .onConflictDoUpdate({
+      target: samlConnections.organizationId,
+      set: {
+        idpEntityId: input.idpEntityId,
+        idpSsoUrl: input.idpSsoUrl,
+        idpCertificate: input.idpCertificate,
+        spEntityId: input.spEntityId,
+        acsUrl: input.acsUrl,
         updatedAt: new Date(),
       },
     })

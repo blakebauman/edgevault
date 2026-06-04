@@ -8,7 +8,7 @@ import {
 } from '@edgevault/ee-scim'
 import { assertSsoEntitled, type OidcConnection } from '@edgevault/ee-sso-saml'
 import { EntitlementError, type License } from '@edgevault/licensing'
-import { Hono } from 'hono'
+import { Hono, type MiddlewareHandler } from 'hono'
 import { rowToLicense } from './entitlements'
 
 /** Constant-time compare of two equal-length hex digests. */
@@ -37,19 +37,24 @@ const app = new Hono<{ Bindings: Env; Variables: Vars }>()
 
 app.get('/health', (c) => c.json({ status: 'ok', worker: 'enterprise', env: c.env.ENVIRONMENT }))
 
-// Authenticate the SSO surface (connection admin + OIDC start/callback) BEFORE
-// the org/license DB lookup, so unauthenticated calls never touch Neon. These
-// are called only by the console BFF (a trusted internal worker), which performs
-// the user-facing authz (verified session + org-admin role) first. The shared
-// INTERNAL_TOKEN keeps the endpoints from being driven directly by the public,
-// even though they reach the same fetch handler via the service binding.
-app.use('/orgs/:orgId/sso/*', async (c, next) => {
+// Authenticate the SSO/SAML surface (connection admin + login start/callback)
+// BEFORE the org/license DB lookup, so unauthenticated calls never touch Neon.
+// These are called only by the console BFF (a trusted internal worker), which
+// performs the user-facing authz (verified session + org-admin role) first. The
+// shared INTERNAL_TOKEN keeps the endpoints from being driven directly by the
+// public, even though they reach the same fetch handler via the service binding.
+const requireInternalToken: MiddlewareHandler<{ Bindings: Env; Variables: Vars }> = async (
+  c,
+  next,
+) => {
   const presented = c.req.header('x-internal-token') ?? ''
   if (!c.env.INTERNAL_TOKEN || !timingSafeEqualHex(presented, c.env.INTERNAL_TOKEN)) {
     return c.json({ error: 'unauthorized' }, 401)
   }
   await next()
-})
+}
+app.use('/orgs/:orgId/sso/*', requireInternalToken)
+app.use('/orgs/:orgId/saml/*', requireInternalToken)
 
 // Resolve the org and load its license for every org-scoped route.
 app.use('/orgs/:orgId/*', async (c, next) => {
@@ -241,6 +246,106 @@ app.post('/orgs/:orgId/sso/callback', async (c) => {
   const email = str(claims.email)
   if (!email) return c.json({ error: 'no_email_claim' }, 400)
   return c.json({ email, name: str(claims.name), subject: claims.sub })
+})
+
+// --- Enterprise SSO (SAML 2.0) ---------------------------------------------
+
+// Configure (or rotate) the org's SAML connection. The IdP certificate is a
+// public key, so it is stored as-is (no encryption needed).
+app.put('/orgs/:orgId/saml/connection', async (c) => {
+  assertSsoEntitled(c.var.license)
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+  const idpEntityId = str(body.idpEntityId)
+  const idpSsoUrl = str(body.idpSsoUrl)
+  const idpCertificate = str(body.idpCertificate)
+  const spEntityId = str(body.spEntityId)
+  const acsUrl = str(body.acsUrl)
+  if (!idpEntityId || !idpSsoUrl || !idpCertificate || !spEntityId || !acsUrl) {
+    return c.json(
+      {
+        error: 'invalid_request',
+        detail: 'idpEntityId/idpSsoUrl/idpCertificate/spEntityId/acsUrl required',
+      },
+      400,
+    )
+  }
+  const { upsertSamlConnection } = await import('@edgevault/database')
+  await upsertSamlConnection(c.var.database, {
+    organizationId: c.var.orgId,
+    idpEntityId,
+    idpSsoUrl,
+    idpCertificate,
+    spEntityId,
+    acsUrl,
+  })
+  return c.json({ ok: true, connection: { idpEntityId, idpSsoUrl, spEntityId, acsUrl } })
+})
+
+// Non-secret view of the SAML connection (for the admin UI).
+app.get('/orgs/:orgId/saml/connection', async (c) => {
+  assertSsoEntitled(c.var.license)
+  const { getSamlConnection } = await import('@edgevault/database')
+  const row = await getSamlConnection(c.var.database, c.var.orgId)
+  if (!row) return c.json({ configured: false }, 404)
+  return c.json({
+    configured: true,
+    idpEntityId: row.idpEntityId,
+    idpSsoUrl: row.idpSsoUrl,
+    spEntityId: row.spEntityId,
+    acsUrl: row.acsUrl,
+  })
+})
+
+// Begin SP-initiated SAML SSO: build the AuthnRequest + HTTP-Redirect URL. The
+// console stores the returned request id and checks it against the response's
+// InResponseTo at the ACS.
+app.post('/orgs/:orgId/saml/start', async (c) => {
+  assertSsoEntitled(c.var.license)
+  const { getSamlConnection } = await import('@edgevault/database')
+  const row = await getSamlConnection(c.var.database, c.var.orgId)
+  if (!row) return c.json({ error: 'saml_not_configured' }, 409)
+
+  const { buildAuthnRequest } = await import('@edgevault/ee-sso-saml')
+  const { id, redirectUrl } = await buildAuthnRequest({
+    spEntityId: row.spEntityId,
+    acsUrl: row.acsUrl,
+    idpSsoUrl: row.idpSsoUrl,
+  })
+  return c.json({ authnId: id, redirectUrl })
+})
+
+// Complete SAML SSO: verify the IdP's SAMLResponse (signature + conditions) and
+// return the identity claims. The console turns these into a session via auth.
+app.post('/orgs/:orgId/saml/acs', async (c) => {
+  assertSsoEntitled(c.var.license)
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
+  const samlResponse = str(body.samlResponse)
+  if (!samlResponse) return c.json({ error: 'invalid_request' }, 400)
+  const expectedInResponseTo = str(body.expectedInResponseTo) ?? undefined
+
+  const { getSamlConnection } = await import('@edgevault/database')
+  const row = await getSamlConnection(c.var.database, c.var.orgId)
+  if (!row) return c.json({ error: 'saml_not_configured' }, 409)
+
+  // HTTP-POST binding: SAMLResponse is base64 of the XML (not deflated).
+  const xml = new TextDecoder().decode(
+    Uint8Array.from(atob(samlResponse.replace(/\s+/g, '')), (ch) => ch.charCodeAt(0)),
+  )
+  const { importCertPublicKey, verifySamlResponse } = await import('@edgevault/ee-sso-saml')
+  try {
+    const idpPublicKey = await importCertPublicKey(row.idpCertificate)
+    const identity = await verifySamlResponse(xml, {
+      idpPublicKey,
+      audience: row.spEntityId,
+      acsUrl: row.acsUrl,
+      expectedInResponseTo,
+    })
+    if (!identity.email) return c.json({ error: 'no_email_claim' }, 400)
+    return c.json({ email: identity.email, name: identity.name, subject: identity.nameId })
+  } catch (err) {
+    console.error('SAML verification failed', err)
+    return c.json({ error: 'saml_verification_failed' }, 401)
+  }
 })
 
 export default app

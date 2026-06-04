@@ -30,6 +30,16 @@ type Pages = {
       "orgId": string;
     };
   };
+  "/saml/:orgId/start": {
+    params: {
+      "orgId": string;
+    };
+  };
+  "/saml/:orgId/acs": {
+    params: {
+      "orgId": string;
+    };
+  };
   "/dashboard/:workspaceId": {
     params: {
       "workspaceId": string;
@@ -50,12 +60,17 @@ type Pages = {
       "orgId": string;
     };
   };
+  "/orgs/:orgId/saml": {
+    params: {
+      "orgId": string;
+    };
+  };
 };
 
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/logout" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso";
+    page: "/" | "/login" | "/logout" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -77,6 +92,14 @@ type RouteFiles = {
     id: "routes/sso.callback";
     page: "/sso/:orgId/callback";
   };
+  "routes/saml.start.tsx": {
+    id: "routes/saml.start";
+    page: "/saml/:orgId/start";
+  };
+  "routes/saml.acs.tsx": {
+    id: "routes/saml.acs";
+    page: "/saml/:orgId/acs";
+  };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
     page: "/dashboard/:workspaceId";
@@ -93,6 +116,10 @@ type RouteFiles = {
     id: "routes/sso-admin";
     page: "/orgs/:orgId/sso";
   };
+  "routes/saml-admin.tsx": {
+    id: "routes/saml-admin";
+    page: "/orgs/:orgId/saml";
+  };
 };
 
 type RouteModules = {
@@ -102,8 +129,11 @@ type RouteModules = {
   "routes/logout": typeof import("./app/routes/logout.tsx");
   "routes/sso.start": typeof import("./app/routes/sso.start.tsx");
   "routes/sso.callback": typeof import("./app/routes/sso.callback.tsx");
+  "routes/saml.start": typeof import("./app/routes/saml.start.tsx");
+  "routes/saml.acs": typeof import("./app/routes/saml.acs.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/assistant": typeof import("./app/routes/assistant.tsx");
   "routes/scim": typeof import("./app/routes/scim.tsx");
   "routes/sso-admin": typeof import("./app/routes/sso-admin.tsx");
+  "routes/saml-admin": typeof import("./app/routes/saml-admin.tsx");
 };

@@ -56,3 +56,36 @@ export function getSsoTransaction(request: Request): SsoTransaction | null {
 export function clearSsoCookie(request: Request): string {
   return `${SSO_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
 }
+
+// --- SAML transaction cookie ------------------------------------------------
+// Holds the AuthnRequest id between start and the ACS POST. The IdP POSTs the
+// response cross-site, so on https we need SameSite=None; Secure for the cookie
+// to be sent; on plain-http dev we fall back to Lax (InResponseTo is then simply
+// not checked — the response is still verified by signature + conditions).
+
+const SAML_COOKIE = 'ev_saml'
+
+function samlSameSite(request: Request): string {
+  return new URL(request.url).protocol === 'https:' ? '; SameSite=None; Secure' : '; SameSite=Lax'
+}
+
+export function setSamlCookie(orgId: string, authnId: string, request: Request): string {
+  const value = encodeURIComponent(JSON.stringify({ orgId, authnId }))
+  return `${SAML_COOKIE}=${value}; HttpOnly; Path=/; Max-Age=600${samlSameSite(request)}`
+}
+
+export function getSamlTransaction(request: Request): { orgId: string; authnId: string } | null {
+  const match = (request.headers.get('Cookie') ?? '').match(/(?:^|;\s*)ev_saml=([^;]+)/)
+  if (!match?.[1]) return null
+  try {
+    const tx = JSON.parse(decodeURIComponent(match[1])) as { orgId?: string; authnId?: string }
+    if (tx.orgId && tx.authnId) return { orgId: tx.orgId, authnId: tx.authnId }
+  } catch {
+    // malformed — ignore
+  }
+  return null
+}
+
+export function clearSamlCookie(request: Request): string {
+  return `${SAML_COOKIE}=; HttpOnly; Path=/; Max-Age=0${samlSameSite(request)}`
+}

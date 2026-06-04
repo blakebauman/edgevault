@@ -1,5 +1,6 @@
 export * from './auth'
 export * from './entitlements'
 export * from './organization'
+export * from './saml'
 export * from './sso'
 export * from './workspace'
