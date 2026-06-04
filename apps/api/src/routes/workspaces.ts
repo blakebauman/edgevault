@@ -143,3 +143,17 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const activity = await stubFor(c, c.req.param('workspaceId')).listActivity()
     return c.json({ activity })
   })
+
+  // --- Real-time: WebSocket upgrade ---
+  // Auth + membership already enforced by the route middleware. We forward the
+  // upgrade to the workspace DO with the verified user id and an optional env
+  // filter so the DO never has to trust client-supplied identity.
+  .get('/:workspaceId/ws', (c) => {
+    if (c.req.header('upgrade') !== 'websocket') {
+      return c.json({ error: 'expected_websocket' }, 426)
+    }
+    const url = new URL(c.req.url)
+    url.searchParams.set('user', c.var.userId)
+    url.searchParams.set('env', c.req.query('env') ?? '*')
+    return stubFor(c, c.req.param('workspaceId')).fetch(new Request(url, c.req.raw))
+  })

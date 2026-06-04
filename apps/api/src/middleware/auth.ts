@@ -27,8 +27,10 @@ async function getJwkSet(env: Env, forceRefresh: boolean): Promise<JwkSet> {
 }
 
 export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
+  // Prefer the Authorization header; fall back to ?token= for WebSocket
+  // upgrades, where browsers cannot set request headers.
   const header = c.req.header('authorization')
-  const token = header?.toLowerCase().startsWith('bearer ') ? header.slice(7) : undefined
+  const token = header?.toLowerCase().startsWith('bearer ') ? header.slice(7) : c.req.query('token')
   if (!token) return c.json({ error: 'unauthorized' }, 401)
 
   const opts = { issuer: c.env.AUTH_ISSUER }

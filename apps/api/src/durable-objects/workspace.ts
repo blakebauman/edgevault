@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers'
+import type { WorkspaceEvent } from '@edgevault/realtime'
 import { ActivityLogger } from './activity-log'
 import { PromotionManager } from './promotion-manager'
 import { RevisionManager } from './revision-manager'
@@ -219,6 +220,12 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       userId: input.userId,
       changes: { name: input.name, slug: input.slug },
     })
+    this.broadcast({
+      type: 'environment.created',
+      environmentId: id,
+      slug: input.slug,
+      at: Date.now(),
+    })
     return this.getEnvironment(id) as Environment
   }
 
@@ -304,6 +311,15 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       changes: { environmentId: input.environmentId, version },
     })
 
+    this.broadcast({
+      type: 'config.changed',
+      environmentId: input.environmentId,
+      key: input.key,
+      kind,
+      version,
+      at: Date.now(),
+    })
+
     return this.getConfig(input.environmentId, input.key) as ConfigItem
   }
 
@@ -354,6 +370,7 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       resourceId: key,
       userId,
     })
+    this.broadcast({ type: 'config.deleted', environmentId, key, at: Date.now() })
     return true
   }
 
@@ -411,6 +428,13 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
         userId: input.userId,
         changes: { from: input.sourceEnvironmentId, to: input.targetEnvironmentId },
       })
+      this.broadcast({
+        type: 'promotion.completed',
+        key: input.key,
+        sourceEnvironmentId: input.sourceEnvironmentId,
+        targetEnvironmentId: input.targetEnvironmentId,
+        at: Date.now(),
+      })
       return this.promotions.get(promotion.id) as Promotion
     } catch (error) {
       this.promotions.markFailed(promotion.id)
@@ -426,5 +450,85 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
 
   listActivity(limit = 50, offset = 0): ActivityEntry[] {
     return this.activity.list(limit, offset)
+  }
+
+  // --- Real-time (WebSocket Hibernation) ----------------------------------
+
+  /**
+   * Upgrade to a hibernatable WebSocket. The api worker forwards the upgrade
+   * here with verified `?user=` and an optional `?env=` filter (or `*` for all
+   * environments). Connection context is stored via serializeAttachment so it
+   * survives hibernation without an in-memory map.
+   */
+  override async fetch(request: Request): Promise<Response> {
+    if (request.headers.get('Upgrade') !== 'websocket') {
+      return new Response('Expected a WebSocket upgrade', { status: 426 })
+    }
+    const url = new URL(request.url)
+    const userId = url.searchParams.get('user') ?? 'anonymous'
+    const environmentId = url.searchParams.get('env') ?? '*'
+
+    const { 0: client, 1: server } = new WebSocketPair()
+    // Tag by env + user so connections are addressable after hibernation.
+    this.ctx.acceptWebSocket(server, [`env:${environmentId}`, `user:${userId}`])
+    server.serializeAttachment({ userId, environmentId })
+
+    this.broadcastPresence()
+    return new Response(null, { status: 101, webSocket: client })
+  }
+
+  override webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void {
+    if (typeof message !== 'string') return
+    try {
+      const parsed = JSON.parse(message) as { type?: string }
+      if (parsed.type === 'ping') ws.send(JSON.stringify({ type: 'pong', at: Date.now() }))
+    } catch {
+      // ignore malformed client messages
+    }
+  }
+
+  override webSocketClose(ws: WebSocket): void {
+    try {
+      ws.close()
+    } finally {
+      this.broadcastPresence()
+    }
+  }
+
+  override webSocketError(ws: WebSocket): void {
+    ws.close()
+  }
+
+  /** Send an event to sockets subscribed to its environment (or to all). */
+  private broadcast(event: WorkspaceEvent): void {
+    const targetEnv = 'environmentId' in event ? event.environmentId : null
+    const payload = JSON.stringify(event)
+    for (const ws of this.ctx.getWebSockets()) {
+      const att = ws.deserializeAttachment() as { environmentId: string } | null
+      const subscribedEnv = att?.environmentId ?? '*'
+      if (targetEnv === null || subscribedEnv === '*' || subscribedEnv === targetEnv) {
+        try {
+          ws.send(payload)
+        } catch {
+          // socket is gone; close handler will clean up
+        }
+      }
+    }
+  }
+
+  private broadcastPresence(): void {
+    const users = new Set<string>()
+    for (const ws of this.ctx.getWebSockets()) {
+      const att = ws.deserializeAttachment() as { userId: string } | null
+      if (att?.userId) users.add(att.userId)
+    }
+    const payload = JSON.stringify({ type: 'presence', users: [...users], at: Date.now() })
+    for (const ws of this.ctx.getWebSockets()) {
+      try {
+        ws.send(payload)
+      } catch {
+        // ignore
+      }
+    }
   }
 }

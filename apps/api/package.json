@@ -17,6 +17,7 @@
     "@edgevault/config-formats": "workspace:*",
     "@edgevault/database": "workspace:*",
     "@edgevault/diff": "workspace:*",
+    "@edgevault/realtime": "workspace:*",
     "@hono/zod-openapi": "^1.1.0",
     "@hono/zod-validator": "^0.7.0",
     "drizzle-orm": "^0.45.2",
