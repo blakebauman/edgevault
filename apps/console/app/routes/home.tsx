@@ -73,9 +73,14 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <div key={org.id} className="org">
             <div className="panel-head">
               <h2>{org.name}</h2>
-              <Link to={`/orgs/${org.id}/scim`} className="muted">
-                SCIM provisioning →
-              </Link>
+              <span className="org-links">
+                <Link to={`/orgs/${org.id}/sso`} className="muted">
+                  SSO →
+                </Link>
+                <Link to={`/orgs/${org.id}/scim`} className="muted">
+                  SCIM provisioning →
+                </Link>
+              </span>
             </div>
             <ul className="ws-list">
               {org.workspaces.map((ws) => (

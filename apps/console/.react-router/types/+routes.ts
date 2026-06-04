@@ -45,12 +45,17 @@ type Pages = {
       "orgId": string;
     };
   };
+  "/orgs/:orgId/sso": {
+    params: {
+      "orgId": string;
+    };
+  };
 };
 
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/logout" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim";
+    page: "/" | "/login" | "/logout" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -84,6 +89,10 @@ type RouteFiles = {
     id: "routes/scim";
     page: "/orgs/:orgId/scim";
   };
+  "routes/sso-admin.tsx": {
+    id: "routes/sso-admin";
+    page: "/orgs/:orgId/sso";
+  };
 };
 
 type RouteModules = {
@@ -96,4 +105,5 @@ type RouteModules = {
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/assistant": typeof import("./app/routes/assistant.tsx");
   "routes/scim": typeof import("./app/routes/scim.tsx");
+  "routes/sso-admin": typeof import("./app/routes/sso-admin.tsx");
 };
