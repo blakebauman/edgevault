@@ -149,8 +149,11 @@ export const workspaceRoutes = new Hono<AppEnv>()
     }
     return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
   })
-  // Reveal a decrypted secret value (member-gated; tighten to admin RBAC later).
+  // Reveal a decrypted secret value — restricted to org owners/admins.
   .get('/:workspaceId/environments/:envId/configs/:key/reveal', async (c) => {
+    if (c.var.role !== 'owner' && c.var.role !== 'admin') {
+      return c.json({ error: 'forbidden', detail: 'revealing secrets requires admin' }, 403)
+    }
     const item = await stubFor(c, c.req.param('workspaceId')).getConfig(
       c.req.param('envId'),
       c.req.param('key'),

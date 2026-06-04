@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-enterprise",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "vars": { "ENVIRONMENT": "development" },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "0000000000000000000000000000ente",
+      "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+    }
+  ]
+  // EE worker (commercial). Hosts enterprise SSO + SCIM, gated by entitlements
+  // read from Neon. Deployed only for Enterprise/Managed Edge; the MIT core auth
+  // worker never imports ee/.
+}

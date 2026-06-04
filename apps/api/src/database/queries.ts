@@ -38,12 +38,21 @@ export async function isOrgMember(
   organizationId: string,
   userId: string,
 ): Promise<boolean> {
-  const rows = await database
-    .select({ id: members.id })
+  return (await getMemberRole(database, organizationId, userId)) !== null
+}
+
+/** The caller's role in an org (owner/admin/member), or null if not a member. */
+export async function getMemberRole(
+  database: Database,
+  organizationId: string,
+  userId: string,
+): Promise<string | null> {
+  const [row] = await database
+    .select({ role: members.role })
     .from(members)
     .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
     .limit(1)
-  return rows.length > 0
+  return row?.role ?? null
 }
 
 export async function createWorkspace(

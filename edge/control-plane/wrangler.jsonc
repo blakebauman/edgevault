@@ -7,8 +7,16 @@
   "observability": { "enabled": true },
   "vars": { "ENVIRONMENT": "development" },
   // Usage-metering cron: aggregate billable usage and report to Stripe meters.
-  "triggers": { "crons": ["0 * * * *"] }
-  // Proprietary, SaaS-only. Bindings added at deploy: HYPERDRIVE (Neon
-  // entitlements), ANALYTICS/audit source for metering. Secrets: STRIPE_SECRET_KEY,
-  // STRIPE_WEBHOOK_SECRET (Secrets Store). Excluded from the OSS distribution.
+  "triggers": { "crons": ["0 * * * *"] },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000000000000000000000000cp0",
+      "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+    }
+  ]
+  // Proprietary, SaaS-only. HYPERDRIVE writes the shared Neon entitlements table
+  // the OSS api/auth read. Other bindings added at deploy: ANALYTICS/audit source
+  // for metering. Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET (Secrets
+  // Store). Excluded from the OSS distribution.
 }

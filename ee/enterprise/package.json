@@ -1,8 +1,8 @@
 {
-  "name": "@edgevault/edge-control-plane",
+  "name": "@edgevault/ee-enterprise",
   "version": "0.0.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "SEE ee/LICENSE",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
@@ -15,7 +15,11 @@
   },
   "dependencies": {
     "@edgevault/database": "workspace:*",
-    "@edgevault/licensing": "workspace:*"
+    "@edgevault/ee-scim": "workspace:*",
+    "@edgevault/ee-sso-saml": "workspace:*",
+    "@edgevault/licensing": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.9.2"
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",

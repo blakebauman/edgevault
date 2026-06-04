@@ -15,6 +15,13 @@
       "when": 1780549515451,
       "tag": "0001_gray_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780576917801,
+      "tag": "0002_rapid_pyro",
+      "breakpoints": true
     }
   ]
 }

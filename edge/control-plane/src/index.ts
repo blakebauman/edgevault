@@ -1,4 +1,29 @@
-import { entitlementUpdateFromEvent, verifyStripeWebhook } from './stripe'
+import {
+  entitlementUpdateFromEvent,
+  type StripeEntitlementUpdate,
+  verifyStripeWebhook,
+} from './stripe'
+
+/**
+ * Persist an entitlement change to the shared Neon table (via Hyperdrive) that
+ * the OSS api/auth workers read. `@edgevault/database` is imported dynamically so
+ * its `pg` (CommonJS) dependency stays out of the static module graph. On
+ * cancellation `entitlementUpdateFromEvent` already collapses the grant to the
+ * free plan, so a single upsert covers both grant and revoke.
+ */
+async function applyEntitlementUpdate(env: Env, update: StripeEntitlementUpdate): Promise<void> {
+  const { createDatabase, upsertEntitlements } = await import('@edgevault/database')
+  const conn = createDatabase(env.HYPERDRIVE.connectionString)
+  try {
+    await upsertEntitlements(conn.database, {
+      organizationId: update.organizationId,
+      plan: update.grant.plan,
+      entitlements: update.grant.entitlements,
+    })
+  } finally {
+    await conn.close()
+  }
+}
 
 /**
  * Managed Edge control plane (proprietary, SaaS-only). Handles Stripe billing
@@ -27,9 +52,7 @@ export default {
       }
       const update = entitlementUpdateFromEvent(event as { type?: string })
       if (update) {
-        // Write update.grant (plan + entitlements) for update.organizationId to the
-        // Neon entitlements table via Hyperdrive. The OSS api/auth read these flags.
-        ctx.waitUntil(Promise.resolve())
+        ctx.waitUntil(applyEntitlementUpdate(env, update))
       }
       return Response.json({ received: true })
     }
