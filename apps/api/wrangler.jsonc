@@ -21,8 +21,8 @@
   "ai": { "binding": "AI" },
   "vectorize": [{ "binding": "VECTORIZE", "index_name": "edgevault-configs" }],
   "kv_namespaces": [
-    { "binding": "CONFIGS_CACHE", "id": "configs_cache_placeholder_id" },
-    { "binding": "ENVIRONMENT_API_KEYS", "id": "env_api_keys_placeholder_id" }
+    { "binding": "CONFIGS_CACHE", "id": "702bc01738e842218dee178a1deda5e4" },
+    { "binding": "ENVIRONMENT_API_KEYS", "id": "d6fc0922ffb64a70b91cd107e745d249" }
   ],
   "durable_objects": {
     "bindings": [
@@ -44,7 +44,7 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "00000000000000000000000000000api",
+      "id": "2297a04370d24da7b267223e7d8837f5",
       "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
     }
   ],

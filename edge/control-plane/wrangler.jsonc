@@ -11,7 +11,7 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "00000000000000000000000000000cp0",
+      "id": "2297a04370d24da7b267223e7d8837f5",
       "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
     }
   ]

@@ -20,14 +20,14 @@
       // from CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (no secret
       // committed).
       "binding": "HYPERDRIVE",
-      "id": "0000000000000000000000000000auth",
+      "id": "2297a04370d24da7b267223e7d8837f5",
       "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
     }
   ],
   // Read-through cache for session validation (sub-ms edge reads; ≤60s staleness;
   // sign-out purges the key for immediate revocation). Placeholder id — replace
   // with `wrangler kv namespace create AUTH_CACHE` output at deploy.
-  "kv_namespaces": [{ "binding": "AUTH_CACHE", "id": "0000000000000000000000000000acache" }],
+  "kv_namespaces": [{ "binding": "AUTH_CACHE", "id": "2a57fc4def034507a34c19b145684389" }],
   // Rate limiting for the unauthenticated auth surface. Per-IP across all auth
   // POSTs, plus a tighter per-account cap on sign-in. period must be 10 or 60;
   // these are per-Cloudflare-location — pair with WAF rate-limiting rules for a
