@@ -91,6 +91,28 @@ describe('WorkspaceDurableObject', () => {
     expect(promoted?.content).toBe('{"on":true}')
   })
 
+  it('split promotion applies the snapshotted revision, not the latest', async () => {
+    const ws = workspace('ws-split-promote')
+    const dev = await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })
+    const prod = await ws.createEnvironment({ name: 'Prod', slug: 'prod', userId: 'u1' })
+    await ws.setConfig({ environmentId: dev.id, key: 'k', content: '{"v":1}', userId: 'u1' })
+
+    const pending = await ws.createPendingPromotion({
+      sourceEnvironmentId: dev.id,
+      targetEnvironmentId: prod.id,
+      key: 'k',
+      userId: 'u1',
+    })
+    expect(pending.status).toBe('pending')
+
+    // Source changes AFTER the snapshot — the approved promotion must ignore it.
+    await ws.setConfig({ environmentId: dev.id, key: 'k', content: '{"v":2}', userId: 'u1' })
+
+    const target = await ws.applyPromotion(pending.id, 'u2')
+    expect(target.content).toBe('{"v":1}')
+    expect((await ws.getPromotion(pending.id))?.status).toBe('completed')
+  })
+
   it('can inspect internal SQLite state directly', async () => {
     const ws = workspace('ws-internal')
     await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })

@@ -446,6 +446,74 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
     return this.promotions.list(limit, offset)
   }
 
+  // --- Promotion workflow (split create/apply for an approval gate) ---------
+
+  /** Snapshot the source config and record a pending promotion (no copy yet). */
+  createPendingPromotion(input: {
+    sourceEnvironmentId: string
+    targetEnvironmentId: string
+    key: string
+    userId: string
+  }): Promotion {
+    const source = this.getConfig(input.sourceEnvironmentId, input.key)
+    if (!source?.publishedRevisionId) {
+      throw new Error('Source config not found or has no published revision')
+    }
+    return this.promotions.create({
+      sourceEnvironmentId: input.sourceEnvironmentId,
+      targetEnvironmentId: input.targetEnvironmentId,
+      key: input.key,
+      sourceRevisionId: source.publishedRevisionId,
+      createdBy: input.userId,
+    })
+  }
+
+  /** Apply an approved promotion by copying the SNAPSHOTTED source revision. */
+  async applyPromotion(promotionId: string, userId: string): Promise<ConfigItem> {
+    const promotion = this.promotions.get(promotionId)
+    if (!promotion) throw new Error('Promotion not found')
+    const revision = this.revisions.get(promotion.sourceRevisionId)
+    if (!revision) throw new Error('Snapshotted source revision not found')
+    const source = this.getConfig(promotion.sourceEnvironmentId, promotion.key)
+
+    const target = await this.setConfig({
+      environmentId: promotion.targetEnvironmentId,
+      key: promotion.key,
+      kind: source?.kind,
+      content: revision.content,
+      contentType: source?.contentType,
+      userId,
+    })
+    this.promotions.markCompleted(promotionId, target.publishedRevisionId ?? '')
+    this.broadcast({
+      type: 'promotion.completed',
+      key: promotion.key,
+      sourceEnvironmentId: promotion.sourceEnvironmentId,
+      targetEnvironmentId: promotion.targetEnvironmentId,
+      at: Date.now(),
+    })
+    this.activity.log({
+      action: 'config.promoted',
+      resourceType: source?.kind ?? 'config',
+      resourceId: promotion.key,
+      userId,
+      changes: {
+        from: promotion.sourceEnvironmentId,
+        to: promotion.targetEnvironmentId,
+        via: 'workflow',
+      },
+    })
+    return target
+  }
+
+  failPromotion(promotionId: string): void {
+    this.promotions.markFailed(promotionId)
+  }
+
+  getPromotion(promotionId: string): Promotion | null {
+    return this.promotions.get(promotionId)
+  }
+
   // --- Activity -----------------------------------------------------------
 
   listActivity(limit = 50, offset = 0): ActivityEntry[] {

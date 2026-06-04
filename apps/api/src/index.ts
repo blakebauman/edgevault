@@ -7,6 +7,7 @@ import { organizationRoutes } from './routes/organizations'
 import { workspaceRoutes } from './routes/workspaces'
 
 export { WorkspaceDurableObject } from './durable-objects/workspace'
+export { PromotionWorkflow } from './workflows/promotion'
 
 /**
  * EdgeVault control-plane API.

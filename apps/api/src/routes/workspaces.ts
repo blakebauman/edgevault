@@ -146,6 +146,37 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const promotions = await stubFor(c, c.req.param('workspaceId')).listPromotions()
     return c.json({ promotions })
   })
+
+  // --- Durable promotion workflow (with approval gate) ---
+  .post('/:workspaceId/promotion-workflows', zValidator('json', promoteSchema), async (c) => {
+    const body = c.req.valid('json')
+    const instance = await c.env.PROMOTION_WORKFLOW.create({
+      params: {
+        workspaceId: c.req.param('workspaceId'),
+        sourceEnvironmentId: body.sourceEnvironmentId,
+        targetEnvironmentId: body.targetEnvironmentId,
+        key: body.key,
+        requestedBy: c.var.userId,
+      },
+    })
+    return c.json({ instanceId: instance.id, status: await instance.status() }, 201)
+  })
+  .get('/:workspaceId/promotion-workflows/:instanceId', async (c) => {
+    const instance = await c.env.PROMOTION_WORKFLOW.get(c.req.param('instanceId'))
+    return c.json({ instanceId: instance.id, status: await instance.status() })
+  })
+  .post(
+    '/:workspaceId/promotion-workflows/:instanceId/approve',
+    zValidator('json', z.object({ approved: z.boolean() })),
+    async (c) => {
+      const instance = await c.env.PROMOTION_WORKFLOW.get(c.req.param('instanceId'))
+      await instance.sendEvent({
+        type: 'promotion-approval',
+        payload: { approved: c.req.valid('json').approved, by: c.var.userId },
+      })
+      return c.json({ ok: true })
+    },
+  )
   .get('/:workspaceId/activity', async (c) => {
     const activity = await stubFor(c, c.req.param('workspaceId')).listActivity()
     return c.json({ activity })

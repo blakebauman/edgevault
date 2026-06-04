@@ -23,6 +23,13 @@
     "bindings": [{ "name": "WORKSPACE", "class_name": "WorkspaceDurableObject" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceDurableObject"] }],
+  "workflows": [
+    {
+      "name": "edgevault-promotion",
+      "binding": "PROMOTION_WORKFLOW",
+      "class_name": "PromotionWorkflow"
+    }
+  ],
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
