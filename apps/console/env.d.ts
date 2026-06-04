@@ -4,4 +4,10 @@
 interface Env {
   /** Shared secret authenticating this BFF to the auth + enterprise internal endpoints. */
   INTERNAL_TOKEN: string
+  /**
+   * Enterprise SSO worker (commercial ee/enterprise). Bound only in EE/Managed
+   * Edge deployments; the SSO/SAML routes guard on its presence, so it is
+   * optional in the OSS core configuration.
+   */
+  ENTERPRISE_SERVICE?: Fetcher
 }

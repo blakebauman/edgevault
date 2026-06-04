@@ -15,7 +15,22 @@
       }
     ]
   },
-  "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit" }]
+  "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit" }],
   // The cold warehouse: this worker writes NDJSON to R2. A Pipeline +
   // R2 Data Catalog (Iceberg) + R2 SQL provide the queryable layer on top.
+  "env": {
+    "staging": {
+      "queues": {
+        "consumers": [
+          {
+            "queue": "edgevault-audit-staging",
+            "max_batch_size": 100,
+            "max_batch_timeout": 30,
+            "max_retries": 3
+          }
+        ]
+      },
+      "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit-staging" }]
+    }
+  }
 }

@@ -54,7 +54,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   let connection: ConnectionView = { configured: false }
   let entitled = true
-  if (isAdmin && ssoAvailable) {
+  if (isAdmin && env.ENTERPRISE_SERVICE) {
     const res = await env.ENTERPRISE_SERVICE.fetch(
       `https://enterprise/orgs/${params.orgId}/saml/connection`,
       { headers: { 'x-internal-token': env.INTERNAL_TOKEN } },

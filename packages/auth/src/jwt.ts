@@ -89,9 +89,20 @@ export async function verifyAccessToken(
   return payload as AccessTokenClaims
 }
 
-/** Build a JWKS document for the public verification key(s). */
+/**
+ * Build a JWKS document for the public verification key(s). Strips any private
+ * scalar (`d`) and operation constraints (`key_ops`/`ext`) — a public key
+ * exported from WebCrypto can carry `key_ops:["sign"]`, which makes verifiers
+ * (correctly) refuse to use it for verification.
+ */
 export function buildJwks(publicJwks: jose.JWK[]): { keys: jose.JWK[] } {
-  return { keys: publicJwks.map((jwk) => ({ ...jwk, use: 'sig', alg: ALG })) }
+  return {
+    keys: publicJwks.map(({ d: _d, key_ops: _ops, ext: _ext, ...pub }) => ({
+      ...pub,
+      use: 'sig',
+      alg: ALG,
+    })),
+  }
 }
 
 export type JwkSet = ReturnType<typeof jose.createLocalJWKSet>

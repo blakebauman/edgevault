@@ -24,8 +24,10 @@ async function thumbprint(jwk) {
 async function main() {
   // EdDSA (Ed25519) signing key for the auth worker's JWT/JWKS.
   const pair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify'])
-  const privateJwk = await crypto.subtle.exportKey('jwk', pair.privateKey)
-  const kid = await thumbprint(privateJwk)
+  const exported = await crypto.subtle.exportKey('jwk', pair.privateKey)
+  const kid = await thumbprint(exported)
+  // Drop WebCrypto's key_ops/ext so the derived public JWK isn't pinned to "sign".
+  const { key_ops: _ops, ext: _ext, ...privateJwk } = exported
   const jwtPrivateJwk = JSON.stringify({ ...privateJwk, alg: 'EdDSA', kid })
 
   const masterKek = b64(crypto.getRandomValues(new Uint8Array(32)))

@@ -10,10 +10,11 @@
   },
   // Place the control plane near the Neon primary region (multiple DB round-trips).
   "placement": { "mode": "smart" },
+  "routes": [{ "pattern": "api.edgevault.io", "custom_domain": true }],
   "vars": {
-    "ENVIRONMENT": "development",
+    "ENVIRONMENT": "production",
     "SERVICE_NAME": "edgevault-api",
-    "AUTH_ISSUER": "http://localhost:8788",
+    "AUTH_ISSUER": "https://auth.edgevault.io",
     "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
     "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
     "AI_GATEWAY_ID": ""
@@ -54,7 +55,51 @@
   },
   // Read access to the cold audit warehouse (same bucket apps/audit writes) for
   // the audit-history query endpoint.
-  "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit" }]
-  // Remaining bindings (SECRETS_STORE, Analytics Engine, DELIVERY_SERVICE) are
-  // added in later phases.
+  "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit" }],
+  // Staging environment (deploys as edgevault-api-staging). Bindings are
+  // non-inheritable, so every one is redeclared here with staging resources.
+  "env": {
+    "staging": {
+      "routes": [{ "pattern": "api-staging.edgevault.io", "custom_domain": true }],
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "SERVICE_NAME": "edgevault-api-staging",
+        "AUTH_ISSUER": "https://auth-staging.edgevault.io",
+        "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
+        "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
+        "AI_GATEWAY_ID": ""
+      },
+      "ai": { "binding": "AI" },
+      "vectorize": [{ "binding": "VECTORIZE", "index_name": "edgevault-configs-staging" }],
+      "kv_namespaces": [
+        { "binding": "CONFIGS_CACHE", "id": "ba14f0f4936e40caa063a43ec44c639d" },
+        { "binding": "ENVIRONMENT_API_KEYS", "id": "574a639279fd4d75bca56d4a48167a3e" }
+      ],
+      "durable_objects": {
+        "bindings": [
+          { "name": "WORKSPACE", "class_name": "WorkspaceDurableObject" },
+          { "name": "AGENT", "class_name": "EdgeVaultAgent" }
+        ]
+      },
+      "workflows": [
+        {
+          "name": "edgevault-promotion-staging",
+          "binding": "PROMOTION_WORKFLOW",
+          "class_name": "PromotionWorkflow"
+        }
+      ],
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "774bd4e3e43f4ae0ad7d35a80045e6d3",
+          "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+        }
+      ],
+      "services": [{ "binding": "AUTH_SERVICE", "service": "edgevault-auth-staging" }],
+      "queues": {
+        "producers": [{ "queue": "edgevault-audit-staging", "binding": "AUDIT_QUEUE" }]
+      },
+      "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit-staging" }]
+    }
+  }
 }

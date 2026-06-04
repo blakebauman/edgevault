@@ -8,10 +8,11 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
+  "routes": [{ "pattern": "auth.edgevault.io", "custom_domain": true }],
   "vars": {
-    "ENVIRONMENT": "development",
+    "ENVIRONMENT": "production",
     "SERVICE_NAME": "edgevault-auth",
-    "AUTH_ISSUER": "http://localhost:8788"
+    "AUTH_ISSUER": "https://auth.edgevault.io"
   },
   "hyperdrive": [
     {
@@ -39,7 +40,38 @@
       "namespace_id": "2002",
       "simple": { "limit": 6, "period": 60 }
     }
-  ]
+  ],
   // JWT_PRIVATE_JWK is provided as a secret (.dev.vars locally, Secrets Store in
-  // production). AUTH_CACHE (KV) session caching is added in a later refinement.
+  // production). Staging (edgevault-auth-staging) redeclares all bindings with
+  // isolated resources + its own rate-limit namespace ids.
+  "env": {
+    "staging": {
+      "routes": [{ "pattern": "auth-staging.edgevault.io", "custom_domain": true }],
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "SERVICE_NAME": "edgevault-auth-staging",
+        "AUTH_ISSUER": "https://auth-staging.edgevault.io"
+      },
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "774bd4e3e43f4ae0ad7d35a80045e6d3",
+          "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+        }
+      ],
+      "kv_namespaces": [{ "binding": "AUTH_CACHE", "id": "928e673235794226b54bcf31f6b9d565" }],
+      "ratelimits": [
+        {
+          "name": "AUTH_IP_LIMITER",
+          "namespace_id": "3001",
+          "simple": { "limit": 30, "period": 60 }
+        },
+        {
+          "name": "AUTH_ACCOUNT_LIMITER",
+          "namespace_id": "3002",
+          "simple": { "limit": 6, "period": 60 }
+        }
+      ]
+    }
+  }
 }
