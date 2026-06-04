@@ -4,7 +4,9 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [
     cloudflareTest({
-      wrangler: { configPath: './wrangler.jsonc' },
+      // Test config omits the remote-only ai/vectorize bindings so the pool runs
+      // fully local (no remote proxy / login) — see wrangler.test.jsonc.
+      wrangler: { configPath: './wrangler.test.jsonc' },
       // The real auth worker isn't present in the test runtime; stub the service
       // binding so miniflare can start. The DO/health tests don't call it.
       miniflare: {
