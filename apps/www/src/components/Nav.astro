@@ -1,0 +1,77 @@
+---
+interface Props {
+  active?: 'product' | 'security' | 'pricing' | 'docs'
+}
+const { active } = Astro.props
+
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+const CONSOLE = 'https://app.edgevault.io'
+// GitHub star chip intentionally absent: the repo is private — no honest count to show.
+---
+
+<nav data-section="nav" data-intent="orient + persistent conversion" data-layout="full-bleed">
+  <div class="wrap">
+    <a href="/" class="home"><img src="/assets/logo.svg" alt="EdgeVault" /></a>
+    <div class="links">
+      <a href="/product" class:list={[{ active: active === 'product' }]}>Product</a>
+      <a href="/security" class:list={[{ active: active === 'security' }]}>Security</a>
+      <a href="/pricing" class:list={[{ active: active === 'pricing' }]}>Pricing</a>
+      <a href="/docs" class:list={[{ active: active === 'docs' }]}>Docs</a>
+      <a href={GITHUB}>GitHub</a>
+    </div>
+    <a class="signin" href={CONSOLE}>Sign in</a>
+    <a class="btn-fill" href={CONSOLE}>Start free</a>
+  </div>
+</nav>
+
+<style>
+  nav {
+    height: var(--navbar-height);
+    border-bottom: 1px solid var(--color-rule);
+    display: flex;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    background: rgba(243, 244, 246, 0.92);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+  }
+  nav .wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 100%;
+  }
+  nav img {
+    height: 26px;
+    display: block;
+  }
+  nav .links {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-left: var(--spacing-lg);
+    flex: 1;
+  }
+  nav .links a {
+    font-family: var(--heading-font-family);
+    font-weight: 500;
+    font-size: 14px;
+    text-decoration: none;
+    color: var(--color-body-ink);
+  }
+  nav .links a:hover,
+  nav .links a.active {
+    color: var(--color-relay);
+  }
+  nav .signin {
+    font-family: var(--heading-font-family);
+    font-size: 14px;
+    color: var(--color-body-ink);
+    text-decoration: none;
+    margin-right: var(--spacing-sm);
+  }
+  nav :global(.btn-fill) {
+    padding: 9px 18px;
+    font-size: 14px;
+  }
+</style>

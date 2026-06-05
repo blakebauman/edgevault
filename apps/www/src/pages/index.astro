@@ -1,0 +1,373 @@
+---
+import Base from '../layouts/Base.astro'
+
+const CONSOLE = 'https://app.edgevault.io'
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+---
+
+<Base
+  title="EdgeVault — Config, secrets, and flags that live where your code runs"
+  description="EdgeVault serves configuration, secrets, and feature flags from 300+ cities in under 10 ms — one strongly-consistent source of truth per workspace, envelope-encrypted secrets, MIT at the core."
+  path="/"
+>
+  <section class="hero" data-section="hero" data-intent="prove competence with a real artifact, offer both doors" data-layout="split-media">
+    <div class="wrap grid">
+      <div>
+        <span class="eyebrow">Edge-native config · secrets · flags</span>
+        <h1>Config, secrets, and flags that live where your code runs.</h1>
+        <p class="sub body-ink">
+          EdgeVault serves your configuration from 300+ cities in under 10&nbsp;ms, keeps one
+          strongly-consistent source of truth per workspace, and never lets your secrets travel in
+          plaintext. MIT at the core.
+        </p>
+        <div class="cta-row">
+          <a class="btn-fill" href={CONSOLE}>Start free</a>
+          <a class="btn-line" href={GITHUB}>Self-host it</a>
+        </div>
+      </div>
+      <div class="gridwell">
+        <div class="scoreboard-bar"><span>production · checkout-v2</span><span class="live">● live</span></div>
+        <div class="artifact dogear">
+          <pre>$ edgevault flags set checkout-v2 \
+    --env production --rollout 25
+<span class="ok">✓ revision 89</span> by blake@ · <span class="hl">"canary: EU first"</span>
+<span class="ok">✓ propagated</span> <span class="num">282</span> PoPs · <span class="num">41</span> ms · <span class="num">0</span> conflicts
+
+$ curl -s cdn.edgevault.io/v1/flags/checkout-v2 \
+    -H "X-EV-Key: $EDGE_KEY" | jq .value
+<span class="hl">&lbrace; "enabled": true, "rollout": 0.25 &rbrace;</span> <span class="c"># 6 ms, L1</span></pre>
+        </div>
+        <div class="cap">Real output. Try it yourself — <a class="btn-text" href="/docs">read the docs</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="box-score" data-section="box-score" data-intent="anchor every claim to checkable numbers" data-layout="contained" data-items="5" data-fragment="box-score" data-fragment-role="source">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">The box score</span>
+        <h2>Numbers first.</h2>
+      </div>
+      <div class="cropframe">
+        <span class="tick tl"></span><span class="tick tr"></span><span class="tick bl"></span><span class="tick br"></span>
+        <table class="score">
+          <tr><th>stat</th><th>value</th><th>where</th></tr>
+          <tr><td>p99 edge read</td><td class="v">&lt;10 ms</td><td class="r">in-memory L1 over KV</td></tr>
+          <tr><td>cities serving reads</td><td class="v">300+</td><td class="r">Cloudflare network</td></tr>
+          <tr><td>consistency at the core</td><td class="v">strong</td><td class="r">one Durable Object per workspace</td></tr>
+          <tr><td>plaintext lifetime</td><td class="v">microseconds</td><td class="r">api worker boundary only</td></tr>
+          <tr><td>telemetry phoning home</td><td class="v">0</td><td class="r">policy, enforced in CI</td></tr>
+        </table>
+      </div>
+      <p class="footnote">Box scores don't editorialize. Neither do we.</p>
+    </div>
+  </section>
+
+  <section id="how-it-works" data-section="how-it-works" data-intent="explain the consistency model — the architecture is the proof" data-layout="split-media" data-items="4">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">One source of truth</span>
+        <h2>Strong at the core. Fast at the edge.</h2>
+        <p class="body-ink lede">
+          Every write lands in a Durable Object dedicated to your workspace — one ordered history
+          of revisions, promotions, and activity. The resolved value is written through to KV at
+          the edge, where reads come off an in-memory L1 in single-digit milliseconds. Strong
+          consistency where you decide; eventual consistency where you read.
+        </p>
+        <ol class="steps">
+          <li><b>Write</b><span>workspace DO appends a revision, logs the actor, broadcasts the change</span></li>
+          <li><b>Resolve</b><span>the API recomputes the effective value per environment</span></li>
+          <li><b>Propagate</b><span>KV write-through fans out to the edge</span></li>
+          <li><b>Read</b><span>your SDK hits the nearest city, not your origin</span></li>
+        </ol>
+        <p class="cta-after"><a class="btn-text" href="/product">Read the architecture →</a></p>
+      </div>
+      <div class="diagram" role="img" aria-label="Diagram of a write flowing through the workspace Durable Object and fanning out to edge KV">
+        <svg viewBox="0 0 460 300" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Martian Mono, monospace" font-size="10" aria-hidden="true">
+          <g fill="none" stroke="rgba(15,23,42,.35)" stroke-width="1">
+            <rect x="20" y="20" width="120" height="44"></rect>
+            <rect x="20" y="128" width="120" height="44"></rect>
+            <rect x="200" y="128" width="120" height="44"></rect>
+            <rect x="200" y="236" width="120" height="44"></rect>
+            <rect x="360" y="20" width="80" height="44"></rect>
+            <rect x="360" y="92" width="80" height="44"></rect>
+            <rect x="360" y="164" width="80" height="44"></rect>
+            <path d="M80 64 V128"></path>
+            <path d="M140 150 H200"></path>
+            <path d="M260 172 V236"></path>
+            <path d="M320 258 H400 M400 258 V208"></path>
+            <path d="M400 164 V64"></path>
+          </g>
+          <g fill="#7B2CBF">
+            <text x="36" y="46">client / MCP</text>
+            <text x="46" y="154">api worker</text>
+            <text x="212" y="148">workspace DO</text>
+            <text x="222" y="166" font-size="8" fill="rgba(15,23,42,.35)">revision · log · broadcast</text>
+            <text x="232" y="262">KV edge</text>
+            <text x="376" y="46">SYD</text>
+            <text x="376" y="118">LHR</text>
+            <text x="376" y="190">GRU</text>
+          </g>
+          <g fill="#9D4EDD" font-size="8">
+            <text x="88" y="100">write</text>
+            <text x="152" y="142">RPC</text>
+            <text x="268" y="210">write-through</text>
+            <text x="406" y="250">reads</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section id="secrets" data-section="secrets" data-intent="security claim as mechanism — zero wit zone" data-layout="split-media" data-fragment="security-mechanism" data-fragment-role="reuse" data-fragment-source="/security">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Envelope encryption</span>
+        <h2>The delivery plane cannot decrypt. By construction.</h2>
+        <p class="body-ink lede">
+          Each secret gets its own AES-GCM-256 data key, wrapped by a workspace key derived via
+          HKDF from a master key that lives in Secrets Store. Decryption happens inside the API
+          boundary; plaintext exists for microseconds, inside one worker, then it's gone. The edge
+          serves ciphertext-resolved config only — a popped CDN node has nothing to give up.
+        </p>
+        <p class="cta-after"><a class="btn-text" href="/security#blast-radius">Read the threat model →</a></p>
+      </div>
+      <div class="mech">
+        <div class="hd">mechanism · not marketing</div>
+        <table>
+          <tr><td>per-secret DEK</td><td>AES-GCM-256</td></tr>
+          <tr><td>workspace KEK</td><td>HKDF from MASTER_KEK</td></tr>
+          <tr><td>plaintext scope</td><td>api worker, transient</td></tr>
+          <tr><td>delivery plane</td><td>cannot decrypt</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="flags" data-section="flags" data-intent="show the daily-driver workflow with real code" data-layout="split-media">
+    <div class="wrap split rev">
+      <div class="artifact dogear" role="img" aria-label="React code subscribing to the checkout-v2 feature flag">
+        <pre><span class="c">// real code — @edgevault/sdk (signatures verified)</span>
+import &lbrace; EdgeVault &rbrace; from '@edgevault/sdk'
+import &lbrace; useFlag &rbrace; from '@edgevault/sdk/react'
+
+const edgevault = new EdgeVault(&lbrace; apiKey: EDGE_KEY &rbrace;)
+
+export function Checkout() &lbrace;
+  const &lbrace; enabled &rbrace; = useFlag(edgevault, <span class="hl">'checkout-v2'</span>)
+
+  if (enabled) return &lt;CheckoutV2 /&gt;  <span class="c">// 25% of traffic, EU first</span>
+  return &lt;CheckoutClassic /&gt;
+&rbrace;</pre>
+      </div>
+      <div>
+        <span class="eyebrow">Feature flags</span>
+        <h2>Flip a flag in London. It's live in Sydney before you tab back.</h2>
+        <p class="body-ink lede narrow">
+          Percentage rollouts, environment scoping, and instant propagation over the same edge path
+          as your config. Typed SDK with React bindings; live updates over WebSocket when you want
+          them, plain reads when you don't.
+        </p>
+        <p class="cta-after"><a class="btn-text" href="/docs#quickstart-sdk">See the SDK →</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="ai-ops" data-section="ai-ops" data-intent="differentiate: AI as operator tooling, not gimmick" data-layout="contained" data-items="3">
+    <div class="wrap">
+      <div class="aihead">
+        <div>
+          <span class="eyebrow">AI-native operations</span>
+          <h2>Ask your config what changed, and why.</h2>
+          <p class="body-ink intro">
+            Semantic search across every key. Risk checks before a promotion ships. A changelog
+            that explains itself — every revision attributed and summarized. And the whole control
+            plane speaks MCP, so your agents operate EdgeVault with the same authz as your humans.
+          </p>
+        </div>
+        <div class="vignette" role="img" aria-label="Line-art sketch of the EdgeVault console showing an attributed changelog feed">
+          <svg viewBox="0 0 420 210" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Martian Mono, monospace" aria-hidden="true">
+            <g fill="none" stroke="rgba(15,23,42,.35)" stroke-width="1">
+              <rect x="8" y="8" width="404" height="194"></rect>
+              <path d="M8 34 H412"></path>
+              <circle cx="22" cy="21" r="3"></circle><circle cx="34" cy="21" r="3"></circle><circle cx="46" cy="21" r="3"></circle>
+              <path d="M8 76 H412 M8 118 H412 M8 160 H412"></path>
+              <circle cx="28" cy="55" r="6"></circle><circle cx="28" cy="97" r="6"></circle><circle cx="28" cy="139" r="6"></circle><circle cx="28" cy="181" r="6"></circle>
+            </g>
+            <g fill="#7B2CBF" font-size="9">
+              <text x="60" y="24">what changed &amp; why · production</text>
+              <text x="44" y="58">rev 89 · flags/checkout-v2 → 25% · blake@</text>
+              <text x="44" y="100">rev 88 · config/timeout-ms 3000→5000 · sam@</text>
+              <text x="44" y="142">rev 87 · secrets/STRIPE_KEY rotated · ci@</text>
+              <text x="44" y="184">rev 86 · promotion staging→prod · risk: low</text>
+            </g>
+            <g fill="#9D4EDD" font-size="8">
+              <text x="312" y="58">"canary: EU first"</text>
+              <text x="312" y="100">"incident follow-up"</text>
+              <text x="312" y="142">"90-day policy"</text>
+              <text x="312" y="184">"approved · 2 of 2"</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div class="cards3">
+        <div class="card"><h3>Semantic search</h3><p>Find "the timeout we raised during the incident" without remembering the key name.</p></div>
+        <div class="card"><h3>Risk checks</h3><p>Promotions get reviewed before they ship — diffs scored, blast radius named.</p></div>
+        <div class="card"><h3>MCP server</h3><p>Your agents read, write, and promote with the same authz as your humans.</p></div>
+      </div>
+      <p class="cta-after"><a class="btn-text" href="/product#ai-ops">Meet the MCP server →</a></p>
+    </div>
+  </section>
+
+  <section id="open-core" data-section="open-core" data-intent="build trust via the real escape hatch; tease pricing" data-layout="contained" data-items="4" data-fragment="plan-row" data-fragment-role="reuse" data-fragment-source="/pricing">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Open core, honestly</span>
+        <h2>The escape hatch is real.</h2>
+        <p class="body-ink intro">
+          The core is MIT-licensed and self-hostable on your own Cloudflare account — same workers,
+          same Durable Objects, no crippled community edition. No telemetry phones home. Paid tiers
+          add the managed control plane, SSO/SAML and SCIM — and that's what you pay for, plainly.
+        </p>
+      </div>
+      <table class="score">
+        <tr><th>tier</th><th>what it is</th></tr>
+        <tr><td>Free</td><td class="r">managed edge, generous read allowance</td></tr>
+        <tr><td>Pro</td><td class="r">usage-based: edge reads + monthly active users</td></tr>
+        <tr><td>Team</td><td class="r">adds extended audit retention</td></tr>
+        <tr><td>Enterprise</td><td class="r">SSO/SAML, SCIM, advanced RBAC (sales-led)</td></tr>
+      </table>
+      <p class="cta-after"><a class="btn-text" href="/pricing">See the full scorecard →</a></p>
+    </div>
+  </section>
+
+  <section class="closing" data-section="closing-cta" data-intent="drive action — both doors, one last time" data-layout="contained" data-fragment="dual-cta" data-fragment-role="source">
+    <div class="wrap">
+      <h2>Verify everything. Then ship.</h2>
+      <p class="body-ink">Start on the managed edge in two minutes, or clone the repo and own the whole stack.</p>
+      <div class="cta-row">
+        <a class="btn-fill" href={CONSOLE}>Start free</a>
+        <a class="btn-line" href={GITHUB}>Self-host it</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  /* page-specific (homepage) — values from stardust/prototypes/homepage-a.html */
+  .hero {
+    padding: calc(var(--section-padding) + 16px) 0 var(--section-padding);
+  }
+  .hero .grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: var(--spacing-xl);
+    align-items: center;
+  }
+  .hero h1 {
+    font-size: var(--heading-xxl);
+    font-weight: 500;
+  }
+  .hero .sub {
+    margin: var(--spacing-md) 0 var(--spacing-lg);
+    max-width: 54ch;
+  }
+  .hero .cap {
+    font-size: 11px;
+    color: var(--color-relay);
+    font-family: var(--mono-font-family);
+    margin-top: var(--spacing-sm);
+    letter-spacing: 0.06em;
+  }
+  .gridwell {
+    padding: 24px;
+    background-image: linear-gradient(rgba(15, 23, 42, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 23, 42, 0.07) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .scoreboard-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--mono-font-family);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #c77dff;
+    border: 1px solid var(--color-rule);
+    border-bottom: none;
+    padding: 8px 14px;
+    background: var(--color-vault);
+  }
+  .scoreboard-bar .live {
+    color: var(--color-plaintext);
+  }
+  .artifact pre {
+    margin: 0;
+    font: inherit;
+    white-space: pre-wrap;
+  }
+  .lede {
+    margin-top: var(--spacing-md);
+    max-width: 56ch;
+  }
+  .lede.narrow {
+    max-width: 54ch;
+  }
+  .intro {
+    margin-top: var(--spacing-sm);
+    max-width: 64ch;
+  }
+  .cta-after {
+    margin-top: var(--spacing-md);
+  }
+  ol.steps {
+    list-style: none;
+    counter-reset: s;
+    margin-top: var(--spacing-md);
+    padding: 0;
+    font-family: var(--mono-font-family);
+    font-size: var(--mono-sm);
+  }
+  ol.steps li {
+    counter-increment: s;
+    display: flex;
+    gap: 16px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--color-rule);
+    align-items: baseline;
+  }
+  ol.steps li::before {
+    content: '0' counter(s);
+    color: var(--color-relay);
+    font-size: 11px;
+  }
+  ol.steps li b {
+    font-family: var(--heading-font-family);
+    font-weight: 600;
+    color: var(--color-ink);
+    font-size: 14px;
+    min-width: 104px;
+  }
+  ol.steps li span {
+    color: var(--color-body-ink);
+  }
+  .aihead {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: var(--spacing-xl);
+    align-items: center;
+    margin-bottom: var(--spacing-lg);
+  }
+  .vignette {
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    padding: var(--spacing-sm);
+    background: #ffffff;
+  }
+  .cards3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-sm);
+  }
+</style>

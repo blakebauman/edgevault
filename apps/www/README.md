@@ -1,0 +1,51 @@
+# @edgevault/www
+
+The marketing site (edgevault.io) — a fully static Astro build served by an
+assets-only Worker. Ships **0 KB of client JS** on purpose; revisit only if a
+page ever needs an interactive island.
+
+## Relationship to `stardust/`
+
+The design pipeline under `stardust/` is the **decision-of-record**:
+
+- `stardust/brand-profile.json` — palette, type, motifs, voice (tokens mirrored
+  in `src/styles/global.css`)
+- `stardust/briefings/*.md` — **owns all page copy**; edit words there first,
+  then port the change here
+- `stardust/prototypes/*.html` — the approved visual designs these pages
+  implement
+
+This app is the implementation canon. The two evolve together but are synced by
+hand (the old `sync-from-stardust.mjs` generator retired with the Astro
+migration).
+
+## Structure
+
+- `src/layouts/Base.astro` — head (meta/OG/canonical/fonts), Nav, Footer.
+  Deliberately **no viewport meta**: the design is desktop-only; a device-width
+  viewport renders worse on phones than the default scaled view.
+- `src/components/Nav.astro` / `Footer.astro` — shared chrome. The GitHub star
+  chip is intentionally absent (repo is private); Docs links are intentionally
+  dead until a docs site exists.
+- `src/styles/global.css` — design tokens + shared components (box-score,
+  crop-marks, artifact panels, dog-ears). Page-specific rhythm overrides live
+  in each page's `<style is:global>`.
+- `src/pages/` — index, pricing, security, 404.
+
+## Commands
+
+```sh
+pnpm dev      # astro dev
+pnpm build    # astro build + wrangler deploy --dry-run
+pnpm preview  # astro build + wrangler dev (serves dist/ like production)
+pnpm deploy   # astro build + wrangler deploy        → edgevault.io
+              # wrangler deploy --env staging        → www-staging.edgevault.io
+```
+
+## Content gotchas
+
+- Literal `{`/`}` in code artifacts must be written as `&lbrace;`/`&rbrace;`
+  (Astro parses braces as expressions).
+- Pricing numbers are launch placeholders (Stripe unactivated); tier structure
+  and entitlements are reconciled against `edge/control-plane` — keep it that
+  way.

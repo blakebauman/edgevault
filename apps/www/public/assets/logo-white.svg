@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" width="560" height="120" role="img" aria-label="EdgeVault">
+  <!-- stardust:provenance — white-on-dark variant of the synthesized placeholder mark.
+       2026-06-05 v3: monochrome white wordmark + mark; keyway slot is the single accent
+       (Plaintext Lilac on dark for contrast). For the Ledger-ink footer and Vault panels. -->
+  <g>
+    <path d="M20 20 H74 L100 46 V100 H20 Z" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linejoin="miter"/>
+    <path d="M74 20 V46 H100" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linejoin="miter"/>
+    <rect x="48" y="54" width="24" height="6" fill="#E0AAFF"/>
+  </g>
+  <text x="132" y="79" font-family="'Space Grotesk','Helvetica Neue',Arial,sans-serif" font-size="56" font-weight="600" letter-spacing="-1.5" fill="#FFFFFF">EdgeVault</text>
+</svg>

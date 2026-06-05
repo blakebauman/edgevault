@@ -1,0 +1,101 @@
+---
+import Base from './Base.astro'
+
+interface Props {
+  title: string
+  description: string
+  path: string
+  eyebrow: string
+  heading: string
+  /** renders the visible "placeholder copy" notice */
+  stub?: boolean
+}
+
+const { title, description, path, eyebrow, heading, stub } = Astro.props
+---
+
+<Base title={title} description={description} path={path}>
+  <section class="prose-page" data-section="prose" data-intent="utility page" data-layout="contained">
+    <div class="wrap narrow">
+      <span class="eyebrow">{eyebrow}</span>
+      <h1>{heading}</h1>
+      {
+        stub && (
+          <p class="stub-note">
+            Placeholder — this page's final copy hasn't been written yet. What's below is accurate
+            but minimal.
+          </p>
+        )
+      }
+      <div class="prose">
+        <slot />
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  .prose-page {
+    padding: 72px 0 var(--spacing-2xl);
+    border-bottom: none;
+    min-height: 55vh;
+  }
+  .wrap.narrow {
+    max-width: 760px;
+  }
+  .prose-page h1 {
+    font-size: 44px;
+    font-weight: 500;
+  }
+  .stub-note {
+    font-family: var(--mono-font-family);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--color-relay);
+    border: 1px dashed var(--color-rollout);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-top: var(--spacing-md);
+  }
+  .prose {
+    margin-top: var(--spacing-lg);
+  }
+  .prose p {
+    color: var(--color-body-ink);
+    margin-bottom: var(--spacing-sm);
+    max-width: 64ch;
+  }
+  .prose h2 {
+    font-size: 22px;
+    margin: var(--spacing-lg) 0 var(--spacing-xs);
+  }
+  .prose ul {
+    color: var(--color-body-ink);
+    padding-left: 20px;
+    margin-bottom: var(--spacing-sm);
+  }
+  .prose li {
+    margin-bottom: 6px;
+  }
+  .prose pre {
+    background: var(--color-vault);
+    color: #f3f4f6;
+    border-radius: var(--radius);
+    padding: var(--spacing-md);
+    font-family: var(--mono-font-family);
+    font-size: var(--mono-sm);
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+  .prose .mono-block {
+    font-family: var(--mono-font-family);
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--color-body-ink);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: #ffffff;
+    padding: var(--spacing-md);
+  }
+</style>

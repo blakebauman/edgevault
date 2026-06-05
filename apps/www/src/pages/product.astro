@@ -1,0 +1,221 @@
+---
+import Base from '../layouts/Base.astro'
+
+const CONSOLE = 'https://app.edgevault.io'
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+---
+
+<Base
+  title="EdgeVault Product — The whole system, on one page"
+  description="EdgeVault's full system: versioned config in per-workspace Durable Objects, envelope-encrypted secrets, typed feature flags, a <10ms edge read plane, realtime events, and AI operator tooling."
+  path="/product"
+  active="product"
+>
+  <section class="hero" data-section="hero" data-intent="inventory the system for the evaluating engineer" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Product</span>
+      <h1>The whole system, on one page.</h1>
+      <p class="sub body-ink">
+        Five workers, two Durable Object classes, one source of truth per workspace. Every section
+        below names the mechanism that implements it.
+      </p>
+    </div>
+  </section>
+
+  <section id="config" data-section="config" data-intent="system of record: revisions, environments, promotions" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Configuration</span>
+      <h2>Versioned config with a real history.</h2>
+      <p class="body-ink lede wide">
+        Every workspace gets its own SQLite Durable Object — the system of record. Writes append
+        revisions with actor and reason; environments scope values; promotions move them between
+        environments through a durable Workflow with an approval gate. Nothing is ever just
+        overwritten.
+      </p>
+      <p class="cite">WorkspaceDurableObject · apps/api · Workflows</p>
+    </div>
+  </section>
+
+  <section id="secrets" data-section="secrets" data-intent="envelope encryption summary" data-layout="split-media" data-fragment="security-mechanism" data-fragment-role="reuse" data-fragment-source="/security">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Secrets</span>
+        <h2>Envelope encryption, named primitives.</h2>
+        <p class="body-ink lede">
+          Per-secret AES-GCM-256 DEKs wrapped by an HKDF-derived workspace KEK. Plaintext exists
+          transiently inside the API boundary; the delivery plane cannot decrypt.
+        </p>
+        <p class="cta-after"><a class="btn-text" href="/security#blast-radius">The full threat model →</a></p>
+      </div>
+      <div class="mech">
+        <div class="hd">mechanism · verbatim from the security page</div>
+        <table>
+          <tr><td>per-secret DEK</td><td>AES-GCM-256</td></tr>
+          <tr><td>workspace KEK</td><td>HKDF from MASTER_KEK</td></tr>
+          <tr><td>plaintext scope</td><td>api worker, transient</td></tr>
+          <tr><td>delivery plane</td><td>cannot decrypt</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="flags" data-section="flags" data-intent="typed flags with honest fallbacks, real SDK code" data-layout="split-media">
+    <div class="wrap split rev">
+      <div class="artifact dogear" role="img" aria-label="React code creating an EdgeVault client and subscribing to the checkout-v2 feature flag">
+        <pre><span class="c">// real code — @edgevault/sdk (signatures verified)</span>
+import &lbrace; EdgeVault &rbrace; from '@edgevault/sdk'
+import &lbrace; useFlag &rbrace; from '@edgevault/sdk/react'
+
+const edgevault = new EdgeVault(&lbrace;
+  apiKey: import.meta.env.VITE_EDGE_KEY,
+&rbrace;)
+
+export function Checkout() &lbrace;
+  const &lbrace; enabled &rbrace; = useFlag(edgevault, <span class="hl">'checkout-v2'</span>)
+  return enabled ? &lt;CheckoutV2 /&gt; : &lt;CheckoutClassic /&gt;
+&rbrace;</pre>
+      </div>
+      <div>
+        <span class="eyebrow">Feature flags</span>
+        <h2>Typed flags, honest fallbacks.</h2>
+        <p class="body-ink lede">
+          Percentage rollouts and environment scoping over the same edge path as config. The client
+          never throws on a missing flag — <span class="mono sm">flag(key, fallback)</span> returns
+          your fallback, because a flags outage should degrade, not crash.
+        </p>
+        <p class="cite">@edgevault/sdk · @edgevault/sdk/react</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="delivery" data-section="delivery" data-intent="the read plane as a safety property" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Edge delivery</span>
+      <h2>A read plane too simple to be dangerous.</h2>
+      <p class="body-ink lede wide">
+        Pre-resolved values served from KV behind an in-memory L1 in 300+ cities.
+        Environment-scoped API keys. No business logic, no key material, no decryption path — under
+        10 ms because there is nothing left to be slow.
+      </p>
+      <p class="cite">apps/delivery · cdn.edgevault.io</p>
+    </div>
+  </section>
+
+  <section id="realtime" data-section="realtime" data-intent="live events without polling" data-layout="split-media">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Realtime</span>
+        <h2>Know when anything changes. Without polling.</h2>
+        <p class="body-ink lede">
+          The workspace DO broadcasts every change over hibernatable WebSockets. One hook
+          subscribes a component to config, flag, and secret events; the console's live dashboard
+          runs on the same stream.
+        </p>
+        <p class="cite">@edgevault/realtime · WebSocket Hibernation</p>
+      </div>
+      <div class="artifact dogear" role="img" aria-label="React code subscribing to live workspace events">
+        <pre><span class="c">// real code — @edgevault/realtime (signatures verified)</span>
+import &lbrace; useWorkspaceEvents &rbrace; from '@edgevault/realtime/react'
+
+const status = useWorkspaceEvents(wsUrl, (event) =&gt; &lbrace;
+  <span class="c">// 'config.changed' | 'config.deleted' | 'promotion.completed' | …</span>
+  refresh(event)
+&rbrace;)</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="ai-ops" data-section="ai-ops" data-intent="AI as operator tooling" data-layout="grid" data-items="4">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">AI-native operations</span>
+        <h2>Operator tooling, not a chat gimmick.</h2>
+      </div>
+      <div class="cards4">
+        <div class="card"><h3>Semantic search</h3><p>Find config by meaning, not key name. Vectorize under the hood.</p></div>
+        <div class="card"><h3>Risk scoring</h3><p>Promotions get scored before they ship — diffs weighed, blast radius named.</p></div>
+        <div class="card"><h3>The agent</h3><p>Grounded "what changed &amp; why" — answers cite revisions, not vibes.</p></div>
+        <div class="card"><h3>MCP server</h3><p>Streamable HTTP. Your agents get the same authz as your humans.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="open-core" data-section="open-core" data-intent="boundary honesty" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Open core</span>
+      <h2>MIT where it matters.</h2>
+      <p class="body-ink lede wide">
+        The five core workers, the SDK, the crypto — MIT. Commercial: SSO/SCIM (signed
+        entitlements) and the managed control plane. CI enforces the boundary; no telemetry phones
+        home.
+      </p>
+      <p class="cta-after"><a class="btn-text" href="/pricing">The full scorecard →</a></p>
+    </div>
+  </section>
+
+  <section class="closing" data-section="closing-cta" data-intent="drive action — both doors" data-layout="contained" data-fragment="dual-cta" data-fragment-role="reuse" data-fragment-source="/">
+    <div class="wrap">
+      <h2>Walk the code. Then ship on it.</h2>
+      <div class="cta-row closing-gap">
+        <a class="btn-fill" href={CONSOLE}>Start free</a>
+        <a class="btn-line" href={GITHUB}>Self-host it</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  /* page-specific (product) — security-page rhythm */
+  :root {
+    --heading-xxl: 56px;
+    --heading-xl: 40px;
+    --heading-md: 20px;
+    --section-padding: 88px;
+  }
+  .hero {
+    padding: 72px 0 56px;
+    border-bottom: none;
+  }
+  .hero h1 {
+    font-size: var(--heading-xxl);
+    font-weight: 500;
+  }
+  .hero .sub {
+    margin-top: var(--spacing-sm);
+    max-width: 58ch;
+  }
+  .lede {
+    margin-top: var(--spacing-md);
+    max-width: 56ch;
+  }
+  .lede.wide {
+    max-width: 64ch;
+  }
+  .cta-after {
+    margin-top: var(--spacing-md);
+  }
+  .cite {
+    font-family: var(--mono-font-family);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-relay);
+    margin-top: var(--spacing-sm);
+  }
+  .mono.sm {
+    font-size: 0.85em;
+  }
+  .cards4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-sm);
+  }
+  .artifact pre {
+    margin: 0;
+    font: inherit;
+    white-space: pre-wrap;
+  }
+  .closing-gap {
+    margin-top: var(--spacing-lg);
+  }
+</style>

@@ -1,0 +1,369 @@
+---
+import Base from '../layouts/Base.astro'
+
+const CONSOLE = 'https://app.edgevault.io'
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+---
+
+<Base
+  title="EdgeVault Pricing — Two meters. No riddles."
+  description="EdgeVault pricing: two meters, no riddles. You pay for edge reads and monthly active users — encryption, consistency, and the edge itself are not premium features."
+  path="/pricing"
+  active="pricing"
+>
+  <section class="hero" data-section="hero" data-intent="state the billing model in one breath" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Pricing</span>
+      <h1>Two meters. No riddles.</h1>
+      <p class="sub body-ink">
+        You pay for edge reads and monthly active users. Encryption, consistency, and the edge
+        itself are not premium features.
+      </p>
+      <p class="footnote sub-line">
+        We also meter config writes and secret operations — so you can see them. Included in every
+        tier, never billed.
+      </p>
+    </div>
+  </section>
+
+  <section class="plans" data-section="plan-scorecard" data-intent="answer 'where's the catch' with stated numbers" data-layout="grid" data-items="4" data-fragment="plan-row" data-fragment-role="source">
+    <div class="wrap">
+      <span class="eyebrow">The full scorecard</span>
+      <div class="tickets">
+        <div class="ticket lead">
+          <div class="head"><div class="t">Free</div><div class="p">$0</div></div>
+          <div class="perf" aria-hidden="true"></div>
+          <div class="meter">tear here — the meter starts past this stub</div>
+          <ul>
+            <li><b>1M</b> edge reads / mo</li>
+            <li><b>1k</b> MAU</li>
+            <li><b>unlimited</b> workspaces</li>
+            <li><b>all</b> encryption</li>
+            <li>community support</li>
+          </ul>
+          <div class="foot"><a class="btn-fill" href={CONSOLE}>Start free</a></div>
+        </div>
+        <div class="ticket">
+          <div class="head"><div class="t">Pro</div><div class="p">usage-based</div></div>
+          <div class="perf" aria-hidden="true"></div>
+          <ul>
+            <li><b>+$0.50</b> per additional 1M edge reads</li>
+            <li><b>+$0.02</b> per additional MAU</li>
+            <li>promotion workflows</li>
+            <li>email support</li>
+          </ul>
+          <div class="foot"><a class="btn-fill" href={CONSOLE}>Start free</a></div>
+        </div>
+        <div class="ticket">
+          <div class="head"><div class="t">Team</div><div class="p">flat + usage</div></div>
+          <div class="perf" aria-hidden="true"></div>
+          <ul>
+            <li>everything in Pro</li>
+            <li>extended audit retention</li>
+            <li>priority support</li>
+          </ul>
+          <div class="foot"><a class="btn-fill" href={CONSOLE}>Start free</a></div>
+        </div>
+        <div class="ticket">
+          <div class="head"><div class="t">Enterprise</div><div class="p">annual · sales-led</div></div>
+          <div class="perf" aria-hidden="true"></div>
+          <ul>
+            <li>everything in Team</li>
+            <li>SSO (OIDC/SAML)</li>
+            <li>SCIM provisioning</li>
+            <li>advanced RBAC</li>
+            <li>signed entitlements</li>
+            <li>support with an SLA</li>
+          </ul>
+          <div class="foot"><a class="btn-line" href="/contact">Talk to us</a></div>
+        </div>
+      </div>
+      <div class="selfhost">
+        <div>
+          <div class="t">Self-host — $0 forever</div>
+          <p>
+            The MIT core on your own Cloudflare account: same workers, same Durable Objects, no
+            telemetry, no callback. Enterprise identity features (SSO, SCIM, advanced RBAC) are
+            commercial and entitlement-gated.
+          </p>
+        </div>
+        <a class="btn-line" href={GITHUB}>Clone the repo</a>
+      </div>
+      <p class="footnote">
+        Allowance, rate, and support figures are launch placeholders — Stripe pricing is not yet
+        activated. Tier structure and entitlements match the control plane. "Talk to us" appears
+        only where a human is genuinely required.
+      </p>
+    </div>
+  </section>
+
+  <div class="tear" aria-hidden="true"><div class="line"></div></div>
+
+  <section data-section="security-parity" data-intent="reassure: free tier is not less secure" data-layout="split-media" data-fragment="security-mechanism" data-fragment-role="reuse" data-fragment-source="/security">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">No security tiers</span>
+        <h2>The free tier is not less encrypted.</h2>
+        <p class="cta-after"><a class="btn-text" href="/security#key-hierarchy">How the encryption works →</a></p>
+      </div>
+      <div class="mech dogear">
+        <div class="hd">mechanism · verbatim from the security page</div>
+        <table>
+          <tr><td>per-secret DEK</td><td>AES-GCM-256</td></tr>
+          <tr><td>workspace KEK</td><td>HKDF from MASTER_KEK</td></tr>
+          <tr><td>plaintext scope</td><td>api worker, transient</td></tr>
+          <tr><td>delivery plane</td><td>cannot decrypt</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="tear" aria-hidden="true"><div class="line"></div></div>
+
+  <section data-section="edge-parity" data-intent="anchor pricing to the same checkable numbers" data-layout="contained" data-items="5" data-fragment="box-score" data-fragment-role="reuse" data-fragment-source="/">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Edge parity</span>
+        <h2>Same edge, every tier.</h2>
+      </div>
+      <div class="cropframe">
+        <span class="tick tl"></span><span class="tick tr"></span><span class="tick bl"></span><span class="tick br"></span>
+        <table class="score">
+          <tr><th>stat</th><th>value</th><th>where</th></tr>
+          <tr><td>p99 edge read</td><td class="v">&lt;10 ms</td><td class="r">in-memory L1 over KV</td></tr>
+          <tr><td>cities serving reads</td><td class="v">300+</td><td class="r">Cloudflare network</td></tr>
+          <tr><td>consistency at the core</td><td class="v">strong</td><td class="r">one Durable Object per workspace</td></tr>
+          <tr><td>plaintext lifetime</td><td class="v">microseconds</td><td class="r">api worker boundary only</td></tr>
+          <tr><td>telemetry phoning home</td><td class="v">0</td><td class="r">policy, enforced in CI</td></tr>
+        </table>
+      </div>
+      <p class="cta-after"><a class="btn-text" href="/#box-score">The full box score →</a></p>
+    </div>
+  </section>
+
+  <div class="tear" aria-hidden="true"><div class="line"></div></div>
+
+  <section data-section="faq" data-intent="remove the last objections in writing" data-layout="contained" data-items="7">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">FAQ</span>
+        <h2>The questions you were going to ask.</h2>
+      </div>
+      <div class="faq">
+        <div class="card qa"><h3>What counts as an edge read?</h3><p>One GET against the delivery plane (cdn.edgevault.io). L1 cache hits count; your origin reads don't exist because there is no origin.</p></div>
+        <div class="card qa"><h3>What's an MAU?</h3><p>A unique end-user identity evaluated for flags in a calendar month. Anonymous percentage rollouts don't create MAUs.</p></div>
+        <div class="card qa"><h3>What's the catch in the free tier?</h3><p>An allowance, stated above. When you outgrow it, the Pro meter starts. That's the catch.</p></div>
+        <div class="card qa"><h3>Is self-hosting feature-crippled?</h3><p>No. The MIT core is the same code path the managed edge runs. Enterprise identity features (SSO, SCIM, advanced RBAC) are commercial and gated by signed entitlements.</p></div>
+        <div class="card qa"><h3>Do config writes and secret operations cost money?</h3><p>No. They're metered so you can see them in your usage, and included in every tier.</p></div>
+        <div class="card qa"><h3>Do you phone home?</h3><p>No. The open-core boundary check in CI fails any build that adds telemetry to core.</p></div>
+        <div class="card qa"><h3>Can I move from managed to self-hosted later?</h3><p>Yes. Export is a first-class API, and the data model is the same Drizzle schema either way.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="tear" aria-hidden="true"><div class="line"></div></div>
+
+  <section class="closing" data-section="closing-cta" data-intent="drive action — both doors" data-layout="contained" data-fragment="dual-cta" data-fragment-role="reuse" data-fragment-source="/">
+    <div class="wrap">
+      <h2>Pick a door. Both are real.</h2>
+      <div class="cta-row closing-gap">
+        <a class="btn-fill" href={CONSOLE}>Start free</a>
+        <a class="btn-line" href={GITHUB}>Self-host it</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  /* page-specific (pricing) — values from stardust/prototypes/pricing-b.html (craft-dominant) */
+  :root {
+    --heading-xxl: 60px;
+    --heading-xl: 40px;
+    --heading-lg: 30px;
+    --heading-md: 20px;
+    --body: 17px;
+    --body-sm: 14px;
+    --line-height-body: 1.7;
+    --line-height-heading: 1.04;
+    --spacing-2xl: 120px;
+    --section-padding: 112px;
+  }
+  section {
+    border-bottom: none; /* tear-lines divide this page, not rules */
+  }
+  .hero {
+    padding: 80px 0 64px;
+  }
+  .hero h1 {
+    font-size: var(--heading-xxl);
+    font-weight: 500;
+  }
+  .hero .sub {
+    margin-top: var(--spacing-sm);
+    max-width: 56ch;
+  }
+  .hero .sub-line {
+    margin-top: var(--spacing-sm);
+  }
+  .plans {
+    padding-top: 0;
+  }
+  /* perforated tear-line dividers */
+  .tear {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 var(--page-padding);
+  }
+  .tear .line {
+    position: relative;
+    border-top: 2px dashed var(--color-rollout);
+    height: 0;
+    margin: 0 14px;
+    opacity: 0.75;
+  }
+  .tear .line::before,
+  .tear .line::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-ground);
+    border: 1px solid var(--color-rollout);
+  }
+  .tear .line::before {
+    left: -21px;
+  }
+  .tear .line::after {
+    right: -21px;
+  }
+  /* ticket-stub plan cards */
+  .tickets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
+  }
+  .ticket {
+    border: 1px solid var(--color-envelope);
+    background: #ffffff;
+    border-radius: var(--radius);
+    display: flex;
+    flex-direction: column;
+  }
+  .ticket.lead {
+    border-color: var(--color-rollout);
+  }
+  .ticket .head {
+    padding: 22px 22px 16px;
+  }
+  .ticket .head .t {
+    font-family: var(--heading-font-family);
+    font-weight: 600;
+    font-size: 22px;
+  }
+  .ticket .head .p {
+    font-family: var(--mono-font-family);
+    font-size: 11px;
+    color: var(--color-relay);
+    margin-top: 6px;
+    letter-spacing: 0.08em;
+  }
+  .ticket .perf {
+    position: relative;
+    border-top: 2px dashed var(--color-rollout);
+    height: 0;
+    margin: 0 12px;
+    opacity: 0.7;
+  }
+  .ticket .perf::before,
+  .ticket .perf::after {
+    content: '';
+    position: absolute;
+    top: -7px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-ground);
+    border: 1px solid var(--color-rollout);
+  }
+  .ticket .perf::before {
+    left: -18px;
+  }
+  .ticket .perf::after {
+    right: -18px;
+  }
+  .ticket ul {
+    list-style: none;
+    padding: 18px 22px;
+    margin: 0;
+    flex: 1;
+  }
+  .ticket ul li {
+    font-family: var(--mono-font-family);
+    font-size: 11.5px;
+    color: var(--color-body-ink);
+    padding: 6px 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .ticket ul li b {
+    color: var(--color-ink);
+    font-weight: 500;
+  }
+  .ticket .foot {
+    padding: 0 22px 22px;
+  }
+  .ticket .foot a {
+    width: 100%;
+    text-align: center;
+  }
+  .ticket .meter {
+    font-family: var(--mono-font-family);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-relay);
+    padding: 0 22px 14px;
+  }
+  /* self-host band — the escape hatch, not a plan */
+  .selfhost {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xl);
+    justify-content: space-between;
+    border: 1px solid var(--color-ink);
+    border-radius: var(--radius);
+    background: #ffffff;
+    padding: var(--spacing-md) var(--spacing-lg);
+    margin-top: var(--spacing-md);
+  }
+  .selfhost .t {
+    font-family: var(--heading-font-family);
+    font-weight: 600;
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+  .selfhost p {
+    font-size: var(--body-sm);
+    color: var(--color-body-ink);
+    max-width: 72ch;
+    margin: 0;
+  }
+  .selfhost .btn-line {
+    white-space: nowrap;
+  }
+  .footnote {
+    margin-top: var(--spacing-md);
+  }
+  .cta-after {
+    margin-top: var(--spacing-md);
+  }
+  .faq {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+  }
+  .closing-gap {
+    margin-top: var(--spacing-lg);
+  }
+</style>

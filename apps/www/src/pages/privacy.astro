@@ -1,0 +1,26 @@
+---
+import Prose from '../layouts/Prose.astro'
+// STUB — a real privacy policy needs a human (and probably counsel) before GA.
+// Nothing below is invented legal language; it states only verifiable facts.
+---
+
+<Prose
+  title="EdgeVault Privacy"
+  description="EdgeVault's privacy policy is not yet published. The verifiable facts in the meantime: this site sets no cookies and runs no analytics; the product has no phone-home telemetry."
+  path="/privacy"
+  eyebrow="Legal"
+  heading="Privacy policy: not yet published."
+  stub
+>
+  <p>
+    EdgeVault is pre-launch. A complete privacy policy ships before general availability — we
+    won't paste a template here and call it one.
+  </p>
+  <h2>What we can already tell you, verifiably</h2>
+  <ul>
+    <li>This website sets no cookies and runs no analytics or trackers.</li>
+    <li>Its only third-party request is Google Fonts (Space Grotesk, Roboto Slab, Martian Mono).</li>
+    <li>The product has no telemetry that phones home — enforced by a CI check on the open-source core.</li>
+  </ul>
+  <p>Questions in the meantime: <span class="mono">hello@edgevault.io</span>.</p>
+</Prose>

@@ -1,0 +1,209 @@
+---
+import Base from '../layouts/Base.astro'
+
+const CONSOLE = 'https://app.edgevault.io'
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+---
+
+<Base
+  title="EdgeVault Security — Mechanisms, not adjectives"
+  description="EdgeVault security: mechanisms, not adjectives. Envelope encryption with named primitives, per-component blast radius, a boring auth stack, and MIT code you can read."
+  path="/security"
+  active="security"
+>
+  <section class="hero" data-section="hero" data-intent="set the register: auditable, not reassuring" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Security</span>
+      <h1>Mechanisms, not adjectives.</h1>
+      <p class="sub body-ink">
+        Every control on this page has a name you can look up and code you can read. No bank-grade,
+        no military-grade — schemes, scopes, and blast radii.
+      </p>
+    </div>
+  </section>
+
+  <section id="key-hierarchy" data-section="key-hierarchy" data-intent="name the encryption scheme precisely" data-layout="split-media" data-fragment="security-mechanism" data-fragment-role="source">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Envelope encryption</span>
+        <h2>One key per secret. One derivation per workspace.</h2>
+        <p class="body-ink lede">
+          Each secret is sealed with its own AES-GCM-256 data-encryption key. That DEK is wrapped
+          by a workspace key derived via HKDF from a master key that never leaves Secrets Store.
+          Compromising one ciphertext yields one ciphertext; compromising a workspace stops at the
+          workspace boundary. Rotation is a re-wrap, not a re-encrypt of the world.
+        </p>
+      </div>
+      <div class="diagram" role="img" aria-label="Key hierarchy diagram: master key in Secrets Store derives a workspace key via HKDF, which wraps each per-secret data key that seals ciphertext stored in the workspace Durable Object">
+        <svg viewBox="0 0 440 290" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Martian Mono, monospace" font-size="10" aria-hidden="true">
+          <g fill="none" stroke="rgba(15,23,42,.35)" stroke-width="1">
+            <rect x="120" y="14" width="200" height="40"></rect>
+            <rect x="120" y="104" width="200" height="40"></rect>
+            <rect x="120" y="194" width="200" height="40"></rect>
+            <rect x="20" y="248" width="190" height="34"></rect>
+            <rect x="230" y="248" width="190" height="34"></rect>
+            <path d="M220 54 V104"></path>
+            <path d="M220 144 V194"></path>
+            <path d="M170 234 L115 248 M270 234 L325 248"></path>
+          </g>
+          <g fill="#7B2CBF">
+            <text x="138" y="38">MASTER_KEK · Secrets Store</text>
+            <text x="142" y="128">workspace KEK · derived</text>
+            <text x="138" y="218">per-secret DEK · AES-GCM-256</text>
+            <text x="40" y="269">plaintext · µs, api only</text>
+            <text x="252" y="269">ciphertext · DO SQLite</text>
+          </g>
+          <g fill="#9D4EDD" font-size="8">
+            <text x="230" y="84">HKDF</text>
+            <text x="230" y="174">wraps</text>
+            <text x="120" y="244">seals →</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <section id="blast-radius" data-section="blast-radius" data-intent="state the threat model as checkable rows" data-layout="contained" data-items="5" data-fragment="box-score" data-fragment-role="reuse" data-fragment-source="/">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Blast radius</span>
+        <h2>Assume a component pops. What does it yield?</h2>
+      </div>
+      <div class="cropframe">
+        <span class="tick tl"></span><span class="tick tr"></span><span class="tick bl"></span><span class="tick br"></span>
+        <table class="score">
+          <tr><th>component</th><th>an attacker gets</th><th>why it stops there</th></tr>
+          <tr><td>delivery worker (cdn)</td><td class="v">resolved configs and flags, zero secrets</td><td>holds no key material — cannot decrypt by construction</td></tr>
+          <tr><td>edge KV</td><td class="v">the same resolved values, secret ciphertext</td><td>DEKs are never written to KV</td></tr>
+          <tr><td>api worker</td><td class="v">microseconds of in-flight plaintext</td><td>plaintext is never persisted and never logged</td></tr>
+          <tr><td>workspace DO</td><td class="v">ciphertext plus revision history</td><td>DEKs stored wrapped; KEK derived on demand, never stored</td></tr>
+          <tr><td>Neon metadata</td><td class="v">Argon2id password hashes, API-key hashes</td><td>no secret material lives in Postgres</td></tr>
+        </table>
+      </div>
+      <p class="footnote">This table is the threat model. If you can break a row, security@edgevault.io wants the details.</p>
+    </div>
+  </section>
+
+  <section id="auth-stack" data-section="auth-stack" data-intent="show the auth choices are standard and verifiable" data-layout="grid" data-items="4">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Authentication</span>
+        <h2>Boring choices, on purpose.</h2>
+      </div>
+      <div class="cards4">
+        <div class="card"><h3>Passwords</h3><p>Argon2id, memory-hard. No homegrown crypto; @noble/hashes does the lifting.</p></div>
+        <div class="card"><h3>Sessions</h3><p>Opaque server-side tokens. Instantly revocable; nothing decodable in the client.</p></div>
+        <div class="card"><h3>Service tokens</h3><p>EdDSA JWTs verified against published JWKS. Workers verify without ever holding signing keys.</p></div>
+        <div class="card"><h3>MFA</h3><p>TOTP and passkeys (WebAuthn). Phishing-resistant where the client supports it.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="isolation" data-section="isolation" data-intent="explain plane separation as an attack-surface statement" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Plane separation</span>
+      <h2>The browser talks to one worker.</h2>
+      <p class="body-ink lede wide">
+        The console is the only origin a browser ever sees. It reaches the API, auth, and billing
+        over service bindings inside Cloudflare's network — no CORS surface, no cross-site cookies,
+        no tokens in localStorage. The delivery plane is a separate worker with environment-scoped
+        keys and no code path to decryption.
+      </p>
+    </div>
+  </section>
+
+  <section id="audit" data-section="audit" data-intent="prove attribution with the real record shape" data-layout="split-media">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Audit trail</span>
+        <h2>Every change has an author and a reason.</h2>
+        <p class="body-ink lede">
+          Writes append to the workspace's ordered revision history, fan out to an audit queue, and
+          land as NDJSON in R2 — an append-only warehouse you can export. The same trail powers
+          "what changed and why" in the console.
+        </p>
+      </div>
+      <div class="artifact dogear ndjson" role="img" aria-label="Three NDJSON audit records: a flag update, a secret rotation, and a promotion, each with actor and reason">
+        <pre><span class="c">// audit/2026/06/05.ndjson — append-only, R2</span>
+&lbrace;"ts":"2026-06-05T09:41:22Z","actor":<span class="hl">"blake@"</span>,"action":<span class="ok">"flag.update"</span>,"key":"checkout-v2","rev":89,"why":"canary: EU first"&rbrace;
+&lbrace;"ts":"2026-06-05T08:12:04Z","actor":<span class="hl">"ci@"</span>,"action":<span class="ok">"secret.rotate"</span>,"key":"STRIPE_KEY","rev":87,"why":"90-day policy"&rbrace;
+&lbrace;"ts":"2026-06-04T17:30:11Z","actor":<span class="hl">"sam@"</span>,"action":<span class="ok">"promotion.apply"</span>,"from":"staging","to":"production","risk":"low","approvals":2&rbrace;</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="verify" data-section="verify" data-intent="convert trust into a verification action" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Verify it</span>
+      <h2>The code is the documentation.</h2>
+      <p class="body-ink lede wide">
+        The core is MIT-licensed. The envelope-encryption implementation is a readable package, not
+        a black box, and CI fails any build that adds telemetry to core. Found a hole?
+        security@edgevault.io — fixes get attributed.
+      </p>
+      <p class="cta-after">
+        <a class="btn-text" href={`${GITHUB}/tree/main/packages/crypto`}>Read the crypto package →</a>
+      </p>
+    </div>
+  </section>
+
+  <section class="closing" data-section="closing-cta" data-intent="drive action — both doors" data-layout="contained" data-fragment="dual-cta" data-fragment-role="reuse" data-fragment-source="/">
+    <div class="wrap">
+      <h2>Read the code. Then decide.</h2>
+      <div class="cta-row closing-gap">
+        <a class="btn-fill" href={CONSOLE}>Start free</a>
+        <a class="btn-line" href={GITHUB}>Self-host it</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  /* page-specific (security) — values from stardust/prototypes/security.html */
+  :root {
+    --heading-xxl: 56px;
+    --heading-xl: 40px;
+    --heading-lg: 30px;
+    --heading-md: 20px;
+    --section-padding: 88px;
+  }
+  .hero {
+    padding: 72px 0 56px;
+    border-bottom: none;
+  }
+  .hero h1 {
+    font-size: var(--heading-xxl);
+    font-weight: 500;
+  }
+  .hero .sub {
+    margin-top: var(--spacing-sm);
+    max-width: 58ch;
+  }
+  .lede {
+    margin-top: var(--spacing-md);
+    max-width: 56ch;
+  }
+  .lede.wide {
+    max-width: 64ch;
+  }
+  .cta-after {
+    margin-top: var(--spacing-md);
+  }
+  .cards4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-sm);
+  }
+  .artifact.ndjson {
+    font-size: 11.5px;
+    line-height: 2;
+  }
+  .artifact pre {
+    margin: 0;
+    font: inherit;
+    white-space: pre-wrap;
+  }
+  .closing-gap {
+    margin-top: var(--spacing-lg);
+  }
+</style>

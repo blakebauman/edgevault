@@ -1,0 +1,26 @@
+---
+import Prose from '../layouts/Prose.astro'
+// Real content: the repo enforces DCO sign-off (git commit -s) per CLAUDE.md / CI.
+---
+
+<Prose
+  title="EdgeVault DCO — Developer Certificate of Origin"
+  description="EdgeVault requires DCO sign-off on every commit: git commit -s. What that means and why."
+  path="/dco"
+  eyebrow="Contributing"
+  heading="Sign your work."
+>
+  <p>
+    Every commit to EdgeVault carries a Developer Certificate of Origin sign-off — a one-line
+    assertion that you wrote the change (or otherwise have the right to submit it) under the
+    project's license. CI rejects unsigned commits.
+  </p>
+  <div class="mono-block">git commit -s -m "your change"<br />→ Signed-off-by: Your Name &lt;you@example.com&gt;</div>
+  <h2>Why DCO and not a CLA</h2>
+  <p>
+    A CLA assigns rights to a company; the DCO asserts provenance and nothing more. For an
+    open-core project, the DCO keeps contributions honest without asking contributors to sign
+    anything away. The certificate text itself lives at
+    <a href="https://developercertificate.org">developercertificate.org</a>.
+  </p>
+</Prose>

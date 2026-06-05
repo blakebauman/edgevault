@@ -1,0 +1,23 @@
+---
+import { getCollection, render } from 'astro:content'
+import DocsLayout from '../../layouts/DocsLayout.astro'
+
+export async function getStaticPaths() {
+  const docs = await getCollection('docs')
+  return docs.map((doc) => ({ params: { slug: doc.id }, props: { doc } }))
+}
+
+const { doc } = Astro.props
+const { Content } = await render(doc)
+---
+
+<DocsLayout
+  title={`${doc.data.title} — EdgeVault Docs`}
+  description={doc.data.description}
+  path={`/docs/${doc.id}`}
+  current={doc.id}
+>
+  <h1>{doc.data.title}</h1>
+  <p class="doc-desc">{doc.data.description}</p>
+  <Content />
+</DocsLayout>

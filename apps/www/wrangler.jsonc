@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-www",
+  "compatibility_date": "2026-06-03",
+  "observability": { "enabled": true },
+  // Assets-only worker serving the static Astro build (`astro build` → dist/).
+  // Design decision-of-record lives in stardust/ (prototypes + briefings);
+  // this app is the implementation canon. The site ships 0 KB of client JS.
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "edgevault.io", "custom_domain": true }],
+  "env": {
+    "staging": {
+      "routes": [{ "pattern": "www-staging.edgevault.io", "custom_domain": true }]
+    }
+  }
+}

@@ -58,6 +58,7 @@ Five core Workers plus two Durable Object classes. The browser only talks to the
 | `apps/auth` (auth.edgevault.io) | Custom auth, no framework: Argon2id passwords, opaque sessions, EdDSA JWT/JWKS, MFA/passkeys, social OAuth. Built on `jose`, `@noble/hashes`, `@oslojs/*`. |
 | `apps/console` (app.edgevault.io) | React Router 7 UI + BFF on Workers (via `@cloudflare/vite-plugin`). |
 | `apps/audit` | Queue consumer → R2 NDJSON audit warehouse. |
+| `apps/www` (edgevault.io) | Marketing site: static Astro build (0 KB client JS) served by an assets-only worker. Design source of record is the `stardust/` pipeline (brand profile, briefings own the copy, prototypes); this app is the implementation. |
 | `ee/enterprise`, `edge/control-plane` | EE SSO/SCIM and proprietary billing — internal, reached via service bindings. |
 
 Durable Objects (in `apps/api`):

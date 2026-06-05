@@ -1,0 +1,45 @@
+---
+import '../styles/global.css'
+import Footer from '../components/Footer.astro'
+import Nav from '../components/Nav.astro'
+
+interface Props {
+  title: string
+  description: string
+  /** site-relative path, e.g. "/" or "/pricing" */
+  path: string
+  /** which nav item renders as active */
+  active?: 'product' | 'security' | 'pricing' | 'docs'
+}
+
+const { title, description, path, active } = Astro.props
+const canonical = new URL(path, Astro.site).href
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonical} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    {/* no viewport meta on purpose: the design is desktop-only (no responsive CSS yet);
+        a device-width viewport would break phones worse than the default scaled view */}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Roboto+Slab:wght@300;400;500&family=Martian+Mono:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <Nav active={active} />
+    <slot />
+    <Footer />
+  </body>
+</html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" width="560" height="120" role="img" aria-label="EdgeVault">
+  <!-- stardust:provenance — synthesized placeholder, no mark found (source: conversation).
+       Mark: a vault-square with a folded corner (folded-paper seed) — the dog-ear is the
+       "open edge" of the vault. 2026-06-05 v3: monochrome ink wordmark + mark; the keyway
+       slot is the single violet accent (designer decision: no two-tone wordmark).
+       See logo-white.svg for dark surfaces. Replace with a real mark when one exists. -->
+  <g>
+    <!-- vault square with folded top-right corner -->
+    <path d="M20 20 H74 L100 46 V100 H20 Z" fill="none" stroke="#0F172A" stroke-width="6" stroke-linejoin="miter"/>
+    <!-- the fold itself -->
+    <path d="M74 20 V46 H100" fill="none" stroke="#0F172A" stroke-width="6" stroke-linejoin="miter"/>
+    <!-- keyway slot — the single accent dose -->
+    <rect x="48" y="54" width="24" height="6" fill="#7B2CBF"/>
+  </g>
+  <text x="132" y="79" font-family="'Space Grotesk','Helvetica Neue',Arial,sans-serif" font-size="56" font-weight="600" letter-spacing="-1.5" fill="#0F172A">EdgeVault</text>
+</svg>

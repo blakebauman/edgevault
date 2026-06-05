@@ -1,0 +1,85 @@
+---
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+---
+
+<footer data-section="footer" data-intent="utility nav + open-source credibility" data-layout="full-bleed">
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <img src="/assets/logo-white.svg" alt="EdgeVault" style="height:24px" />
+        <p class="tagline">Config, secrets, and flags that live where your code runs.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <a href="/#how-it-works">How it works</a>
+        <a href="/security">Security</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/changelog">Changelog</a>
+      </div>
+      <div>
+        <h4>Open source</h4>
+        <a href={GITHUB}>GitHub</a>
+        <a href="/docs#quickstart-selfhost">Self-hosting</a>
+        <a href="/license">License</a>
+        <a href="/dco">DCO</a>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/dpa">DPA</a>
+      </div>
+    </div>
+    <p class="fine">© 2026 EDGEVAULT · MIT CORE · NO TELEMETRY PHONES HOME</p>
+  </div>
+</footer>
+
+<style>
+  footer {
+    padding: var(--spacing-xl) 0;
+    background: var(--color-ink);
+  }
+  footer .cols {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    gap: var(--spacing-lg);
+  }
+  footer h4 {
+    font-family: var(--mono-font-family);
+    font-weight: 400;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #c77dff;
+    margin-bottom: var(--spacing-sm);
+  }
+  footer a {
+    display: block;
+    font-family: var(--heading-font-family);
+    font-size: 13.5px;
+    color: rgba(255, 255, 255, 0.72);
+    text-decoration: none;
+    padding: 4px 0;
+  }
+  footer a:hover {
+    color: #e0aaff;
+  }
+  footer .fine {
+    font-family: var(--mono-font-family);
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: var(--spacing-lg);
+    letter-spacing: 0.08em;
+  }
+  footer .tagline {
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 12px;
+    margin-top: 12px;
+    max-width: 30ch;
+  }
+</style>

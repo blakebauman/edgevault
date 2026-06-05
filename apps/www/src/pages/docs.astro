@@ -1,0 +1,212 @@
+---
+import { getCollection } from 'astro:content'
+import Base from '../layouts/Base.astro'
+
+const CONSOLE = 'https://app.edgevault.io'
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+const guides = (await getCollection('docs')).sort((a, b) => a.data.order - b.data.order)
+---
+
+<Base
+  title="EdgeVault Docs — Start here"
+  description="EdgeVault quickstarts that run today: the typed SDK, React bindings, realtime events, and self-hosting the MIT core. Every sample is checked against the real packages."
+  path="/docs"
+  active="docs"
+>
+  <section class="hero" data-section="hero" data-intent="working code in the first screen, honesty about scope" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Docs</span>
+      <h1>Start here. Everything below runs today.</h1>
+      <p class="sub body-ink">
+        EdgeVault's docs are young. What's on this page is checked against the real packages — when
+        it stops being true, it comes off the page.
+      </p>
+    </div>
+  </section>
+
+  <section id="quickstart-sdk" data-section="quickstart-sdk" data-intent="copy-paste read path in one screen" data-layout="split-media">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Quickstart · SDK</span>
+        <h2>Read a config in four lines.</h2>
+        <p class="body-ink lede">
+          The API key is environment-scoped (shown once at creation).
+          <span class="mono sm">flag()</span> never throws — a missing flag returns your fallback,
+          because a flags outage should degrade, not crash. Reads hit an in-process cache (15&nbsp;s
+          default) before they ever leave your worker.
+        </p>
+      </div>
+      <div class="artifact dogear" role="img" aria-label="Code installing the SDK and reading a config value and a flag">
+        <pre><span class="c"># once</span>
+npm install @edgevault/sdk
+
+<span class="c">// anywhere</span>
+import &lbrace; EdgeVault &rbrace; from '@edgevault/sdk'
+
+const edgevault = new EdgeVault(&lbrace; apiKey: process.env.EDGE_KEY &rbrace;)
+
+const timeout = await edgevault.value&lt;number&gt;(<span class="hl">'timeout-ms'</span>)
+const checkout = await edgevault.flag(<span class="hl">'checkout-v2'</span>, false)</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="quickstart-react" data-section="quickstart-react" data-intent="React bindings in one hook" data-layout="split-media">
+    <div class="wrap split rev">
+      <div class="artifact dogear" role="img" aria-label="React code using the useFlag hook">
+        <pre><span class="c">// real signatures — @edgevault/sdk/react</span>
+import &lbrace; useFlag &rbrace; from '@edgevault/sdk/react'
+
+const &lbrace; enabled, loading &rbrace; = useFlag(edgevault, <span class="hl">'checkout-v2'</span>)</pre>
+      </div>
+      <div>
+        <span class="eyebrow">Quickstart · React</span>
+        <h2>One hook per flag.</h2>
+        <p class="body-ink lede">
+          Also <span class="mono sm">useConfig(client, key)</span> and
+          <span class="mono sm">useValue&lt;T&gt;(client, key)</span> — each returns
+          <span class="mono sm">&lbrace; data, loading, error &rbrace;</span> and never tears down
+          your component over a delivery hiccup.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="quickstart-realtime" data-section="quickstart-realtime" data-intent="live events quickstart" data-layout="split-media">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Quickstart · Realtime</span>
+        <h2>Subscribe to changes.</h2>
+        <p class="body-ink lede">
+          Config, flag, and secret events stream from your workspace's Durable Object over
+          hibernatable WebSockets — the console's live dashboard uses the same client.
+        </p>
+      </div>
+      <div class="artifact dogear" role="img" aria-label="React code subscribing to workspace events">
+        <pre><span class="c">// real signatures — @edgevault/realtime</span>
+import &lbrace; useWorkspaceEvents &rbrace; from '@edgevault/realtime/react'
+
+<span class="c">// url: wss://api.edgevault.io/.../ws?token=… (null = stay disconnected)</span>
+const status = useWorkspaceEvents(wsUrl, (event) =&gt; &lbrace;
+  refresh(event) <span class="c">// 'config.changed' | 'promotion.completed' | …</span>
+&rbrace;)</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="quickstart-selfhost" data-section="quickstart-selfhost" data-intent="self-host entry point with real commands" data-layout="split-media">
+    <div class="wrap split rev">
+      <div class="artifact dogear" role="img" aria-label="Shell commands cloning the repo and running it locally">
+        <pre><span class="c"># verified against the repo's package.json</span>
+git clone https://github.com/blakebauman/edgevault
+cd edgevault
+pnpm install   <span class="c"># installs git hooks too</span>
+pnpm dev       <span class="c"># all workers locally (turbo + wrangler)</span>
+pnpm test      <span class="c"># vitest in the real Workers runtime</span></pre>
+      </div>
+      <div>
+        <span class="eyebrow">Quickstart · Self-host</span>
+        <h2>Your account, your vault.</h2>
+        <p class="body-ink lede">
+          Provisioning real Cloudflare resources is documented in
+          <span class="mono sm">DEPLOYMENT.md</span>; optional providers (OAuth, Stripe) in
+          <span class="mono sm">ACTIVATION.md</span>. Both live in the repo, next to the code they
+          describe.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section id="guides" data-section="guides" data-intent="route into the full guides" data-layout="grid" data-items={guides.length}>
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Guides</span>
+        <h2>Go deeper.</h2>
+      </div>
+      <div class="guide-grid">
+        {
+          guides.map((guide) => (
+            <a class="card guide" href={`/docs/${guide.id}`}>
+              <h3>{guide.data.title}</h3>
+              <p>{guide.data.description}</p>
+            </a>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section id="honesty" data-section="honesty" data-intent="say plainly what doesn't exist yet" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">What's not here yet</span>
+      <p class="body-ink lede wide">
+        The control-plane HTTP API reference and the promotion-workflow guide are still repo-level
+        docs. The repo is private during the rebuild — repo links go live with the public release.
+      </p>
+    </div>
+  </section>
+
+  <section class="closing" data-section="closing-cta" data-intent="drive action — both doors" data-layout="contained" data-fragment="dual-cta" data-fragment-role="reuse" data-fragment-source="/">
+    <div class="wrap">
+      <h2>Keys are free. So is the code.</h2>
+      <div class="cta-row closing-gap">
+        <a class="btn-fill" href={CONSOLE}>Start free</a>
+        <a class="btn-line" href={GITHUB}>Self-host it</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  /* page-specific (docs) — security-page rhythm, code-forward */
+  :root {
+    --heading-xxl: 56px;
+    --heading-xl: 36px;
+    --section-padding: 80px;
+  }
+  .hero {
+    padding: 72px 0 48px;
+    border-bottom: none;
+  }
+  .hero h1 {
+    font-size: var(--heading-xxl);
+    font-weight: 500;
+  }
+  .hero .sub {
+    margin-top: var(--spacing-sm);
+    max-width: 58ch;
+  }
+  .lede {
+    margin-top: var(--spacing-md);
+    max-width: 52ch;
+  }
+  .lede.wide {
+    max-width: 64ch;
+  }
+  .mono.sm {
+    font-size: 0.85em;
+  }
+  .artifact pre {
+    margin: 0;
+    font: inherit;
+    white-space: pre-wrap;
+  }
+  .guide-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-sm);
+  }
+  .card.guide {
+    text-decoration: none;
+    display: block;
+  }
+  .card.guide h3 {
+    color: var(--color-ink);
+  }
+  .card.guide:hover h3 {
+    color: var(--color-relay);
+  }
+  .closing-gap {
+    margin-top: var(--spacing-lg);
+  }
+</style>

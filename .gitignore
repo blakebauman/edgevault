@@ -31,3 +31,6 @@ npm-debug.log*
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Astro generated artifacts
+.astro/

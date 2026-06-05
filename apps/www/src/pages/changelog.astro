@@ -1,0 +1,217 @@
+---
+import Base from '../layouts/Base.astro'
+
+const CONSOLE = 'https://app.edgevault.io'
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+
+// Real git history (curated). Hashes verified against the repo 2026-06-05.
+// Append new entries at the top; never rewrite existing ones.
+const entries = [
+  {
+    date: '2026-06-04',
+    hash: '29c75cf',
+    title: 'Metering completes: edge reads + MAU billed.',
+    why: 'Usage flows from the durable audit pipeline to Stripe meters, idempotently. The two meters on the pricing page are these.',
+  },
+  {
+    date: '2026-06-04',
+    hash: '0c774d4',
+    title: "Fixed: TOTP enrollment vs Hyperdrive's query cache.",
+    why: 'Read-after-write through an identical cached SELECT rejected fresh secrets. Found in a live browser, like every good deployed-only bug.',
+  },
+  {
+    date: '2026-06-04',
+    hash: '8da4d70',
+    title: 'Fixed: requireUser routes on deployed workers.',
+    why: "WebCrypto's key_ops metadata made workerd (correctly, strictly) refuse our verification JWK. Node was lenient; production was not.",
+  },
+  {
+    date: '2026-06-04',
+    hash: 'd388c17',
+    title: 'Self-serve billing: Stripe Checkout + Billing Portal.',
+    why: 'Enterprise stays sales-led on purpose.',
+  },
+  {
+    date: '2026-06-04',
+    hash: 'de7eb98 + 2d42c97',
+    title: 'Passkeys (WebAuthn) and TOTP MFA, end-to-end.',
+    why: 'Phishing-resistant where the client supports it.',
+  },
+  {
+    date: '2026-06-04',
+    hash: '92fb277',
+    title: '@edgevault/sdk: the typed consumer client.',
+    why: 'flag(key, fallback) never throws — outages should degrade, not crash.',
+  },
+  {
+    date: '2026-06-04',
+    hash: '92d7886 + 438da50',
+    title: 'Enterprise SSO: OIDC end-to-end, hand-rolled SAML 2.0 XML-DSig verification.',
+    why: "Read it before you trust it; that's the point.",
+  },
+  {
+    date: '2026-06-04',
+    hash: 'ca4292c',
+    title: 'Social OAuth (GitHub + Google), hand-rolled.',
+    why: 'Two providers, zero dependencies added.',
+  },
+  {
+    date: '2026-06-03',
+    hash: 'b0df98b',
+    title: 'The secrets vault: envelope encryption.',
+    why: 'Per-secret DEKs, HKDF workspace KEKs, a delivery plane that cannot decrypt.',
+  },
+  {
+    date: '2026-06-03',
+    hash: '1337a42',
+    title: 'The audit warehouse: Queues → consumer → R2 NDJSON.',
+    why: "Append-only; this changelog's standard, mechanized.",
+  },
+  {
+    date: '2026-06-03',
+    hash: '6f6f2d3 + e627e74 + 53fedab',
+    title: 'The AI layer: semantic search, risk scoring, an agent that cites revisions.',
+    why: 'Plus a remote MCP server (Streamable HTTP).',
+  },
+  {
+    date: '2026-06-03',
+    hash: 'a0d5791',
+    title: 'Durable promotion workflows with an approval gate.',
+    why: 'Config moves between environments like a deploy, because it is one.',
+  },
+  {
+    date: '2026-06-03',
+    hash: '88325e3',
+    title: 'Real-time config push over WebSocket Hibernation.',
+    why: 'The dashboard stopped polling.',
+  },
+  {
+    date: '2026-06-03',
+    hash: '681d352',
+    title: 'The delivery worker: the <10 ms edge read path.',
+    why: 'KV write-through, in-memory L1.',
+  },
+  {
+    date: '2026-06-03',
+    hash: 'c03041f',
+    title: 'One SQLite Durable Object per workspace: the system of record.',
+    why: 'Everything since builds on this.',
+  },
+  {
+    date: '2026-06-03',
+    hash: 'b5d015a + e117dab',
+    title: 'Phase 0/1: monorepo bootstrap, Neon + Hyperdrive, custom zero-telemetry auth.',
+    why: 'Day one decision: no phone-home, enforced ever since.',
+  },
+]
+---
+
+<Base
+  title="EdgeVault Changelog — What changed, and why"
+  description="The EdgeVault changelog, generated from real git history: every entry attributed, dated, and carrying its commit hash. The same standard we hold your config to."
+  path="/changelog"
+>
+  <section class="hero" data-section="hero" data-intent="the brand pillar applied to ourselves" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Changelog</span>
+      <h1>What changed, and why.</h1>
+      <p class="sub body-ink">
+        The same standard we hold your config to. Every entry below carries its real commit hash;
+        entries are curated, history isn't.
+      </p>
+    </div>
+  </section>
+
+  <section id="entries" data-section="entries" data-intent="attributed, dated, hash-carrying ledger" data-layout="contained" data-items={entries.length}>
+    <div class="wrap">
+      <div class="ledger">
+        {
+          entries.map((entry) => (
+            <article class="entry">
+              <div class="meta num">
+                <span class="d">{entry.date}</span>
+                <span class="h">{entry.hash}</span>
+              </div>
+              <div class="body">
+                <h2>{entry.title}</h2>
+                <p>{entry.why}</p>
+              </div>
+            </article>
+          ))
+        }
+      </div>
+      <p class="footnote">
+        The repo is private during the rebuild — hashes become clickable with the public release.
+      </p>
+    </div>
+  </section>
+
+  <section class="closing" data-section="closing-cta" data-intent="drive action — both doors" data-layout="contained" data-fragment="dual-cta" data-fragment-role="reuse" data-fragment-source="/">
+    <div class="wrap">
+      <h2>The history is the pitch.</h2>
+      <div class="cta-row closing-gap">
+        <a class="btn-fill" href={CONSOLE}>Start free</a>
+        <a class="btn-line" href={GITHUB}>Self-host it</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  /* page-specific (changelog) — ledger register */
+  :root {
+    --heading-xxl: 56px;
+    --section-padding: 72px;
+  }
+  .hero {
+    padding: 72px 0 40px;
+    border-bottom: none;
+  }
+  .hero h1 {
+    font-size: var(--heading-xxl);
+    font-weight: 500;
+  }
+  .hero .sub {
+    margin-top: var(--spacing-sm);
+    max-width: 58ch;
+  }
+  .ledger {
+    border-top: 1px solid var(--color-envelope);
+  }
+  .entry {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--spacing-lg);
+    padding: 22px 0;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .entry .meta {
+    font-family: var(--mono-font-family);
+    font-size: 11px;
+    color: var(--color-relay);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 4px;
+  }
+  .entry .meta .h {
+    color: var(--color-rollout);
+    letter-spacing: 0.04em;
+  }
+  .entry h2 {
+    font-size: 19px;
+    font-weight: 600;
+  }
+  .entry .body p {
+    font-size: var(--body-sm);
+    color: var(--color-body-ink);
+    margin-top: 6px;
+    max-width: 72ch;
+  }
+  .footnote {
+    margin-top: var(--spacing-md);
+  }
+  .closing-gap {
+    margin-top: var(--spacing-lg);
+  }
+</style>

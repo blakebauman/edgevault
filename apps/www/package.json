@@ -1,0 +1,17 @@
+{
+  "name": "@edgevault/www",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build && wrangler deploy --dry-run",
+    "preview": "astro build && wrangler dev",
+    "deploy": "astro build && wrangler deploy",
+    "lint": "biome check src"
+  },
+  "devDependencies": {
+    "astro": "^5.17.0",
+    "wrangler": "^4.97.0"
+  }
+}

@@ -1,0 +1,340 @@
+/*
+ * EdgeVault design tokens + shared components.
+ * Extracted verbatim from the stardust prototypes (the design decision-of-record):
+ * round-3 palette "Infisical ground × Vivid Nightfall purples" — light Drafting
+ * ground, Ledger ink, Relay violet accent, artifacts in Vault Depth panels.
+ * Page-specific overrides (type scale, section rhythm) live in each page.
+ */
+:root {
+  --heading-font-family: "Space Grotesk", sans-serif;
+  --body-font-family: "Roboto Slab", Georgia, serif;
+  --mono-font-family: "Martian Mono", ui-monospace, monospace;
+
+  --heading-xxl: 72px;
+  --heading-xl: 44px;
+  --heading-lg: 32px;
+  --heading-md: 22px;
+  --body: 16px;
+  --body-sm: 13.5px;
+  --mono-sm: 12.5px;
+  --eyebrow: 11px;
+
+  --line-height-heading: 1.02;
+  --line-height-body: 1.65;
+  --letter-spacing-heading: -0.02em;
+
+  --color-vault: #240046;
+  --color-ground: #f3f4f6;
+  --color-ink: #0f172a;
+  --color-envelope: rgba(15, 23, 42, 0.35);
+  --color-relay: #7b2cbf;
+  --color-rollout: #9d4edd;
+  --color-plaintext: #e0aaff;
+  --color-white: #ffffff;
+  --color-body-ink: rgba(15, 23, 42, 0.78);
+  --color-rule: rgba(15, 23, 42, 0.14);
+
+  --spacing-xs: 8px;
+  --spacing-sm: 16px;
+  --spacing-md: 24px;
+  --spacing-lg: 40px;
+  --spacing-xl: 64px;
+  --spacing-2xl: 96px;
+
+  --section-padding: 96px;
+  --max-width: 1200px;
+  --page-padding: 32px;
+  --navbar-height: 64px;
+  --radius: 2px;
+  --fold: 26px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  font-family: var(--body-font-family);
+  font-size: var(--body);
+  line-height: var(--line-height-body);
+}
+h1,
+h2,
+h3 {
+  font-family: var(--heading-font-family);
+  line-height: var(--line-height-heading);
+  letter-spacing: var(--letter-spacing-heading);
+  font-weight: 600;
+}
+a {
+  color: var(--color-relay);
+}
+.wrap {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 var(--page-padding);
+}
+.eyebrow {
+  font-family: var(--mono-font-family);
+  font-size: var(--eyebrow);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-relay);
+  display: block;
+  margin-bottom: var(--spacing-sm);
+}
+.body-ink {
+  color: var(--color-body-ink);
+}
+.mono {
+  font-family: var(--mono-font-family);
+}
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* buttons — brand patterns verbatim (Ledger fill / Drafting line / Relay text) */
+.btn-fill {
+  display: inline-block;
+  font-family: var(--heading-font-family);
+  font-weight: 500;
+  font-size: 15px;
+  background: var(--color-ink);
+  color: #ffffff;
+  border-radius: var(--radius);
+  padding: 12px 24px;
+  text-decoration: none;
+}
+.btn-line {
+  display: inline-block;
+  font-family: var(--heading-font-family);
+  font-weight: 500;
+  font-size: 15px;
+  background: transparent;
+  color: var(--color-ink);
+  border: 1px solid var(--color-ink);
+  border-radius: var(--radius);
+  padding: 12px 24px;
+  text-decoration: none;
+}
+.btn-text {
+  font-family: var(--mono-font-family);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-relay);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.cta-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+}
+
+/* sections */
+section {
+  padding: var(--section-padding) 0;
+  border-bottom: 1px solid var(--color-rule);
+  position: relative;
+}
+.sec-head {
+  margin-bottom: var(--spacing-lg);
+}
+.sec-head h2 {
+  font-size: var(--heading-xl);
+}
+.split {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: var(--spacing-xl);
+  align-items: center;
+}
+.split.rev {
+  grid-template-columns: 0.95fr 1.05fr;
+}
+
+/* box-score table — the register motif */
+table.score {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--mono-font-family);
+  font-size: var(--mono-sm);
+  font-variant-numeric: tabular-nums;
+}
+table.score th {
+  text-align: left;
+  font-weight: 400;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-relay);
+  padding: 10px 16px 10px 0;
+  border-bottom: 1px solid var(--color-envelope);
+}
+table.score td {
+  padding: 13px 16px 13px 0;
+  border-bottom: 1px solid var(--color-rule);
+  color: var(--color-body-ink);
+}
+table.score tr td:first-child {
+  color: var(--color-ink);
+}
+table.score td.v {
+  color: var(--color-relay);
+  font-weight: 500;
+}
+table.score td.r {
+  color: var(--color-body-ink);
+}
+
+/* crop-mark registration corners — "this region is measured" */
+.cropframe {
+  position: relative;
+  padding: 20px;
+}
+.cropframe .tick {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 0 solid var(--color-envelope);
+}
+.cropframe .tick.tl {
+  top: 0;
+  left: 0;
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+.cropframe .tick.tr {
+  top: 0;
+  right: 0;
+  border-top-width: 1px;
+  border-right-width: 1px;
+}
+.cropframe .tick.bl {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+}
+.cropframe .tick.br {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: 1px;
+  border-right-width: 1px;
+}
+
+/* artifact panel — the vault set into the drafting room */
+.artifact {
+  background: var(--color-vault);
+  color: #f3f4f6;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  padding: var(--spacing-md);
+  font-family: var(--mono-font-family);
+  font-size: var(--mono-sm);
+  line-height: 1.9;
+  overflow-x: auto;
+}
+.artifact .c {
+  color: rgba(224, 170, 255, 0.55);
+}
+.artifact .ok {
+  color: #c77dff;
+}
+.artifact .hl {
+  color: var(--color-plaintext);
+}
+
+/* dog-ear — the unsealed-envelope fold */
+.dogear {
+  position: relative;
+  clip-path: polygon(0 0, calc(100% - var(--fold)) 0, 100% var(--fold), 100% 100%, 0 100%);
+}
+.dogear::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--fold);
+  height: var(--fold);
+  background: var(--color-rollout);
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+
+/* mechanism card */
+.mech {
+  border: 1px solid var(--color-envelope);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+.mech .hd {
+  font-family: var(--mono-font-family);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-relay);
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.mech table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono-font-family);
+  font-size: var(--mono-sm);
+}
+.mech td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.mech tr:last-child td {
+  border-bottom: none;
+}
+.mech td + td {
+  color: var(--color-relay);
+  text-align: right;
+}
+
+/* white cards */
+.card {
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  padding: var(--spacing-md);
+  background: #ffffff;
+}
+.card h3 {
+  font-size: var(--heading-md);
+  margin-bottom: var(--spacing-xs);
+}
+.card p {
+  font-size: var(--body-sm);
+  color: var(--color-body-ink);
+}
+.diagram {
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  padding: var(--spacing-md);
+  background: #ffffff;
+}
+
+.footnote {
+  font-family: var(--mono-font-family);
+  font-size: 11px;
+  color: var(--color-relay);
+  margin-top: var(--spacing-sm);
+  letter-spacing: 0.04em;
+}
+
+/* closing dual-CTA */
+.closing {
+  text-align: center;
+  border-bottom: none;
+}
+.closing h2 {
+  font-size: var(--heading-xl);
+}
+.closing .cta-row {
+  justify-content: center;
+}

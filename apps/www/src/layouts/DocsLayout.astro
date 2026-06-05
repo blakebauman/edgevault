@@ -1,0 +1,180 @@
+---
+import { getCollection } from 'astro:content'
+import Base from './Base.astro'
+
+interface Props {
+  title: string
+  description: string
+  path: string
+  /** id of the doc being rendered (sidebar active state); undefined on the index */
+  current?: string
+}
+
+const { title, description, path, current } = Astro.props
+const docs = (await getCollection('docs')).sort((a, b) => a.data.order - b.data.order)
+---
+
+<Base title={title} description={description} path={path} active="docs">
+  <div class="docs-shell wrap">
+    <aside class="docs-sidebar" data-section="docs-nav" data-intent="orient within the guides">
+      <a href="/docs" class:list={['idx', { active: !current }]}>Docs home</a>
+      <span class="group">Guides</span>
+      {
+        docs.map((doc) => (
+          <a href={`/docs/${doc.id}`} class:list={[{ active: doc.id === current }]}>
+            {doc.data.title}
+          </a>
+        ))
+      }
+    </aside>
+    <article class="docs-article">
+      <slot />
+    </article>
+  </div>
+</Base>
+
+<style is:global>
+  .docs-shell {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: var(--spacing-xl);
+    padding-top: 48px;
+    padding-bottom: var(--spacing-2xl);
+    align-items: start;
+  }
+  .docs-sidebar {
+    position: sticky;
+    top: calc(var(--navbar-height) + 24px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-left: 1px solid var(--color-rule);
+  }
+  .docs-sidebar .group {
+    font-family: var(--mono-font-family);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-relay);
+    padding: 14px 0 6px 14px;
+  }
+  .docs-sidebar a {
+    font-family: var(--heading-font-family);
+    font-weight: 500;
+    font-size: 13.5px;
+    color: var(--color-body-ink);
+    text-decoration: none;
+    padding: 5px 0 5px 14px;
+    border-left: 2px solid transparent;
+    margin-left: -1px;
+  }
+  .docs-sidebar a:hover {
+    color: var(--color-relay);
+  }
+  .docs-sidebar a.active {
+    color: var(--color-relay);
+    border-left-color: var(--color-relay);
+  }
+  .docs-sidebar a.idx {
+    font-family: var(--mono-font-family);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* article prose */
+  .docs-article {
+    max-width: 76ch;
+    /* shiki css-variables theme → brand code-panel colors */
+    --astro-code-color-text: #f3f4f6;
+    --astro-code-color-background: #240046;
+    --astro-code-token-constant: #e0aaff;
+    --astro-code-token-string: #e0aaff;
+    --astro-code-token-string-expression: #e0aaff;
+    --astro-code-token-comment: rgba(224, 170, 255, 0.55);
+    --astro-code-token-keyword: #c77dff;
+    --astro-code-token-function: #c77dff;
+    --astro-code-token-parameter: #f3f4f6;
+    --astro-code-token-punctuation: rgba(243, 244, 246, 0.8);
+    --astro-code-token-link: #e0aaff;
+  }
+  .docs-article h1 {
+    font-size: 40px;
+    font-weight: 500;
+  }
+  .docs-article .doc-desc {
+    color: var(--color-body-ink);
+    margin: var(--spacing-sm) 0 var(--spacing-lg);
+    max-width: 64ch;
+  }
+  .docs-article h2 {
+    font-size: 24px;
+    margin: var(--spacing-lg) 0 var(--spacing-sm);
+  }
+  .docs-article h3 {
+    font-size: 18px;
+    margin: var(--spacing-md) 0 var(--spacing-xs);
+  }
+  .docs-article p,
+  .docs-article li {
+    color: var(--color-body-ink);
+  }
+  .docs-article p {
+    margin-bottom: var(--spacing-sm);
+  }
+  .docs-article ul,
+  .docs-article ol {
+    padding-left: 22px;
+    margin-bottom: var(--spacing-sm);
+  }
+  .docs-article li {
+    margin-bottom: 6px;
+  }
+  .docs-article code {
+    font-family: var(--mono-font-family);
+    font-size: 0.82em;
+  }
+  .docs-article :not(pre) > code {
+    background: rgba(123, 44, 191, 0.08);
+    border-radius: var(--radius);
+    padding: 2px 5px;
+    color: var(--color-ink);
+  }
+  .docs-article pre {
+    border-radius: var(--radius);
+    padding: var(--spacing-md);
+    font-size: var(--mono-sm);
+    line-height: 1.8;
+    overflow-x: auto;
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+  }
+  .docs-article table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: var(--body-sm);
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+  }
+  .docs-article th {
+    text-align: left;
+    font-family: var(--mono-font-family);
+    font-weight: 400;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--color-relay);
+    padding: 8px 16px 8px 0;
+    border-bottom: 1px solid var(--color-envelope);
+  }
+  .docs-article td {
+    padding: 10px 16px 10px 0;
+    border-bottom: 1px solid var(--color-rule);
+    color: var(--color-body-ink);
+    vertical-align: top;
+  }
+  .docs-article td:first-child {
+    font-family: var(--mono-font-family);
+    font-size: 12px;
+    color: var(--color-ink);
+    white-space: nowrap;
+  }
+</style>

@@ -1,0 +1,32 @@
+---
+import Prose from '../layouts/Prose.astro'
+// STUB — awaiting user copy. NOTE: security@edgevault.io has no MX routing yet
+// (verified 2026-06-05) — enable Cloudflare Email Routing before launch.
+---
+
+<Prose
+  title="Contact EdgeVault"
+  description="How to reach EdgeVault: security reports, sales for Enterprise, and everything else."
+  path="/contact"
+  eyebrow="Contact"
+  heading="Three doors."
+  stub
+>
+  <h2>Security</h2>
+  <p>
+    Vulnerability reports go to <span class="mono">security@edgevault.io</span>. Read
+    <a href="/security#blast-radius">the threat model</a> first — if you can break a row of that
+    table, we want the details, and fixes get attributed.
+  </p>
+  <h2>Enterprise</h2>
+  <p>
+    SSO, SCIM, and advanced RBAC are sales-led on purpose —
+    <span class="mono">sales@edgevault.io</span>.
+  </p>
+  <h2>Everything else</h2>
+  <p>
+    Bugs and feature requests belong in
+    <a href="https://github.com/blakebauman/edgevault">GitHub issues</a> once the repo is public.
+    Until then: <span class="mono">hello@edgevault.io</span>.
+  </p>
+</Prose>
