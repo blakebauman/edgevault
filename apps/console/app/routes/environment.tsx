@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
 import { CopyButton } from '../components/copy-button'
+import { formatTime } from '../lib/format'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/environment'
@@ -196,11 +197,6 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   }
 
   return { error: 'Unknown action' }
-}
-
-/** DO rows carry epoch seconds; live events carry ms — render either. */
-function formatTime(epoch: number): string {
-  return new Date(epoch < 1e12 ? epoch * 1000 : epoch).toLocaleString()
 }
 
 const KIND_HINT: Record<string, string> = {
