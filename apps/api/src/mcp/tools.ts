@@ -1,9 +1,10 @@
 import { searchConfigs } from '@edgevault/ai'
+import { hasRefs } from '@edgevault/refs'
 import { z } from 'zod'
 import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
 import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
-import { writeThrough } from '../edge-cache'
+import { publishTargets } from '../edge-cache'
 import { prepareSecretContent, revealSecret } from '../secrets'
 import { defineTool, type McpToolContext } from './server'
 
@@ -36,10 +37,16 @@ export const edgevaultTools = [
     name: 'list_configs',
     description: 'List config/flag/secret items in an environment. Secret values are redacted.',
     inputSchema: objectSchema(
-      { environmentId: { type: 'string' }, kind: { type: 'string', enum: kindEnum } },
+      {
+        environmentId: { type: 'string' },
+        kind: { type: 'string', enum: kindEnum },
+      },
       ['environmentId'],
     ),
-    schema: z.object({ environmentId: z.string(), kind: z.enum(kindEnum).optional() }),
+    schema: z.object({
+      environmentId: z.string(),
+      kind: z.enum(kindEnum).optional(),
+    }),
     handler: async (args, ctx) =>
       (await stub(ctx).listConfigs(args.environmentId, args.kind)).map(redact),
   }),
@@ -53,7 +60,16 @@ export const edgevaultTools = [
     schema: z.object({ environmentId: z.string(), key: z.string() }),
     handler: async (args, ctx) => {
       const item = await stub(ctx).getConfig(args.environmentId, args.key)
-      return item ? redact(item) : { error: 'not_found' }
+      if (!item) return { error: 'not_found' }
+      // Items with ${...} references also report their resolved (published) value.
+      if (item.kind !== 'secret' && hasRefs(item.content)) {
+        const { targets } = await stub(ctx).collectPublishTargets(args.environmentId, args.key, 1)
+        return {
+          ...redact(item),
+          resolvedContent: targets[0]?.resolvedContent,
+        }
+      }
+      return redact(item)
     },
   }),
   defineTool({
@@ -87,7 +103,9 @@ export const edgevaultTools = [
         contentType: args.contentType,
         userId: ctx.userId,
       })
-      await writeThrough(ctx.env, ctx.workspaceId, item)
+      // Publish the item plus anything referencing it, with ${...} expanded.
+      const { targets } = await stub(ctx).collectPublishTargets(item.environmentId, item.key)
+      await publishTargets(ctx.env, ctx.workspaceId, targets)
       await indexConfig(ctx.env, ctx.workspaceId, item)
       return redact(item)
     },
@@ -103,7 +121,10 @@ export const edgevaultTools = [
     handler: async (args, ctx) => {
       const item = await stub(ctx).getConfig(args.environmentId, args.key)
       if (!item) return { error: 'not_found' }
-      return { key: item.key, content: await revealSecret(ctx.env, ctx.workspaceId, item) }
+      return {
+        key: item.key,
+        content: await revealSecret(ctx.env, ctx.workspaceId, item),
+      }
     },
   }),
   defineTool({
@@ -123,9 +144,12 @@ export const edgevaultTools = [
       key: z.string(),
     }),
     handler: async (args, ctx) => {
-      const promotion = await stub(ctx).promote({ ...args, userId: ctx.userId })
-      const target = await stub(ctx).getConfig(args.targetEnvironmentId, args.key)
-      if (target) await writeThrough(ctx.env, ctx.workspaceId, target)
+      const promotion = await stub(ctx).promote({
+        ...args,
+        userId: ctx.userId,
+      })
+      const { targets } = await stub(ctx).collectPublishTargets(args.targetEnvironmentId, args.key)
+      await publishTargets(ctx.env, ctx.workspaceId, targets)
       return promotion
     },
   }),
@@ -153,7 +177,10 @@ export const edgevaultTools = [
     inputSchema: objectSchema({ query: { type: 'string' }, environmentId: { type: 'string' } }, [
       'query',
     ]),
-    schema: z.object({ query: z.string(), environmentId: z.string().optional() }),
+    schema: z.object({
+      query: z.string(),
+      environmentId: z.string().optional(),
+    }),
     handler: async (args, ctx) =>
       searchConfigs(
         {

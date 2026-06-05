@@ -3,6 +3,7 @@ import { generateApiKey, generateToken } from '@edgevault/auth'
 import { type ConfigFormat, isConfigFormat, validateContent } from '@edgevault/config-formats'
 import { encryptSecret } from '@edgevault/crypto'
 import { NOTIFY_ACTIONS } from '@edgevault/edge-protocol'
+import { hasRefs } from '@edgevault/refs'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
@@ -19,7 +20,7 @@ import {
 } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
-import { deleteThrough, publishApiKey, writeThrough } from '../edge-cache'
+import { deleteThrough, publishApiKey, publishTargets } from '../edge-cache'
 import { buildNotifyJob, dispatchNotifications, invalidateChannelCache } from '../notify'
 import { prepareSecretContent, revealSecret } from '../secrets'
 
@@ -73,6 +74,32 @@ function isAdmin(c: Context<AppEnv>): boolean {
   return c.var.role === 'owner' || c.var.role === 'admin'
 }
 
+/** DO reference-validation failures (`Reference error: …`) become client errors. */
+function isRefError(error: unknown): error is Error {
+  return error instanceof Error && error.message.startsWith('Reference error:')
+}
+
+/**
+ * Republish an item AND everything that references it (transitively) to the
+ * edge cache, with ${...} references expanded. Runs in waitUntil after writes.
+ */
+async function publishWithDependents(
+  c: Context<AppEnv>,
+  workspaceId: string,
+  item: ConfigItem,
+): Promise<void> {
+  const { targets, truncated } = await stubFor(c, workspaceId).collectPublishTargets(
+    item.environmentId,
+    item.key,
+  )
+  if (truncated) {
+    console.warn(
+      `publish fan-out truncated at 100 for ${workspaceId}/${item.environmentId}/${item.key}`,
+    )
+  }
+  await publishTargets(c.env, workspaceId, targets)
+}
+
 export const workspaceRoutes = new Hono<AppEnv>()
   // --- Environments ---
   .post(
@@ -99,7 +126,10 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const target = c.req.query('target')
     if (!source || !target) {
       return c.json(
-        { error: 'missing_environments', detail: '?source= and ?target= environment ids required' },
+        {
+          error: 'missing_environments',
+          detail: '?source= and ?target= environment ids required',
+        },
         400,
       )
     }
@@ -114,7 +144,13 @@ export const workspaceRoutes = new Hono<AppEnv>()
       return c.json({ comparison })
     } catch (error) {
       if (error instanceof Error && error.message.includes('Environment not found')) {
-        return c.json({ error: 'not_found', detail: 'unknown source or target environment' }, 404)
+        return c.json(
+          {
+            error: 'not_found',
+            detail: 'unknown source or target environment',
+          },
+          404,
+        )
       }
       throw error
     }
@@ -136,17 +172,24 @@ export const workspaceRoutes = new Hono<AppEnv>()
       const workspaceId = c.req.param('workspaceId')
       // Envelope-encrypt secrets before they reach the DO (which stores ciphertext).
       const prepared = await prepareSecretContent(c.env, workspaceId, body.kind, body.content)
-      const config = await stubFor(c, workspaceId).setConfig({
-        environmentId: c.req.param('envId'),
-        key: body.key,
-        kind: body.kind,
-        content: prepared.content,
-        contentType: format,
-        isEncrypted: prepared.isEncrypted,
-        userId: c.var.userId,
-      })
-      // Write-through to the edge cache (KV) for the delivery worker.
-      c.executionCtx.waitUntil(writeThrough(c.env, workspaceId, config))
+      let config: ConfigItem
+      try {
+        config = await stubFor(c, workspaceId).setConfig({
+          environmentId: c.req.param('envId'),
+          key: body.key,
+          kind: body.kind,
+          content: prepared.content,
+          contentType: format,
+          isEncrypted: prepared.isEncrypted,
+          userId: c.var.userId,
+        })
+      } catch (error) {
+        if (isRefError(error))
+          return c.json({ error: 'invalid_reference', detail: error.message }, 400)
+        throw error
+      }
+      // Write-through to the edge cache (KV) — the item plus anything referencing it.
+      c.executionCtx.waitUntil(publishWithDependents(c, workspaceId, config))
       // Index for semantic search (never index secret plaintext).
       if (config.kind !== 'secret') {
         c.executionCtx.waitUntil(indexConfig(c.env, workspaceId, config))
@@ -179,13 +222,30 @@ export const workspaceRoutes = new Hono<AppEnv>()
       c.req.param('key'),
     )
     if (!config) return c.json({ error: 'not_found' }, 404)
-    return c.json({ config: redact(config) })
+    // Items with ${...} references also report their resolved (published) value.
+    let resolvedContent: string | undefined
+    if (config.kind !== 'secret' && hasRefs(config.content)) {
+      const { targets } = await stubFor(c, c.req.param('workspaceId')).collectPublishTargets(
+        config.environmentId,
+        config.key,
+        1,
+      )
+      resolvedContent = targets[0]?.resolvedContent
+    }
+    return c.json({ config: redact(config), resolvedContent })
   })
   .delete('/:workspaceId/environments/:envId/configs/:key', async (c) => {
     const workspaceId = c.req.param('workspaceId')
     const envId = c.req.param('envId')
     const key = c.req.param('key')
-    const ok = await stubFor(c, workspaceId).deleteConfig(envId, key, c.var.userId)
+    let ok: boolean
+    try {
+      ok = await stubFor(c, workspaceId).deleteConfig(envId, key, c.var.userId)
+    } catch (error) {
+      // Deleting an item other configs still reference would break them.
+      if (isRefError(error)) return c.json({ error: 'referenced', detail: error.message }, 409)
+      throw error
+    }
     if (ok) {
       c.executionCtx.waitUntil(deleteThrough(c.env, workspaceId, envId, key))
       const deleteEvent = {
@@ -236,31 +296,50 @@ export const workspaceRoutes = new Hono<AppEnv>()
 
   // --- Revisions / promotions / activity ---
   .post('/:workspaceId/revisions/:revisionId/revert', async (c) => {
-    const config = await stubFor(c, c.req.param('workspaceId')).revertToRevision(
-      c.req.param('revisionId'),
-      c.var.userId,
-    )
+    let config: ConfigItem | null
+    try {
+      config = await stubFor(c, c.req.param('workspaceId')).revertToRevision(
+        c.req.param('revisionId'),
+        c.var.userId,
+      )
+    } catch (error) {
+      // The old revision may reference items that no longer exist.
+      if (isRefError(error))
+        return c.json({ error: 'invalid_reference', detail: error.message }, 400)
+      throw error
+    }
     if (!config) return c.json({ error: 'not_found' }, 404)
-    c.executionCtx.waitUntil(writeThrough(c.env, c.req.param('workspaceId'), config))
+    c.executionCtx.waitUntil(publishWithDependents(c, c.req.param('workspaceId'), config))
     return c.json({ config: redact(config) })
   })
   .post('/:workspaceId/promotions', zValidator('json', promoteSchema), async (c) => {
     const body = c.req.valid('json')
     const workspaceId = c.req.param('workspaceId')
-    const promotion = await stubFor(c, workspaceId).promote({ ...body, userId: c.var.userId })
-    const target = await stubFor(c, workspaceId).getConfig(body.targetEnvironmentId, body.key)
-    if (target) c.executionCtx.waitUntil(writeThrough(c.env, workspaceId, target))
-    const promoteEvent = {
-      workspaceId,
-      environmentId: body.targetEnvironmentId,
-      action: 'config.promoted',
-      resourceType: target?.kind ?? 'config',
-      key: body.key,
-      userId: c.var.userId,
+    try {
+      const promotion = await stubFor(c, workspaceId).promote({
+        ...body,
+        userId: c.var.userId,
+      })
+      const target = await stubFor(c, workspaceId).getConfig(body.targetEnvironmentId, body.key)
+      if (target) c.executionCtx.waitUntil(publishWithDependents(c, workspaceId, target))
+      const promoteEvent = {
+        workspaceId,
+        environmentId: body.targetEnvironmentId,
+        action: 'config.promoted',
+        resourceType: target?.kind ?? 'config',
+        key: body.key,
+        userId: c.var.userId,
+      }
+      c.executionCtx.waitUntil(emitAudit(c.env, promoteEvent))
+      c.executionCtx.waitUntil(dispatchNotifications(c.env, promoteEvent))
+      return c.json({ promotion }, 201)
+    } catch (error) {
+      // e.g. promoting "${HOST}" into an env that has no HOST yet.
+      if (isRefError(error)) {
+        return c.json({ error: 'invalid_reference', detail: error.message }, 400)
+      }
+      throw error
     }
-    c.executionCtx.waitUntil(emitAudit(c.env, promoteEvent))
-    c.executionCtx.waitUntil(dispatchNotifications(c.env, promoteEvent))
-    return c.json({ promotion }, 201)
   })
   .get('/:workspaceId/promotions', async (c) => {
     const promotions = await stubFor(c, c.req.param('workspaceId')).listPromotions()
@@ -319,7 +398,11 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const query = c.req.query('q')
     if (!query) return c.json({ error: 'missing_query' }, 400)
     const hits = await searchConfigs(
-      { ai: aiRunner(c.env), vectorize: vectorize(c.env), embeddingModel: embeddingModel(c.env) },
+      {
+        ai: aiRunner(c.env),
+        vectorize: vectorize(c.env),
+        embeddingModel: embeddingModel(c.env),
+      },
       {
         workspaceId: c.req.param('workspaceId'),
         query,

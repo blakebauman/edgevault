@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { generateDiff, summarizeDiff } from '@edgevault/diff'
 import type { WorkspaceEvent } from '@edgevault/realtime'
+import { type ConfigRef, extractRefs, RefError, resolveRefs } from '@edgevault/refs'
 import { ActivityLogger } from './activity-log'
 import { PromotionManager } from './promotion-manager'
 import { RevisionManager } from './revision-manager'
@@ -14,6 +15,8 @@ import type {
   EnvComparisonSide,
   Environment,
   Promotion,
+  PublishTarget,
+  PublishTargets,
   Revision,
   SetConfigInput,
   WorkspaceMeta,
@@ -188,6 +191,19 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       created_at INTEGER DEFAULT (unixepoch()) NOT NULL
     )`)
 
+    // Outgoing ${...} reference edges per item, so dependents can be found and
+    // republished when a referenced item changes. Maintained by setConfig/deleteConfig.
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS config_references (
+      environment_id TEXT NOT NULL,
+      config_key TEXT NOT NULL,
+      ref_environment_id TEXT NOT NULL,
+      ref_key TEXT NOT NULL,
+      PRIMARY KEY (environment_id, config_key, ref_environment_id, ref_key)
+    )`)
+    this.sql.exec(
+      `CREATE INDEX IF NOT EXISTS idx_refs_target ON config_references(ref_environment_id, ref_key)`,
+    )
+
     this.sql.exec(`CREATE INDEX IF NOT EXISTS idx_config_items_env ON config_items(environment_id)`)
     this.sql.exec(
       `CREATE INDEX IF NOT EXISTS idx_revisions_env_key ON config_revisions(environment_id, config_key)`,
@@ -286,21 +302,38 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
     const targetItems = new Map(this.listConfigs(targetEnvironmentId).map((i) => [i.key, i]))
     const keys = [...new Set([...sourceItems.keys(), ...targetItems.keys()])].sort()
 
-    const summary = { equal: 0, drifted: 0, onlyInSource: 0, onlyInTarget: 0, notComparable: 0 }
+    const summary = {
+      equal: 0,
+      drifted: 0,
+      onlyInSource: 0,
+      onlyInTarget: 0,
+      notComparable: 0,
+    }
     const entries: EnvComparisonEntry[] = keys.map((key) => {
       const source = sourceItems.get(key)
       const target = targetItems.get(key)
       if (source && !target) {
         summary.onlyInSource++
-        return { key, status: 'only-in-source', source: toComparisonSide(source) }
+        return {
+          key,
+          status: 'only-in-source',
+          source: toComparisonSide(source),
+        }
       }
       if (!source && target) {
         summary.onlyInTarget++
-        return { key, status: 'only-in-target', target: toComparisonSide(target) }
+        return {
+          key,
+          status: 'only-in-target',
+          target: toComparisonSide(target),
+        }
       }
       const s = source as ConfigItem
       const t = target as ConfigItem
-      const sides = { source: toComparisonSide(s), target: toComparisonSide(t) }
+      const sides = {
+        source: toComparisonSide(s),
+        target: toComparisonSide(t),
+      }
       if (s.kind === 'secret' || t.kind === 'secret') {
         summary.notComparable++
         return { key, status: 'not-comparable', ...sides }
@@ -313,10 +346,150 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       // Content is parsed JSON or a raw string, so diff values are JSON-safe.
       const diff = rawDiff as ComparisonDiffEntry[]
       summary.drifted++
-      return { key, status: 'drifted', ...sides, diff, diffSummary: summarizeDiff(rawDiff) }
+      return {
+        key,
+        status: 'drifted',
+        ...sides,
+        diff,
+        diffSummary: summarizeDiff(rawDiff),
+      }
     })
 
     return { sourceEnvironmentId, targetEnvironmentId, entries, summary }
+  }
+
+  // --- References (${KEY} / ${env-slug/KEY}) -------------------------------
+
+  private envIdBySlug(slug: string): string | null {
+    const row = this.sql
+      .exec<{ id: string }>(`SELECT id FROM environments WHERE slug = ?`, slug)
+      .toArray()[0]
+    return row?.id ?? null
+  }
+
+  /** Resolve one reference relative to the environment its content lives in. */
+  private derefRef = (
+    ref: ConfigRef,
+    environmentId: string,
+  ): { id: string; content: string; ctx: string } | null => {
+    const targetEnv = ref.envSlug ? this.envIdBySlug(ref.envSlug) : environmentId
+    if (!targetEnv) return null
+    const item = this.getConfig(targetEnv, ref.key)
+    if (!item || item.kind === 'secret') return null
+    return {
+      id: `${targetEnv}/${ref.key}`,
+      content: item.content,
+      ctx: targetEnv,
+    }
+  }
+
+  /**
+   * Validate the references in new content BEFORE persisting: every target must
+   * exist and not be a secret, and the resulting graph must be acyclic and
+   * shallow enough. Throwing here means a broken graph can never be stored, so
+   * publish-time resolution is infallible.
+   */
+  private validateReferences(environmentId: string, key: string, content: string): void {
+    const refs = extractRefs(content)
+    if (refs.length === 0) return
+    for (const ref of refs) {
+      const targetEnv = ref.envSlug ? this.envIdBySlug(ref.envSlug) : environmentId
+      const target = targetEnv ? this.getConfig(targetEnv, ref.key) : null
+      if (target?.kind === 'secret') {
+        throw new Error(`Reference error: secrets cannot be referenced (${ref.raw})`)
+      }
+    }
+    try {
+      resolveRefs(content, `${environmentId}/${key}`, environmentId, this.derefRef)
+    } catch (error) {
+      if (error instanceof RefError) throw new Error(`Reference error: ${error.message}`)
+      throw error
+    }
+  }
+
+  /** Items whose content directly references (environmentId, key). */
+  getDependents(environmentId: string, key: string): Array<{ environmentId: string; key: string }> {
+    return this.sql
+      .exec<{ environment_id: string; config_key: string }>(
+        `SELECT environment_id, config_key FROM config_references
+         WHERE ref_environment_id = ? AND ref_key = ?`,
+        environmentId,
+        key,
+      )
+      .toArray()
+      .map((row) => ({
+        environmentId: row.environment_id,
+        key: row.config_key,
+      }))
+  }
+
+  /** Replace the outgoing reference edges recorded for an item. */
+  private updateReferenceEdges(environmentId: string, key: string, content: string | null): void {
+    this.sql.exec(
+      `DELETE FROM config_references WHERE environment_id = ? AND config_key = ?`,
+      environmentId,
+      key,
+    )
+    if (content === null) return
+    for (const ref of extractRefs(content)) {
+      const targetEnv = ref.envSlug ? this.envIdBySlug(ref.envSlug) : environmentId
+      if (!targetEnv) continue // unreachable: validateReferences already passed
+      this.sql.exec(
+        `INSERT OR IGNORE INTO config_references
+           (environment_id, config_key, ref_environment_id, ref_key)
+         VALUES (?, ?, ?, ?)`,
+        environmentId,
+        key,
+        targetEnv,
+        ref.key,
+      )
+    }
+  }
+
+  /** Expand an item's references for KV publication (secrets pass through). */
+  private resolveContent(item: ConfigItem): string {
+    if (item.kind === 'secret') return item.content
+    try {
+      return resolveRefs(
+        item.content,
+        `${item.environmentId}/${item.key}`,
+        item.environmentId,
+        this.derefRef,
+      )
+    } catch {
+      // Writes validate the graph and deletes are blocked while referenced, so
+      // this should be unreachable — publish the raw content rather than fail.
+      return item.content
+    }
+  }
+
+  /**
+   * The item plus every TRANSITIVE dependent, each with fully-resolved content
+   * — everything the edge cache must republish after this item changed.
+   * Breadth-first over the reference graph, capped to keep the fan-out sane.
+   */
+  collectPublishTargets(environmentId: string, key: string, limit = 100): PublishTargets {
+    const targets: PublishTarget[] = []
+    const visited = new Set<string>([`${environmentId}/${key}`])
+    const queue: Array<{ environmentId: string; key: string }> = [{ environmentId, key }]
+    let truncated = false
+
+    while (queue.length > 0) {
+      const current = queue.shift() as { environmentId: string; key: string }
+      const item = this.getConfig(current.environmentId, current.key)
+      if (item) targets.push({ item, resolvedContent: this.resolveContent(item) })
+      for (const dependent of this.getDependents(current.environmentId, current.key)) {
+        const id = `${dependent.environmentId}/${dependent.key}`
+        if (visited.has(id)) continue
+        if (visited.size >= limit) {
+          truncated = true
+          continue
+        }
+        visited.add(id)
+        queue.push(dependent)
+      }
+    }
+    return { targets, truncated }
   }
 
   // --- Config items -------------------------------------------------------
@@ -325,6 +498,18 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
     const kind = input.kind ?? 'config'
     const contentType = input.contentType ?? 'json'
     const isEncrypted = input.isEncrypted ? 1 : 0
+
+    if (kind === 'secret') {
+      // Becoming a secret while referenced would break dependents at publish time.
+      const dependents = this.getDependents(input.environmentId, input.key)
+      if (dependents.length > 0) {
+        throw new Error(
+          `Reference error: "${input.key}" is referenced by ${dependents.length} item(s) and cannot be a secret`,
+        )
+      }
+    } else {
+      this.validateReferences(input.environmentId, input.key, input.content)
+    }
 
     const existing = this.sql
       .exec<ConfigRow>(
@@ -381,6 +566,12 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       )
     }
 
+    this.updateReferenceEdges(
+      input.environmentId,
+      input.key,
+      kind === 'secret' ? null : input.content,
+    )
+
     this.activity.log({
       action: `config.${changeType}`,
       resourceType: kind,
@@ -429,6 +620,12 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
   async deleteConfig(environmentId: string, key: string, userId: string): Promise<boolean> {
     const existing = this.getConfig(environmentId, key)
     if (!existing) return false
+    const dependents = this.getDependents(environmentId, key)
+    if (dependents.length > 0) {
+      throw new Error(
+        `Reference error: "${key}" is referenced by ${dependents.length} item(s) and cannot be deleted`,
+      )
+    }
     await this.revisions.create({
       environmentId,
       key,
@@ -442,13 +639,19 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       environmentId,
       key,
     )
+    this.updateReferenceEdges(environmentId, key, null)
     this.activity.log({
       action: 'config.deleted',
       resourceType: existing.kind,
       resourceId: key,
       userId,
     })
-    this.broadcast({ type: 'config.deleted', environmentId, key, at: Date.now() })
+    this.broadcast({
+      type: 'config.deleted',
+      environmentId,
+      key,
+      at: Date.now(),
+    })
     return true
   }
 
@@ -504,7 +707,10 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
         resourceType: source.kind,
         resourceId: input.key,
         userId: input.userId,
-        changes: { from: input.sourceEnvironmentId, to: input.targetEnvironmentId },
+        changes: {
+          from: input.sourceEnvironmentId,
+          to: input.targetEnvironmentId,
+        },
       })
       this.broadcast({
         type: 'promotion.completed',
@@ -650,7 +856,9 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
     const targetEnv = 'environmentId' in event ? event.environmentId : null
     const payload = JSON.stringify(event)
     for (const ws of this.ctx.getWebSockets()) {
-      const att = ws.deserializeAttachment() as { environmentId: string } | null
+      const att = ws.deserializeAttachment() as {
+        environmentId: string
+      } | null
       const subscribedEnv = att?.environmentId ?? '*'
       if (targetEnv === null || subscribedEnv === '*' || subscribedEnv === targetEnv) {
         try {
@@ -668,7 +876,11 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       const att = ws.deserializeAttachment() as { userId: string } | null
       if (att?.userId) users.add(att.userId)
     }
-    const payload = JSON.stringify({ type: 'presence', users: [...users], at: Date.now() })
+    const payload = JSON.stringify({
+      type: 'presence',
+      users: [...users],
+      at: Date.now(),
+    })
     for (const ws of this.ctx.getWebSockets()) {
       try {
         ws.send(payload)

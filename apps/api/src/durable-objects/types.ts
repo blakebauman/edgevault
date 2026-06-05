@@ -139,6 +139,22 @@ export interface EnvComparison {
   }
 }
 
+/**
+ * One KV publish unit: the item plus its content with all ${...} references
+ * expanded. For secrets resolvedContent is the (ciphertext) content unchanged —
+ * the edge cache skips secrets anyway.
+ */
+export interface PublishTarget {
+  item: ConfigItem
+  resolvedContent: string
+}
+
+export interface PublishTargets {
+  targets: PublishTarget[]
+  /** True when the dependent graph exceeded the collection cap. */
+  truncated: boolean
+}
+
 export interface SetConfigInput {
   environmentId: string
   key: string

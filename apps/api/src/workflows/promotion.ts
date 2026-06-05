@@ -3,7 +3,7 @@ import { scoreConfigRisk } from '@edgevault/ai'
 import { aiRunner, textModel } from '../ai'
 import type { ConfigItem, Promotion } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
-import { writeThrough } from '../edge-cache'
+import { publishTargets } from '../edge-cache'
 import { dispatchNotifications } from '../notify'
 
 export interface PromotionParams {
@@ -100,9 +100,14 @@ export class PromotionWorkflow extends WorkflowEntrypoint<Env, PromotionParams> 
       return { ...applied }
     })
 
-    // 5. Propagate the resolved value to the edge cache (KV).
+    // 5. Propagate the resolved value to the edge cache (KV) — the promoted
+    // item plus anything that references it, with ${...} expanded.
     await step.do('propagate', async () => {
-      await writeThrough(this.env, params.workspaceId, target)
+      const { targets } = await workspace().collectPublishTargets(
+        params.targetEnvironmentId,
+        params.key,
+      )
+      await publishTargets(this.env, params.workspaceId, targets)
     })
 
     // 6. Verify the read-back matches what we promoted.
@@ -112,9 +117,16 @@ export class PromotionWorkflow extends WorkflowEntrypoint<Env, PromotionParams> 
     })
     if (!verified) {
       await step.do('mark-failed', () => workspace().failPromotion(promotion.id))
-      return { status: 'failed-verification' as const, promotionId: promotion.id }
+      return {
+        status: 'failed-verification' as const,
+        promotionId: promotion.id,
+      }
     }
 
-    return { status: 'completed' as const, promotionId: promotion.id, version: target.version }
+    return {
+      status: 'completed' as const,
+      promotionId: promotion.id,
+      version: target.version,
+    }
   }
 }

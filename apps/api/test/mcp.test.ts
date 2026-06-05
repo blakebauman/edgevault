@@ -44,20 +44,32 @@ describe('MCP server', () => {
   })
 
   it('notifications receive no response (202)', async () => {
-    const res = await call({ jsonrpc: '2.0', method: 'notifications/initialized' })
+    const res = await call({
+      jsonrpc: '2.0',
+      method: 'notifications/initialized',
+    })
     expect(res.status).toBe(202)
     expect(res.body).toBeUndefined()
   })
 
   it('tools/call set_config then get_config round-trips via the DO', async () => {
-    const e = await workspace().createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })
+    const e = await workspace().createEnvironment({
+      name: 'Dev',
+      slug: 'dev',
+      userId: 'u1',
+    })
     const setRes = await call({
       jsonrpc: '2.0',
       id: 3,
       method: 'tools/call',
       params: {
         name: 'set_config',
-        arguments: { environmentId: e.id, key: 'f.x', content: '{"on":true}', kind: 'flag' },
+        arguments: {
+          environmentId: e.id,
+          key: 'f.x',
+          content: '{"on":true}',
+          kind: 'flag',
+        },
       },
     })
     expect(setRes.body.result.isError).toBeFalsy()
@@ -66,7 +78,10 @@ describe('MCP server', () => {
       jsonrpc: '2.0',
       id: 4,
       method: 'tools/call',
-      params: { name: 'get_config', arguments: { environmentId: e.id, key: 'f.x' } },
+      params: {
+        name: 'get_config',
+        arguments: { environmentId: e.id, key: 'f.x' },
+      },
     })
     const item = JSON.parse(getRes.body.result.content[0].text)
     expect(item.key).toBe('f.x')
@@ -75,7 +90,11 @@ describe('MCP server', () => {
   })
 
   it('redacts secret content through get_config', async () => {
-    const e = await workspace().createEnvironment({ name: 'Prod', slug: 'prod', userId: 'u1' })
+    const e = await workspace().createEnvironment({
+      name: 'Prod',
+      slug: 'prod',
+      userId: 'u1',
+    })
     await call({
       jsonrpc: '2.0',
       id: 5,
@@ -95,7 +114,10 @@ describe('MCP server', () => {
       jsonrpc: '2.0',
       id: 6,
       method: 'tools/call',
-      params: { name: 'get_config', arguments: { environmentId: e.id, key: 'db.pw' } },
+      params: {
+        name: 'get_config',
+        arguments: { environmentId: e.id, key: 'db.pw' },
+      },
     })
     expect(getRes.body.result.content[0].text).not.toContain('hunter2')
 
@@ -110,17 +132,73 @@ describe('MCP server', () => {
       jsonrpc: '2.0',
       id: 9,
       method: 'tools/call',
-      params: { name: 'reveal_secret', arguments: { environmentId: e.id, key: 'db.pw' } },
+      params: {
+        name: 'reveal_secret',
+        arguments: { environmentId: e.id, key: 'db.pw' },
+      },
     })
     expect(JSON.parse(revealRes.body.result.content[0].text).content).toBe('hunter2')
   })
 
+  it('get_config reports resolved content for items with ${...} references', async () => {
+    const ws = workspace()
+    const e = await ws.createEnvironment({
+      name: 'Refs',
+      slug: 'refs',
+      userId: 'u1',
+    })
+    await ws.setConfig({
+      environmentId: e.id,
+      key: 'HOST',
+      content: 'api.internal',
+      contentType: 'text',
+      userId: 'u1',
+    })
+    await ws.setConfig({
+      environmentId: e.id,
+      key: 'URL',
+      content: 'https://${HOST}/v1',
+      contentType: 'text',
+      userId: 'u1',
+    })
+    const res = await call({
+      jsonrpc: '2.0',
+      id: 11,
+      method: 'tools/call',
+      params: {
+        name: 'get_config',
+        arguments: { environmentId: e.id, key: 'URL' },
+      },
+    })
+    const item = JSON.parse(res.body.result.content[0].text)
+    expect(item.content).toBe('https://${HOST}/v1')
+    expect(item.resolvedContent).toBe('https://api.internal/v1')
+  })
+
   it('compare_environments reports drift between two environments', async () => {
     const ws = workspace()
-    const a = await ws.createEnvironment({ name: 'Cmp A', slug: 'cmp-a', userId: 'u1' })
-    const b = await ws.createEnvironment({ name: 'Cmp B', slug: 'cmp-b', userId: 'u1' })
-    await ws.setConfig({ environmentId: a.id, key: 'cmp.k', content: '{"v":1}', userId: 'u1' })
-    await ws.setConfig({ environmentId: b.id, key: 'cmp.k', content: '{"v":2}', userId: 'u1' })
+    const a = await ws.createEnvironment({
+      name: 'Cmp A',
+      slug: 'cmp-a',
+      userId: 'u1',
+    })
+    const b = await ws.createEnvironment({
+      name: 'Cmp B',
+      slug: 'cmp-b',
+      userId: 'u1',
+    })
+    await ws.setConfig({
+      environmentId: a.id,
+      key: 'cmp.k',
+      content: '{"v":1}',
+      userId: 'u1',
+    })
+    await ws.setConfig({
+      environmentId: b.id,
+      key: 'cmp.k',
+      content: '{"v":2}',
+      userId: 'u1',
+    })
 
     const res = await call({
       jsonrpc: '2.0',
@@ -146,7 +224,11 @@ describe('MCP server', () => {
     })
     expect(unknownTool.body.error.code).toBe(-32602)
 
-    const unknownMethod = await call({ jsonrpc: '2.0', id: 8, method: 'frobnicate' })
+    const unknownMethod = await call({
+      jsonrpc: '2.0',
+      id: 8,
+      method: 'frobnicate',
+    })
     expect(unknownMethod.body.error.code).toBe(-32601)
   })
 })
