@@ -492,6 +492,18 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
     return { targets, truncated }
   }
 
+  /**
+   * Every item in an environment with references expanded — the machine-export
+   * surface. Secrets pass through raw (ciphertext); the api layer decides
+   * whether the caller may decrypt them.
+   */
+  listResolvedConfigs(environmentId: string): PublishTarget[] {
+    return this.listConfigs(environmentId).map((item) => ({
+      item,
+      resolvedContent: this.resolveContent(item),
+    }))
+  }
+
   // --- Config items -------------------------------------------------------
 
   async setConfig(input: SetConfigInput): Promise<ConfigItem> {

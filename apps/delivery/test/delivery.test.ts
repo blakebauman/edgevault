@@ -64,3 +64,31 @@ describe('delivery reads', () => {
     expect((await call('/v1/configs/missing', auth)).status).toBe(404)
   })
 })
+
+describe('delivery export', () => {
+  it('returns every config in the key environment, scoped to that environment', async () => {
+    await env.CONFIGS_CACHE.put(
+      configCacheKey(WS, ENV, 'app.url'),
+      JSON.stringify({ content: 'https://x', contentType: 'text', kind: 'config', version: 1 }),
+    )
+    // A different environment must never leak into the export.
+    await env.CONFIGS_CACHE.put(
+      configCacheKey(WS, 'env-other', 'other.key'),
+      JSON.stringify({ content: 'nope', contentType: 'text', kind: 'config', version: 1 }),
+    )
+
+    const res = await call('/v1/export', auth)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      environmentId: string
+      configs: Record<string, { content: string }>
+    }
+    expect(body.environmentId).toBe(ENV)
+    expect(Object.keys(body.configs).sort()).toEqual(['app.url', 'feature.x'])
+    expect(body.configs['app.url']?.content).toBe('https://x')
+  })
+
+  it('requires an API key', async () => {
+    expect((await call('/v1/export')).status).toBe(401)
+  })
+})

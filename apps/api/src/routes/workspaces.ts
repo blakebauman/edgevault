@@ -436,8 +436,23 @@ export const workspaceRoutes = new Hono<AppEnv>()
   // --- Environment API keys (for the delivery edge read path) ---
   .post(
     '/:workspaceId/environments/:envId/api-keys',
-    zValidator('json', z.object({ name: z.string().min(1).max(120) })),
+    zValidator(
+      'json',
+      z.object({
+        name: z.string().min(1).max(120),
+        scopes: z
+          .array(z.enum(['read', 'secrets:read']))
+          .nonempty()
+          .optional(),
+      }),
+    ),
     async (c) => {
+      const scopes = c.req.valid('json').scopes ?? ['read']
+      // A secrets:read key can decrypt every secret in its environment (the
+      // machine export surface) — minting one is gated like the reveal endpoint.
+      if (scopes.includes('secrets:read') && !isAdmin(c)) {
+        return c.json({ error: 'forbidden', detail: 'secrets:read keys require admin' }, 403)
+      }
       const generated = generateApiKey('live')
       const key = await createApiKey(c.var.database, {
         workspaceId: c.req.param('workspaceId'),
@@ -446,12 +461,13 @@ export const workspaceRoutes = new Hono<AppEnv>()
         prefix: generated.prefix,
         keyHash: generated.keyHash,
         createdByUserId: c.var.userId,
+        scopes,
       })
       // Publish the key->environment mapping so delivery can validate fast (KV).
       await publishApiKey(c.env, generated.keyHash, {
         workspaceId: c.req.param('workspaceId'),
         environmentId: c.req.param('envId'),
-        scopes: ['read'],
+        scopes,
       })
       // The plaintext key is shown exactly once.
       return c.json({ apiKey: generated.key, key }, 201)

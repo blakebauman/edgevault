@@ -120,6 +120,35 @@ app.get('/v1/flags/:key', async (c) => {
   return c.json({ key: c.req.param('key'), ...value })
 })
 
+// Export every config/flag in the key's environment (CLI `edgevault run`/`pull`,
+// CI bootstrap). A KV list-by-prefix rather than a maintained index: export is a
+// cold path, and listing avoids read-modify-write races on the write path.
+// Secrets never exist in this cache, so they can never appear here.
+app.get('/v1/export', async (c) => {
+  const t0 = Date.now()
+  const { workspaceId, environmentId } = c.var.apiKey
+  const prefix = configCacheKey(workspaceId, environmentId, '')
+  const names: string[] = []
+  let cursor: string | undefined
+  // Page through the namespace (1000 keys/page, capped at 5 pages).
+  for (let page = 0; page < 5; page++) {
+    const list = await c.env.CONFIGS_CACHE.list({ prefix, cursor })
+    names.push(...list.keys.map((k) => k.name))
+    if (list.list_complete) break
+    cursor = list.cursor
+  }
+  const entries = await Promise.all(
+    names.map(async (name) => {
+      const value = await c.env.CONFIGS_CACHE.get<ResolvedConfig>(name, 'json')
+      return [name.slice(prefix.length), value] as const
+    }),
+  )
+  const configs = Object.fromEntries(entries.filter(([, value]) => value !== null))
+  meterRead(c, names.length || 1)
+  c.header('Server-Timing', `resolve;dur=${Date.now() - t0};desc="export:${names.length}"`)
+  return c.json({ environmentId, configs })
+})
+
 app.post('/v1/batch', async (c) => {
   const t0 = Date.now()
   const body = await c.req.json<{ keys?: string[] }>().catch(() => ({ keys: [] }))

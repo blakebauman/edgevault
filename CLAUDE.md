@@ -76,7 +76,7 @@ Core write flow: client/MCP → `api` (authz + Zod) → Workspace DO RPC (revisi
 
 Secrets use envelope encryption (`packages/crypto`): per-secret AES-GCM-256 DEK wrapped by an HKDF-derived per-workspace KEK from `MASTER_KEK`. Plaintext exists only transiently inside the `api`/DO boundary.
 
-Shared packages of note: `@edgevault/edge-protocol` (types shared across the wire), `@edgevault/sdk` (typed consumer client + React bindings for the delivery plane), `@edgevault/realtime` (WebSocket events + `useWorkspaceEvents`), `@edgevault/auth` (token verification helpers).
+Shared packages of note: `@edgevault/edge-protocol` (types shared across the wire), `@edgevault/sdk` (typed consumer client + React bindings for the delivery plane), `@edgevault/realtime` (WebSocket events + `useWorkspaceEvents`), `@edgevault/auth` (token verification helpers), `@edgevault/refs` (`${KEY}` reference parsing/resolution), `@edgevault/cli` (`edgevault run|pull|get` — env injection via environment API keys; secrets need the key's `secrets:read` scope).
 
 ## Testing
 

@@ -4,6 +4,7 @@ import { mcpRoutes } from './mcp'
 import { requireAuth } from './middleware/auth'
 import { withDatabase } from './middleware/database'
 import { requireWorkspaceMember } from './middleware/workspace'
+import { machineRoutes } from './routes/machine'
 import { organizationRoutes } from './routes/organizations'
 import { internalShareRoutes, shareRoutes } from './routes/shares'
 import { workspaceRoutes } from './routes/workspaces'
@@ -78,6 +79,8 @@ app.route('/api/v1/workspaces', workspaceRoutes)
 app.route('/api/v1/shares', shareRoutes)
 // …and recipient consume, reachable only by the console BFF (INTERNAL_TOKEN).
 app.route('/internal/shares', internalShareRoutes)
+// Machine surface (environment API keys, not JWTs): CLI/CI export incl. secrets.
+app.route('/machine', machineRoutes)
 
 // Remote MCP server (Streamable HTTP), one per workspace, same auth + membership.
 app.use('/mcp/:workspaceId', withDatabase, requireAuth, requireWorkspaceMember)
