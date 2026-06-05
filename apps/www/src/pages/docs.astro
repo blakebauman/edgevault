@@ -24,6 +24,33 @@ const guides = (await getCollection('docs')).sort((a, b) => a.data.order - b.dat
     </div>
   </section>
 
+  <section id="quickstart-cli" data-section="quickstart-cli" data-intent="zero-code path: inject the environment into any process" data-layout="split-media">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Quickstart · CLI</span>
+        <h2>No SDK. Just run it.</h2>
+        <p class="body-ink lede">
+          One environment-scoped key, zero code changes:
+          <span class="mono sm">edgevault run</span> fetches your environment and execs your
+          command with everything injected. Secrets ride along only when the key carries the
+          <span class="mono sm">secrets:read</span> scope — and the CLI says so plainly when they
+          don't.
+        </p>
+      </div>
+      <div class="artifact dogear" role="img" aria-label="Shell session installing the CLI and running a server with EdgeVault values injected">
+        <pre><span class="c"># real commands — @edgevault/cli</span>
+npm install -g @edgevault/cli
+export EDGEVAULT_API_KEY=ev_…
+
+$ edgevault run -- node server.js
+<span class="hl">edgevault: injected 14 values</span>
+
+$ edgevault get checkout-timeout-ms
+<span class="hl">5000</span></pre>
+      </div>
+    </div>
+  </section>
+
   <section id="quickstart-sdk" data-section="quickstart-sdk" data-intent="copy-paste read path in one screen" data-layout="split-media">
     <div class="wrap split">
       <div>

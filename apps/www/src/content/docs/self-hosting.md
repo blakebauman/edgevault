@@ -1,7 +1,7 @@
 ---
 title: Self-hosting
 description: Run the MIT core on your own Cloudflare account — same workers, same Durable Objects, your bill, no telemetry.
-order: 6
+order: 7
 ---
 
 The EdgeVault core is MIT and runs on your own Cloudflare account. It's the same code path the

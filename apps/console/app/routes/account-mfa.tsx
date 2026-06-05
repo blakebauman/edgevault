@@ -141,6 +141,7 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
             </div>
             {otpauthUri && (
               <div className="token-box">
+                <p className="token-note">Full otpauth URI (contains the secret):</p>
                 <div className="token-row">
                   <code className="token-value">{otpauthUri}</code>
                   <CopyButton value={otpauthUri} label="Copy URI" />

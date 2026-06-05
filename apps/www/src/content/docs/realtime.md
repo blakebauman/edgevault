@@ -1,7 +1,7 @@
 ---
 title: Realtime events
 description: "@edgevault/realtime — subscribe to config, flag, and secret changes over hibernatable WebSockets instead of polling."
-order: 4
+order: 5
 ---
 
 Your workspace's Durable Object broadcasts every change over WebSockets. `@edgevault/realtime`

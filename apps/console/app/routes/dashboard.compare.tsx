@@ -111,6 +111,16 @@ const STATUS_LABEL: Record<ComparisonEntry['status'], string> = {
   'not-comparable': 'secret (not compared)',
 }
 
+/** One-sided secrets fall through the DO's not-comparable branch (it only fires
+ * when the key exists in both environments) — label them honestly here. */
+function entryLabel(entry: ComparisonEntry): string {
+  const kind = (entry.source ?? entry.target)?.kind
+  if (kind === 'secret' && entry.status !== 'not-comparable') {
+    return `secret · ${STATUS_LABEL[entry.status]}`
+  }
+  return STATUS_LABEL[entry.status]
+}
+
 export default function CompareEnvironments({ loaderData, actionData }: Route.ComponentProps) {
   const { workspaceId, workspaceName, environments, comparison, compareError } = loaderData
   const [searchParams] = useSearchParams()
@@ -195,8 +205,14 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
                     <tr key={entry.key} className={`row-${entry.status}`}>
                       <td className="mono">{entry.key}</td>
                       <td>
-                        <span className={`status status-${entry.status}`}>
-                          {STATUS_LABEL[entry.status]}
+                        <span
+                          className={`status ${
+                            (entry.source ?? entry.target)?.kind === 'secret'
+                              ? 'status-not-comparable'
+                              : `status-${entry.status}`
+                          }`}
+                        >
+                          {entryLabel(entry)}
                         </span>
                       </td>
                       <td className="muted">{entry.source ? `v${entry.source.version}` : '—'}</td>
@@ -209,6 +225,7 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
                             sourceEnvironmentId={comparison.sourceEnvironmentId}
                             targetEnvironmentId={comparison.targetEnvironmentId}
                             targetName={envName(comparison.targetEnvironmentId)}
+                            isSecret={(entry.source ?? entry.target)?.kind === 'secret'}
                             busy={navigation.state !== 'idle'}
                           />
                         )}
@@ -232,19 +249,22 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
   )
 }
 
-/** Promotion mutates another environment's config — it gets a two-step inline
- * confirm, never a single click. */
+/** Promotion mutates another environment's config — a two-step inline confirm,
+ * never a single click. The confirm wears the danger voice (the safe exit stays
+ * brand-colored); secrets say plainly that the sealed value is copied unseen. */
 function PromoteControl({
   entryKey,
   sourceEnvironmentId,
   targetEnvironmentId,
   targetName,
+  isSecret,
   busy,
 }: {
   entryKey: string
   sourceEnvironmentId: string
   targetEnvironmentId: string
   targetName: string
+  isSecret: boolean
   busy: boolean
 }) {
   const [arming, setArming] = useState(false)
@@ -257,20 +277,24 @@ function PromoteControl({
         disabled={busy}
         onClick={() => setArming(true)}
       >
-        Promote →
+        {isSecret ? 'Promote secret →' : 'Promote →'}
       </button>
     )
   }
 
   return (
     <div className="confirm-row">
-      <p className="confirm-note">Promote to /{targetName}?</p>
+      <p className="confirm-note">
+        {isSecret
+          ? `Copy this secret's sealed value to /${targetName}? The value is never displayed.`
+          : `Overwrites /${targetName}; there is no undo.`}
+      </p>
       <Form method="post" onSubmit={() => setArming(false)}>
         <input type="hidden" name="key" value={entryKey} />
         <input type="hidden" name="sourceEnvironmentId" value={sourceEnvironmentId} />
         <input type="hidden" name="targetEnvironmentId" value={targetEnvironmentId} />
-        <button type="submit" className="compact" disabled={busy}>
-          Confirm
+        <button type="submit" className="danger compact" disabled={busy}>
+          Confirm → /{targetName}
         </button>
       </Form>
       <button type="button" className="secondary compact" onClick={() => setArming(false)}>

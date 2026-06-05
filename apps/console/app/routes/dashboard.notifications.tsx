@@ -282,7 +282,7 @@ function DeleteChannel({
       <Form method="post" onSubmit={() => setArming(false)}>
         <input type="hidden" name="intent" value="delete" />
         <input type="hidden" name="channelId" value={channelId} />
-        <button type="submit" className="compact" disabled={busy}>
+        <button type="submit" className="danger compact" disabled={busy}>
           Confirm delete
         </button>
       </Form>

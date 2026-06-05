@@ -1,7 +1,7 @@
 ---
 title: SDK reference
 description: "@edgevault/sdk — the typed consumer client for the edge read plane: every constructor option, method, hook, and error."
-order: 3
+order: 4
 ---
 
 `@edgevault/sdk` is the typed client for the delivery plane. It is read-only by design — writes go

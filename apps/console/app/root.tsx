@@ -69,6 +69,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
 
   return (
     <main className="shell shell-center">
+      <title>{`${message} · EdgeVault`}</title>
       <section className="hero" role="alert">
         <p className="eyebrow">EdgeVault Console</p>
         <h1>{message}</h1>

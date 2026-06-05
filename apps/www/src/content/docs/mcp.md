@@ -1,7 +1,7 @@
 ---
 title: MCP server
 description: EdgeVault speaks Model Context Protocol over Streamable HTTP — your agents operate config with the same authz as your humans.
-order: 5
+order: 6
 ---
 
 EdgeVault's control plane is also a remote **MCP server** (Streamable HTTP). Agents read, write,

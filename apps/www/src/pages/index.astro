@@ -28,14 +28,14 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
       <div class="gridwell">
         <div class="scoreboard-bar"><span>production · checkout-v2</span><span class="live">● live</span></div>
         <div class="artifact dogear">
-          <pre>$ edgevault flags set checkout-v2 \
-    --env production --rollout 25
-<span class="ok">✓ revision 89</span> by blake@ · <span class="hl">"canary: EU first"</span>
-<span class="ok">✓ propagated</span> <span class="num">282</span> PoPs · <span class="num">41</span> ms · <span class="num">0</span> conflicts
+          <pre><span class="c"># real commands — @edgevault/cli</span>
+$ edgevault run -- node server.js
+<span class="ok">edgevault: injected 14 values</span>
+<span class="c">[server] ready on :8787</span>
 
 $ curl -s cdn.edgevault.io/v1/flags/checkout-v2 \
-    -H "X-EV-Key: $EDGE_KEY" | jq .value
-<span class="hl">&lbrace; "enabled": true, "rollout": 0.25 &rbrace;</span> <span class="c"># 6 ms, L1</span></pre>
+    -H "authorization: Bearer $EDGEVAULT_API_KEY" | jq -r .content
+<span class="hl">&lbrace;"enabled":true,"rollout":0.25&rbrace;</span> <span class="c"># 6 ms, L1</span></pre>
         </div>
         <div class="cap">Real output. Try it yourself — <a class="btn-text" href="/docs">read the docs</a></div>
       </div>

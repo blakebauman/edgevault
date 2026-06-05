@@ -227,6 +227,19 @@ button.compact {
   font-size: 0.8rem;
 }
 
+/* irreversible confirms: the dangerous action is marked, never brand-positive */
+button.danger {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+button.danger:hover {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .linklike,
 .linklike:hover {
   background: none;
