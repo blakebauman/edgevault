@@ -110,10 +110,12 @@ describe('/billing route guards (Hono app)', () => {
     expect(wrong?.status).toBe(401)
   })
 
-  it('503s when authenticated but billing is not activated', async () => {
+  it('503s checkout when authenticated but billing is not activated (no DB touched)', async () => {
     const res = await worker.fetch?.(
-      new Request('https://cp/billing/status?organizationId=org-1', {
+      new Request('https://cp/billing/checkout', {
+        method: 'POST',
         headers: { 'x-internal-token': 'a'.repeat(64) },
+        body: '{}',
       }),
       env,
       {} as ExecutionContext,

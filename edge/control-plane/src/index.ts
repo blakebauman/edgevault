@@ -138,6 +138,11 @@ const requireInternalToken: MiddlewareHandler<{ Bindings: Env; Variables: Vars }
   if (!c.env.INTERNAL_TOKEN || !timingSafeEqual(presented, c.env.INTERNAL_TOKEN)) {
     return c.json({ error: 'unauthorized' }, 401)
   }
+  await next()
+}
+
+// /status works pre-activation (plan display); only Checkout/Portal need Stripe.
+const requireStripeKey: MiddlewareHandler<{ Bindings: Env; Variables: Vars }> = async (c, next) => {
   if (!c.env.STRIPE_SECRET_KEY) {
     return c.json({ error: 'billing_not_activated' }, 503)
   }
@@ -146,6 +151,10 @@ const requireInternalToken: MiddlewareHandler<{ Bindings: Env; Variables: Vars }
 
 const billing = new Hono<{ Bindings: Env; Variables: Vars }>()
 billing.use('*', requireInternalToken)
+// Before the DB middleware: an unactivated checkout/portal call should 503
+// without ever opening a Neon connection.
+billing.use('/checkout', requireStripeKey)
+billing.use('/portal', requireStripeKey)
 
 // Open a Neon connection per billing request (closed after the response).
 billing.use('*', async (c, next) => {
