@@ -195,6 +195,7 @@ billing.post('/checkout', async (c) => {
     plan?: string
     successUrl?: string
     cancelUrl?: string
+    customerEmail?: string
   } | null
   const successUrl = httpUrl(body?.successUrl)
   const cancelUrl = httpUrl(body?.cancelUrl)
@@ -207,6 +208,10 @@ billing.post('/checkout', async (c) => {
 
   const { getStripeCustomer } = await import('@edgevault/database')
   const customerId = await getStripeCustomer(c.var.database, body.organizationId)
+  const customerEmail =
+    typeof body.customerEmail === 'string' && body.customerEmail.includes('@')
+      ? body.customerEmail
+      : undefined
   const session = await createCheckoutSession(c.env.STRIPE_SECRET_KEY, {
     organizationId: body.organizationId,
     plan: body.plan,
@@ -214,6 +219,7 @@ billing.post('/checkout', async (c) => {
     successUrl,
     cancelUrl,
     ...(customerId ? { customerId } : {}),
+    ...(customerEmail ? { customerEmail } : {}),
   })
   if ('error' in session) {
     console.error('checkout session failed', session.error)

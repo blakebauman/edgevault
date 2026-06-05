@@ -188,6 +188,14 @@ app.post(
   },
 )
 
+// Current user (access-token authenticated) — lets the console BFF resolve the
+// caller's profile (e.g. email to prefill Stripe Checkout) from the JWT alone.
+app.get('/me', requireUser, async (c) => {
+  const user = await getUserById(c.var.database, c.var.userId)
+  if (!user) return c.json({ error: 'not_found' }, 404)
+  return c.json({ user })
+})
+
 // --- MFA management (access-token authenticated; the console BFF acts for the user) ---
 
 app.get('/mfa/status', requireUser, async (c) => {

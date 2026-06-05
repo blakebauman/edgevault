@@ -36,6 +36,9 @@ export interface CheckoutInput {
   cancelUrl: string
   /** Reuse the org's existing Stripe customer (plan changes keep one customer). */
   customerId?: string
+  /** Prefill the hosted page's email for first-time buyers. Ignored when
+   * `customerId` is set — Stripe rejects `customer` + `customer_email` together. */
+  customerEmail?: string
 }
 
 /** Form body for POST /v1/checkout/sessions (exported for tests). */
@@ -53,6 +56,7 @@ export function buildCheckoutParams(input: CheckoutInput): URLSearchParams {
     'subscription_data[metadata][plan]': input.plan,
   })
   if (input.customerId) params.set('customer', input.customerId)
+  else if (input.customerEmail) params.set('customer_email', input.customerEmail)
   return params
 }
 

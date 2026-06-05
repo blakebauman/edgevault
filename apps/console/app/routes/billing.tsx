@@ -85,6 +85,13 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const billingPage = `${origin}/orgs/${params.orgId}/billing`
 
   if (intent === 'checkout') {
+    // Prefill the hosted page's email for first-time buyers (best-effort).
+    let customerEmail: string | undefined
+    const me = await env.AUTH_SERVICE.fetch('https://auth/me', {
+      headers: { authorization: `Bearer ${token}` },
+    })
+    if (me.ok) customerEmail = ((await me.json()) as { user?: { email?: string } }).user?.email
+
     const res = await env.BILLING_SERVICE.fetch('https://billing/billing/checkout', {
       method: 'POST',
       headers: { 'x-internal-token': env.INTERNAL_TOKEN, 'content-type': 'application/json' },
@@ -93,6 +100,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         plan: String(form.get('plan') ?? ''),
         successUrl: `${billingPage}?checkout=success`,
         cancelUrl: `${billingPage}?checkout=cancelled`,
+        ...(customerEmail ? { customerEmail } : {}),
       }),
     })
     if (!res.ok) return { error: messageForStatus(res.status) }
@@ -153,8 +161,8 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
           <>
             {checkoutResult === 'success' && (
               <p className="muted">
-                Payment received — thank you! Your plan updates within a few seconds (we confirm the
-                subscription with Stripe in the background). Refresh to see it.
+                Payment received — thank you! Your plan can take up to a minute to update while we
+                confirm the subscription with Stripe. Refresh this page to see it.
               </p>
             )}
             {checkoutResult === 'cancelled' && <p className="muted">Checkout cancelled.</p>}

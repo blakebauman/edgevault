@@ -45,6 +45,19 @@ describe('buildCheckoutParams', () => {
     const params = buildCheckoutParams({ ...base, customerId: 'cus_1' })
     expect(params.get('customer')).toBe('cus_1')
   })
+
+  it('prefills customer_email for first-time buyers only', () => {
+    const fresh = buildCheckoutParams({ ...base, customerEmail: 'admin@example.com' })
+    expect(fresh.get('customer_email')).toBe('admin@example.com')
+    // Stripe rejects customer + customer_email together — existing customer wins.
+    const existing = buildCheckoutParams({
+      ...base,
+      customerId: 'cus_1',
+      customerEmail: 'admin@example.com',
+    })
+    expect(existing.get('customer')).toBe('cus_1')
+    expect(existing.get('customer_email')).toBeNull()
+  })
 })
 
 describe('createCheckoutSession', () => {
