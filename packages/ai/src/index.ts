@@ -9,6 +9,7 @@ export {
 export {
   type ConfigVectorRef,
   configVectorId,
+  deleteConfigVector,
   type SearchHit,
   searchConfigs,
   upsertConfigVector,

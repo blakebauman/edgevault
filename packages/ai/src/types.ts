@@ -31,6 +31,7 @@ export interface VectorizeMatch {
 
 export interface VectorizeBinding {
   upsert(vectors: VectorizeVector[]): Promise<unknown>
+  deleteByIds(ids: string[]): Promise<unknown>
   query(
     vector: number[],
     options: {

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   configEmbeddingText,
   configVectorId,
+  deleteConfigVector,
   embedText,
   heuristicRisk,
   scoreConfigRisk,
@@ -69,9 +70,20 @@ describe('search', () => {
     ])
   })
 
+  it('deletes by the same stable id the upsert used', async () => {
+    const vectorize = {
+      deleteByIds: vi.fn(async () => ({})),
+    } as unknown as VectorizeBinding
+    await deleteConfigVector(vectorize, { workspaceId: 'w', environmentId: 'e', key: 'k' })
+    expect(vectorize.deleteByIds).toHaveBeenCalledWith([
+      await configVectorId({ workspaceId: 'w', environmentId: 'e', key: 'k' }),
+    ])
+  })
+
   it('embeds the query and maps Vectorize matches to hits', async () => {
     const vectorize: VectorizeBinding = {
       upsert: vi.fn(),
+      deleteByIds: vi.fn(),
       query: vi.fn(async () => ({
         matches: [
           {

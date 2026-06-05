@@ -47,6 +47,14 @@ export async function upsertConfigVector(
   ])
 }
 
+/** Remove the vector for a deleted config so it stops surfacing in search. */
+export async function deleteConfigVector(
+  vectorize: VectorizeBinding,
+  ref: { workspaceId: string; environmentId: string; key: string },
+): Promise<void> {
+  await vectorize.deleteByIds([await configVectorId(ref)])
+}
+
 export interface SearchHit {
   key: string
   environmentId: string

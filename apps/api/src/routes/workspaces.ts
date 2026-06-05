@@ -7,7 +7,7 @@ import { hasRefs } from '@edgevault/refs'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
-import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
+import { aiRunner, embeddingModel, indexConfig, unindexConfig, vectorize } from '../ai'
 import { emitAudit } from '../audit'
 import { queryAuditHistory } from '../audit-query'
 import type { AppEnv } from '../context'
@@ -256,6 +256,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
     }
     if (ok) {
       c.executionCtx.waitUntil(deleteThrough(c.env, workspaceId, envId, key))
+      c.executionCtx.waitUntil(unindexConfig(c.env, workspaceId, envId, key))
       const deleteEvent = {
         workspaceId,
         environmentId: envId,

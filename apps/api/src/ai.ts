@@ -2,6 +2,7 @@ import {
   configEmbeddingText,
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_TEXT_MODEL,
+  deleteConfigVector,
   type EmbeddingRunner,
   embedText,
   type TextRunner,
@@ -56,5 +57,20 @@ export async function indexConfig(env: Env, workspaceId: string, item: ConfigIte
   } catch (err) {
     // Best-effort indexing — never blocks a write, but log so failures are visible.
     console.error('indexConfig failed', err)
+  }
+}
+
+/** Remove a deleted config's vector so it stops surfacing in search. Never throws. */
+export async function unindexConfig(
+  env: Env,
+  workspaceId: string,
+  environmentId: string,
+  key: string,
+): Promise<void> {
+  try {
+    // No kind check: secrets are never indexed, and deleting an absent id is a no-op.
+    await deleteConfigVector(vectorize(env), { workspaceId, environmentId, key })
+  } catch (err) {
+    console.error('unindexConfig failed', err)
   }
 }
