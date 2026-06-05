@@ -17,6 +17,7 @@ export default [
   route('dashboard/:workspaceId/env/:envId', 'routes/environment.tsx'),
   route('dashboard/:workspaceId/assistant', 'routes/assistant.tsx'),
   route('dashboard/:workspaceId/compare', 'routes/dashboard.compare.tsx'),
+  route('dashboard/:workspaceId/audit', 'routes/dashboard.audit.tsx'),
   route('dashboard/:workspaceId/notifications', 'routes/dashboard.notifications.tsx'),
   route('share', 'routes/share.tsx'),
   route('s/:id', 'routes/share.view.tsx'),

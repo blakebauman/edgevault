@@ -140,6 +140,9 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       headers,
       body: JSON.stringify({ approved: intent === 'approve' }),
     })
+    if (res.status === 403) {
+      return { error: 'Resolving a promotion requires an org owner or admin.' }
+    }
     if (!res.ok) return { error: `Could not ${intent} the promotion (${res.status}).` }
     return intent === 'approve' ? { approved: true } : { rejected: true }
   }
@@ -225,6 +228,9 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
           <div className="org-links">
             <Link to={`/dashboard/${workspaceId}/compare`} className="secondary button">
               Compare environments
+            </Link>
+            <Link to={`/dashboard/${workspaceId}/audit`} className="secondary button">
+              Audit history
             </Link>
             <Link to={`/dashboard/${workspaceId}/notifications`} className="secondary button">
               Notifications

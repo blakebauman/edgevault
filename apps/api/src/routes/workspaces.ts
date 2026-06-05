@@ -388,6 +388,11 @@ export const workspaceRoutes = new Hono<AppEnv>()
     '/:workspaceId/promotion-workflows/:instanceId/approve',
     zValidator('json', z.object({ approved: z.boolean() })),
     async (c) => {
+      // Resolving a parked promotion mutates a (typically production)
+      // environment — same privilege bar as revealing a secret.
+      if (c.var.role !== 'owner' && c.var.role !== 'admin') {
+        return c.json({ error: 'forbidden', detail: 'resolving a promotion requires admin' }, 403)
+      }
       const instance = await c.env.PROMOTION_WORKFLOW.get(c.req.param('instanceId'))
       await instance.sendEvent({
         type: 'promotion-approval',
@@ -427,7 +432,12 @@ export const workspaceRoutes = new Hono<AppEnv>()
       environmentId: c.req.query('env'),
       limit: c.req.query('limit') ? Number(c.req.query('limit')) : undefined,
     })
-    return c.json({ events })
+    // Same batched name resolution as /activity — audit answers "who".
+    const ids = [...new Set(events.map((e) => e.userId).filter(Boolean))]
+    const actors = await getUserDisplayNames(c.var.database, ids)
+    return c.json({
+      events: events.map((e) => ({ ...e, actor: actors.get(e.userId) ?? null })),
+    })
   })
 
   // --- AI semantic search over the workspace's configs (Vectorize) ---

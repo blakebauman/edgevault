@@ -80,6 +80,11 @@ type Pages = {
       "workspaceId": string;
     };
   };
+  "/dashboard/:workspaceId/audit": {
+    params: {
+      "workspaceId": string;
+    };
+  };
   "/dashboard/:workspaceId/notifications": {
     params: {
       "workspaceId": string;
@@ -118,7 +123,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -184,6 +189,10 @@ type RouteFiles = {
     id: "routes/dashboard.compare";
     page: "/dashboard/:workspaceId/compare";
   };
+  "routes/dashboard.audit.tsx": {
+    id: "routes/dashboard.audit";
+    page: "/dashboard/:workspaceId/audit";
+  };
   "routes/dashboard.notifications.tsx": {
     id: "routes/dashboard.notifications";
     page: "/dashboard/:workspaceId/notifications";
@@ -232,6 +241,7 @@ type RouteModules = {
   "routes/environment": typeof import("./app/routes/environment.tsx");
   "routes/assistant": typeof import("./app/routes/assistant.tsx");
   "routes/dashboard.compare": typeof import("./app/routes/dashboard.compare.tsx");
+  "routes/dashboard.audit": typeof import("./app/routes/dashboard.audit.tsx");
   "routes/dashboard.notifications": typeof import("./app/routes/dashboard.notifications.tsx");
   "routes/share": typeof import("./app/routes/share.tsx");
   "routes/share.view": typeof import("./app/routes/share.view.tsx");
