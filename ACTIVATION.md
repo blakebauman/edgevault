@@ -91,23 +91,39 @@ grant an `ee/` feature.
 
 ## 4. Stripe billing — Managed Edge (`edge/control-plane`, proprietary)
 
-**Not deployed.** This is the SaaS-only tier (excluded from the OSS
-distribution). To activate the hosted billing/metering plane:
+This is the SaaS-only tier (excluded from the OSS distribution). The worker is
+internal-style (workers.dev only, no custom domain):
+`edgevault-control-plane[-staging].<subdomain>.workers.dev`. To activate the
+hosted billing/metering plane:
 
-1. Deploy the worker: `cd edge/control-plane && wrangler deploy` (+ `--env
-   staging`). It needs the `HYPERDRIVE` (Neon) binding and Analytics Engine.
-2. Set Stripe secrets on `edgevault-control-plane`:
+1. Deploy the worker: `cd edge/control-plane && wrangler deploy` (staging:
+   `wrangler deploy --env staging`). It needs only the `HYPERDRIVE` (Neon)
+   binding, already pinned per environment in `wrangler.jsonc`.
+2. Set Stripe secrets per environment (use `--name
+   edgevault-control-plane-staging` with test-mode keys for staging):
    ```sh
    wrangler secret put STRIPE_SECRET_KEY      --name edgevault-control-plane
-   wrangler secret put STRIPE_WEBHOOK_SECRET   --name edgevault-control-plane
+   wrangler secret put STRIPE_WEBHOOK_SECRET  --name edgevault-control-plane
    ```
 3. In the Stripe Dashboard: create the products/prices + **Billing Meters**, and
-   add a webhook endpoint pointing at the control-plane's `/webhook` route
-   (subscription + meter events). The control-plane writes resulting plan +
+   add a webhook endpoint pointing at the control-plane's **`/webhooks/stripe`**
+   route, subscribed to `customer.subscription.*` events. Subscriptions must
+   carry `metadata.organizationId` + `metadata.plan` (set at Checkout) — events
+   without them are ignored. The control-plane writes resulting plan +
    entitlements into the same Neon `entitlements` table that `api`/`auth`/`ee`
    read (§3), so subscription state and self-host license keys converge on one
    model.
-4. The Analytics-Engine → Stripe usage-metering cron is idempotent + watermarked
-   (see the plan's billing-accuracy risk note before relying on it for revenue).
+
+**Still to build before charging money** (the webhook→entitlement path above is
+complete; these are not):
+
+- **Checkout** — nothing creates Stripe Checkout Sessions yet. Until a pricing
+  page / console billing flow exists, create subscriptions manually in the
+  Dashboard with the two metadata keys above.
+- **Usage metering** — the hourly cron is a stub. Wiring it needs (a) an
+  aggregation source off the durable audit pipeline (R2 SQL over the audit
+  bucket, not sampled Analytics Engine), (b) idempotent per-period watermarks,
+  and (c) an organization → Stripe customer-id mapping, which has no table yet.
+  `reportMeterEvents()` (the Stripe side) is built and tested.
 
 See [`edge/README.md`](edge/README.md) for the control-plane details.

@@ -17,6 +17,9 @@ CDN="https://cdn${S}.edgevault.io"
 # Commercial EE worker is internal (no custom domain) — reach it on workers.dev.
 # Self-hosters override the account subdomain via WORKERS_SUBDOMAIN.
 ENT="https://edgevault-enterprise${S}.${WORKERS_SUBDOMAIN:-bauman}.workers.dev"
+# Proprietary Managed-Edge control plane (workers.dev only). Optional for
+# self-hosters — skip with SKIP_CONTROL_PLANE=1.
+CTL="https://edgevault-control-plane${S}.${WORKERS_SUBDOMAIN:-bauman}.workers.dev"
 
 fail=0
 code() { curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$1" 2>/dev/null; }
@@ -35,6 +38,7 @@ check "console /login" "$APP/login" 200
 # delivery worker (not some other worker) owns the cdn hostname.
 check "cdn (delivery /v1 auth)" "$CDN/v1/configs/_smoke" 401
 check "enterprise /health"      "$ENT/health" 200
+[ "${SKIP_CONTROL_PLANE:-0}" = 1 ] || check "control-plane /health" "$CTL/health" 200
 
 # JWKS must publish at least one verification key (proves the signing secret loaded).
 if curl -s --max-time 15 "$AUTH/.well-known/jwks.json" | grep -q '"keys":\[{'; then

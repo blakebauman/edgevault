@@ -5,7 +5,7 @@
   "compatibility_date": "2026-06-03",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  "vars": { "ENVIRONMENT": "development" },
+  "vars": { "ENVIRONMENT": "production" },
   // Usage-metering cron: aggregate billable usage and report to Stripe meters.
   "triggers": { "crons": ["0 * * * *"] },
   "hyperdrive": [
@@ -14,9 +14,23 @@
       "id": "2297a04370d24da7b267223e7d8837f5",
       "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
     }
-  ]
+  ],
   // Proprietary, SaaS-only. HYPERDRIVE writes the shared Neon entitlements table
   // the OSS api/auth read. Other bindings added at deploy: ANALYTICS/audit source
   // for metering. Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET (Secrets
   // Store). Excluded from the OSS distribution.
+  // Public surface = workers.dev only (Stripe webhooks need a reachable URL; no
+  // custom domain, matching the enterprise worker). Webhook route: /webhooks/stripe.
+  "env": {
+    "staging": {
+      "vars": { "ENVIRONMENT": "staging" },
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "774bd4e3e43f4ae0ad7d35a80045e6d3",
+          "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
+        }
+      ]
+    }
+  }
 }

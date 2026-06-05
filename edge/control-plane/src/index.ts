@@ -39,6 +39,11 @@ export default {
     }
 
     if (request.method === 'POST' && url.pathname === '/webhooks/stripe') {
+      // Deployed-but-not-activated: without the webhook secret, signature
+      // verification can never succeed — fail clean instead of a WebCrypto 500.
+      if (!env.STRIPE_WEBHOOK_SECRET) {
+        return new Response('webhook secret not configured', { status: 503 })
+      }
       const body = await request.text()
       const signature = request.headers.get('stripe-signature') ?? ''
       const valid = await verifyStripeWebhook(body, signature, env.STRIPE_WEBHOOK_SECRET)
