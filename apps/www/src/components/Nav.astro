@@ -74,4 +74,54 @@ const CONSOLE = 'https://app.edgevault.io'
     padding: 9px 18px;
     font-size: 14px;
   }
+
+  /* touch: full-height tap targets on the link row */
+  @media (pointer: coarse) {
+    nav .links a,
+    nav .signin {
+      padding: 12px 2px;
+    }
+  }
+
+  /* mobile: two rows — logo + actions up top, scrollable link row below.
+     Nothing collapses behind a menu; the site has no JS to run one. */
+  @media (max-width: 880px) {
+    nav {
+      height: auto;
+      position: static; /* a two-row sticky bar eats too much small-screen height */
+    }
+    nav .wrap {
+      flex-wrap: wrap;
+      row-gap: 0;
+      padding-top: 12px;
+      gap: 12px;
+    }
+    nav img {
+      height: 22px;
+    }
+    nav :global(.btn-fill) {
+      padding: 8px 14px;
+    }
+    nav .links {
+      order: 3;
+      flex-basis: 100%;
+      margin-left: 0;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      white-space: nowrap;
+      gap: var(--spacing-md);
+      border-top: 1px solid var(--color-rule);
+      margin-top: 10px;
+    }
+    nav .links::-webkit-scrollbar {
+      display: none;
+    }
+    nav .links a {
+      padding: 12px 2px;
+    }
+    nav .signin {
+      margin-left: auto;
+    }
+  }
 </style>

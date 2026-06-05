@@ -49,6 +49,22 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
     grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
     gap: var(--spacing-lg);
   }
+  @media (max-width: 900px) {
+    footer .cols {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    footer .cols > div:first-child {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (pointer: coarse) {
+    footer a {
+      padding: 9px 0;
+    }
+  }
+  footer {
+    padding-bottom: max(var(--spacing-xl), env(safe-area-inset-bottom));
+  }
   footer h4 {
     font-family: var(--mono-font-family);
     font-weight: 400;

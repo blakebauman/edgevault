@@ -167,10 +167,10 @@ const status = useWorkspaceEvents(wsUrl, (event) =&gt; &lbrace;
 <style is:global>
   /* page-specific (product) — security-page rhythm */
   :root {
-    --heading-xxl: 56px;
-    --heading-xl: 40px;
+    --heading-xxl: clamp(34px, 2.2rem + 1.8vw, 56px);
+    --heading-xl: clamp(28px, 1.6rem + 1vw, 40px);
     --heading-md: 20px;
-    --section-padding: 88px;
+    --section-padding: clamp(56px, 2.5rem + 3.5vw, 88px);
   }
   .hero {
     padding: 72px 0 56px;
@@ -207,7 +207,7 @@ const status = useWorkspaceEvents(wsUrl, (event) =&gt; &lbrace;
   }
   .cards4 {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: var(--spacing-sm);
   }
   .artifact pre {

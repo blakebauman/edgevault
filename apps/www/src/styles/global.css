@@ -10,10 +10,10 @@
   --body-font-family: "Roboto Slab", Georgia, serif;
   --mono-font-family: "Martian Mono", ui-monospace, monospace;
 
-  --heading-xxl: 72px;
-  --heading-xl: 44px;
-  --heading-lg: 32px;
-  --heading-md: 22px;
+  --heading-xxl: clamp(40px, 3rem + 2.5vw, 72px);
+  --heading-xl: clamp(29px, 1.6rem + 1.2vw, 44px);
+  --heading-lg: clamp(25px, 1.4rem + 0.6vw, 32px);
+  --heading-md: clamp(19px, 1.1rem + 0.25vw, 22px);
   --body: 16px;
   --body-sm: 13.5px;
   --mono-sm: 12.5px;
@@ -37,13 +37,13 @@
   --spacing-xs: 8px;
   --spacing-sm: 16px;
   --spacing-md: 24px;
-  --spacing-lg: 40px;
-  --spacing-xl: 64px;
-  --spacing-2xl: 96px;
+  --spacing-lg: clamp(28px, 1.5rem + 1vw, 40px);
+  --spacing-xl: clamp(36px, 2rem + 2vw, 64px);
+  --spacing-2xl: clamp(56px, 3rem + 3vw, 96px);
 
-  --section-padding: 96px;
+  --section-padding: clamp(56px, 2.5rem + 4vw, 96px);
   --max-width: 1200px;
-  --page-padding: 32px;
+  --page-padding: clamp(20px, 1rem + 2vw, 32px);
   --navbar-height: 64px;
   --radius: 2px;
   --fold: 26px;
@@ -337,4 +337,84 @@ table.score td.r {
 }
 .closing .cta-row {
   justify-content: center;
+}
+
+/* ============================================================
+   Responsive layer — content-driven breakpoints (640 / 900).
+   Fluid tokens above handle scale; queries handle structure.
+   ============================================================ */
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+.cta-row {
+  flex-wrap: wrap;
+}
+
+/* touch input: 44px minimum targets, regardless of viewport */
+@media (pointer: coarse) {
+  .btn-text {
+    display: inline-block;
+    padding: 10px 0;
+  }
+  a {
+    text-underline-offset: 3px;
+  }
+}
+
+@media (max-width: 900px) {
+  .split,
+  .split.rev {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  /* box-score tables stack: the first cell is already the row's label */
+  table.score thead,
+  table.score tr:first-child:has(th) {
+    display: none;
+  }
+  table.score,
+  table.score tbody,
+  table.score tr,
+  table.score td {
+    display: block;
+    width: 100%;
+  }
+  table.score tr {
+    border-bottom: 1px solid var(--color-rule);
+    padding: 10px 0;
+  }
+  table.score td {
+    border-bottom: none;
+    padding: 2px 0;
+  }
+  table.score tr td:first-child {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--color-relay);
+  }
+  .cropframe {
+    padding: 14px;
+  }
+  .cta-row .btn-fill,
+  .cta-row .btn-line {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

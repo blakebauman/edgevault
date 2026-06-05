@@ -21,9 +21,10 @@ migration).
 
 ## Structure
 
-- `src/layouts/Base.astro` — head (meta/OG/canonical/fonts), Nav, Footer.
-  Deliberately **no viewport meta**: the design is desktop-only; a device-width
-  viewport renders worse on phones than the default scaled view.
+- `src/layouts/Base.astro` — head (meta/OG/canonical/fonts/viewport), Nav, Footer.
+  Responsive via fluid `clamp()` tokens + content-driven breakpoints (640/900px);
+  mobile nav is a two-row layout with a scrollable link rail — no JS menu, nothing
+  hidden (the site ships 0 KB of client JS).
 - `src/components/Nav.astro` / `Footer.astro` — shared chrome. The GitHub star
   chip is intentionally absent (repo is private); Docs links are intentionally
   dead until a docs site exists.

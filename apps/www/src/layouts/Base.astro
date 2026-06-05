@@ -28,8 +28,7 @@ const canonical = new URL(path, Astro.site).href
     <meta property="og:url" content={canonical} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
-    {/* no viewport meta on purpose: the design is desktop-only (no responsive CSS yet);
-        a device-width viewport would break phones worse than the default scaled view */}
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

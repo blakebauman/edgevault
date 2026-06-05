@@ -160,9 +160,9 @@ pnpm test      <span class="c"># vitest in the real Workers runtime</span></pre>
 <style is:global>
   /* page-specific (docs) — security-page rhythm, code-forward */
   :root {
-    --heading-xxl: 56px;
-    --heading-xl: 36px;
-    --section-padding: 80px;
+    --heading-xxl: clamp(34px, 2.2rem + 1.8vw, 56px);
+    --heading-xl: clamp(26px, 1.5rem + 0.9vw, 36px);
+    --section-padding: clamp(52px, 2.4rem + 3vw, 80px);
   }
   .hero {
     padding: 72px 0 48px;
@@ -193,7 +193,7 @@ pnpm test      <span class="c"># vitest in the real Workers runtime</span></pre>
   }
   .guide-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: var(--spacing-sm);
   }
   .card.guide {

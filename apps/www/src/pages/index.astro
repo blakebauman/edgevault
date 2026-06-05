@@ -367,7 +367,34 @@ export function Checkout() &lbrace;
   }
   .cards3 {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: var(--spacing-sm);
+  }
+
+  @media (max-width: 900px) {
+    .hero .grid {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-lg);
+    }
+    .aihead {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-lg);
+    }
+  }
+  @media (max-width: 640px) {
+    .gridwell {
+      padding: 14px;
+      margin: 0 calc(-1 * var(--page-padding) / 2);
+    }
+    ol.steps li {
+      flex-direction: column;
+      gap: 4px;
+    }
+    ol.steps li b {
+      min-width: 0;
+    }
+    .artifact {
+      font-size: 11px;
+    }
   }
 </style>

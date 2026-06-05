@@ -160,8 +160,8 @@ const entries = [
 <style is:global>
   /* page-specific (changelog) — ledger register */
   :root {
-    --heading-xxl: 56px;
-    --section-padding: 72px;
+    --heading-xxl: clamp(34px, 2.2rem + 1.8vw, 56px);
+    --section-padding: clamp(48px, 2.2rem + 2.8vw, 72px);
   }
   .hero {
     padding: 72px 0 40px;
@@ -213,5 +213,17 @@ const entries = [
   }
   .closing-gap {
     margin-top: var(--spacing-lg);
+  }
+
+  @media (max-width: 640px) {
+    .entry {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    .entry .meta {
+      flex-direction: row;
+      gap: 12px;
+      padding-top: 0;
+    }
   }
 </style>

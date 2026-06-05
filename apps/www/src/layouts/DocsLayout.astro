@@ -86,8 +86,8 @@ const docs = (await getCollection('docs')).sort((a, b) => a.data.order - b.data.
   .docs-article {
     max-width: 76ch;
     /* shiki css-variables theme → brand code-panel colors */
-    --astro-code-color-text: #f3f4f6;
-    --astro-code-color-background: #240046;
+    --astro-code-foreground: #f3f4f6;
+    --astro-code-background: #240046;
     --astro-code-token-constant: #e0aaff;
     --astro-code-token-string: #e0aaff;
     --astro-code-token-string-expression: #e0aaff;
@@ -176,5 +176,51 @@ const docs = (await getCollection('docs')).sort((a, b) => a.data.order - b.data.
     font-size: 12px;
     color: var(--color-ink);
     white-space: nowrap;
+  }
+
+  @media (max-width: 900px) {
+    .docs-shell {
+      grid-template-columns: 1fr;
+      gap: var(--spacing-md);
+      padding-top: 24px;
+    }
+    /* sidebar becomes a scrollable guide rail above the article */
+    .docs-sidebar {
+      position: static;
+      flex-direction: row;
+      align-items: center;
+      gap: var(--spacing-md);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      white-space: nowrap;
+      border-left: none;
+      border-bottom: 1px solid var(--color-rule);
+      padding-bottom: 10px;
+    }
+    .docs-sidebar::-webkit-scrollbar {
+      display: none;
+    }
+    .docs-sidebar .group {
+      padding: 0;
+    }
+    .docs-sidebar a {
+      padding: 8px 0;
+      border-left: none;
+      margin-left: 0;
+    }
+    .docs-sidebar a.active {
+      color: var(--color-relay);
+      text-decoration: underline;
+      text-underline-offset: 6px;
+    }
+    /* markdown tables scroll rather than crush */
+    .docs-article {
+      overflow-x: hidden;
+    }
+    .docs-article table {
+      display: block;
+      overflow-x: auto;
+    }
   }
 </style>

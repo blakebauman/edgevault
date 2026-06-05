@@ -177,16 +177,16 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
 <style is:global>
   /* page-specific (pricing) — values from stardust/prototypes/pricing-b.html (craft-dominant) */
   :root {
-    --heading-xxl: 60px;
-    --heading-xl: 40px;
-    --heading-lg: 30px;
+    --heading-xxl: clamp(36px, 2.4rem + 2vw, 60px);
+    --heading-xl: clamp(28px, 1.6rem + 1vw, 40px);
+    --heading-lg: clamp(24px, 1.4rem + 0.5vw, 30px);
     --heading-md: 20px;
     --body: 17px;
     --body-sm: 14px;
     --line-height-body: 1.7;
     --line-height-heading: 1.04;
-    --spacing-2xl: 120px;
-    --section-padding: 112px;
+    --spacing-2xl: clamp(64px, 3rem + 4vw, 120px);
+    --section-padding: clamp(64px, 3rem + 4.5vw, 112px);
   }
   section {
     border-bottom: none; /* tear-lines divide this page, not rules */
@@ -365,5 +365,26 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
   }
   .closing-gap {
     margin-top: var(--spacing-lg);
+  }
+
+  @media (max-width: 1024px) {
+    .tickets {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 760px) {
+    .faq {
+      grid-template-columns: 1fr;
+    }
+    .selfhost {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+    }
+  }
+  @media (max-width: 560px) {
+    .tickets {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
