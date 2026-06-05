@@ -304,16 +304,23 @@ export async function getTotpCredential(
   database: Database,
   userId: string,
 ): Promise<TotpCredentialRow | null> {
-  const [row] = await database
-    .select({
-      userId: totpCredentials.userId,
-      encryptedSecret: totpCredentials.encryptedSecret,
-      confirmedAt: totpCredentials.confirmedAt,
-    })
-    .from(totpCredentials)
-    .where(eq(totpCredentials.userId, userId))
-    .limit(1)
-  return row ?? null
+  // Inside a transaction so Hyperdrive never serves this from its query cache:
+  // enrollment/confirm/disable read this row moments after writing it, and the
+  // page loader runs the identical SELECT *before* the write — a cached empty
+  // result (~60s TTL) made confirm reject freshly-enrolled secrets. MFA state
+  // transitions must always read current data.
+  return database.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        userId: totpCredentials.userId,
+        encryptedSecret: totpCredentials.encryptedSecret,
+        confirmedAt: totpCredentials.confirmedAt,
+      })
+      .from(totpCredentials)
+      .where(eq(totpCredentials.userId, userId))
+      .limit(1)
+    return row ?? null
+  })
 }
 
 /** Start (or restart) enrollment: store an unconfirmed encrypted secret. */
