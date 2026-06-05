@@ -69,6 +69,9 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             <Link to={`/dashboard/${workspaceId}/compare`} className="secondary button">
               Compare environments
             </Link>
+            <Link to={`/dashboard/${workspaceId}/notifications`} className="secondary button">
+              Notifications
+            </Link>
             <Link to="/" className="secondary button">
               ← All workspaces
             </Link>

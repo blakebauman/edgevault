@@ -1,5 +1,11 @@
-import type { Database } from '@edgevault/database'
-import { apiKeys, members, organizations, workspaces } from '@edgevault/database/schema'
+import type { Database, NotificationChannelType } from '@edgevault/database'
+import {
+  apiKeys,
+  members,
+  notificationChannels,
+  organizations,
+  workspaces,
+} from '@edgevault/database/schema'
 import { and, eq } from 'drizzle-orm'
 
 /** Neon (via Hyperdrive) queries for org/workspace metadata + membership. */
@@ -85,6 +91,103 @@ export async function getWorkspaceWithOrg(
     .where(eq(workspaces.id, workspaceId))
     .limit(1)
   return row ?? null
+}
+
+/** What dispatch needs to fan a single event out to a channel. */
+export interface NotificationChannelRow {
+  id: string
+  type: NotificationChannelType
+  name: string
+  encryptedCredentials: string
+  events: string[] | null
+  enabled: boolean
+}
+
+const channelColumns = {
+  id: notificationChannels.id,
+  type: notificationChannels.type,
+  name: notificationChannels.name,
+  encryptedCredentials: notificationChannels.encryptedCredentials,
+  events: notificationChannels.events,
+  enabled: notificationChannels.enabled,
+}
+
+export async function listNotificationChannels(
+  database: Database,
+  workspaceId: string,
+): Promise<NotificationChannelRow[]> {
+  return database
+    .select(channelColumns)
+    .from(notificationChannels)
+    .where(eq(notificationChannels.workspaceId, workspaceId))
+}
+
+export async function getNotificationChannel(
+  database: Database,
+  workspaceId: string,
+  channelId: string,
+): Promise<NotificationChannelRow | null> {
+  const [row] = await database
+    .select(channelColumns)
+    .from(notificationChannels)
+    .where(
+      and(
+        eq(notificationChannels.workspaceId, workspaceId),
+        eq(notificationChannels.id, channelId),
+      ),
+    )
+    .limit(1)
+  return row ?? null
+}
+
+export async function createNotificationChannel(
+  database: Database,
+  input: {
+    workspaceId: string
+    type: NotificationChannelType
+    name: string
+    encryptedCredentials: string
+    events?: string[]
+    createdByUserId: string
+  },
+) {
+  const [created] = await database
+    .insert(notificationChannels)
+    .values({
+      workspaceId: input.workspaceId,
+      type: input.type,
+      name: input.name,
+      encryptedCredentials: input.encryptedCredentials,
+      events: input.events ?? null,
+      createdByUserId: input.createdByUserId,
+    })
+    .returning({
+      id: notificationChannels.id,
+      type: notificationChannels.type,
+      name: notificationChannels.name,
+      events: notificationChannels.events,
+      enabled: notificationChannels.enabled,
+      createdAt: notificationChannels.createdAt,
+    })
+  if (!created) throw new Error('Failed to create notification channel')
+  return created
+}
+
+export async function deleteNotificationChannel(
+  database: Database,
+  workspaceId: string,
+  channelId: string,
+): Promise<boolean> {
+  const deleted = await database
+    .delete(notificationChannels)
+    .where(
+      and(
+        eq(notificationChannels.workspaceId, workspaceId),
+        eq(notificationChannels.id, channelId),
+      ),
+    )
+    .returning({ id: notificationChannels.id })
+  return deleted.length > 0
 }
 
 export async function createApiKey(

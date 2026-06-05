@@ -71,6 +71,13 @@
       "when": 1780622556120,
       "tag": "0009_ambiguous_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780693115706,
+      "tag": "0010_quick_red_skull",
+      "breakpoints": true
     }
   ]
 }

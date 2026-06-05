@@ -47,7 +47,10 @@
   ],
   "services": [{ "binding": "AUTH_SERVICE", "service": "edgevault-auth" }],
   "queues": {
-    "producers": [{ "queue": "edgevault-audit", "binding": "AUDIT_QUEUE" }]
+    "producers": [
+      { "queue": "edgevault-audit", "binding": "AUDIT_QUEUE" },
+      { "queue": "edgevault-notify", "binding": "NOTIFY_QUEUE" }
+    ]
   },
   "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit" }]
 }

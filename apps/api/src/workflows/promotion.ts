@@ -4,6 +4,7 @@ import { aiRunner, textModel } from '../ai'
 import type { ConfigItem, Promotion } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 import { writeThrough } from '../edge-cache'
+import { dispatchNotifications } from '../notify'
 
 export interface PromotionParams {
   workspaceId: string
@@ -67,6 +68,22 @@ export class PromotionWorkflow extends WorkflowEntrypoint<Env, PromotionParams> 
 
     // 3. Approval gate.
     if (risk.requiresApproval) {
+      // Tell the humans a promotion is parked at the gate (Slack/webhooks).
+      await step.do('notify-approval', async () => {
+        await dispatchNotifications(this.env, {
+          workspaceId: params.workspaceId,
+          environmentId: params.targetEnvironmentId,
+          action: 'promotion.awaiting_approval',
+          resourceType: 'promotion',
+          key: params.key,
+          userId: params.requestedBy,
+          detail: {
+            riskLevel: risk.level,
+            promotionId: promotion.id,
+            workflowInstanceId: event.instanceId,
+          },
+        })
+      })
       const approval = await step.waitForEvent<ApprovalEvent>('await-approval', {
         type: 'promotion-approval',
         timeout: '7 days',

@@ -361,3 +361,30 @@ button.compact {
   padding: 0.3rem 0.7rem;
   font-size: 0.8rem;
 }
+
+/* --- Notification channels ------------------------------------------------ */
+.channel-form {
+  max-width: 28rem;
+}
+.channel-form select {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--muted) 40%, transparent);
+  background: #0e1422;
+  color: var(--fg);
+}
+.event-filter {
+  border: 1px solid color-mix(in srgb, var(--muted) 25%, transparent);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.75rem;
+}
+.event-filter .check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+}

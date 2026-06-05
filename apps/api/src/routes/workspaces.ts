@@ -1,6 +1,8 @@
 import { searchConfigs } from '@edgevault/ai'
-import { generateApiKey } from '@edgevault/auth'
+import { generateApiKey, generateToken } from '@edgevault/auth'
 import { type ConfigFormat, isConfigFormat, validateContent } from '@edgevault/config-formats'
+import { encryptSecret } from '@edgevault/crypto'
+import { NOTIFY_ACTIONS } from '@edgevault/edge-protocol'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
@@ -8,10 +10,17 @@ import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
 import { emitAudit } from '../audit'
 import { queryAuditHistory } from '../audit-query'
 import type { AppEnv } from '../context'
-import { createApiKey } from '../database/queries'
+import {
+  createApiKey,
+  createNotificationChannel,
+  deleteNotificationChannel,
+  getNotificationChannel,
+  listNotificationChannels,
+} from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 import { deleteThrough, publishApiKey, writeThrough } from '../edge-cache'
+import { buildNotifyJob, dispatchNotifications, invalidateChannelCache } from '../notify'
 import { prepareSecretContent, revealSecret } from '../secrets'
 
 /**
@@ -48,6 +57,21 @@ const promoteSchema = z.object({
   targetEnvironmentId: z.string().min(1),
   key: z.string().min(1),
 })
+
+const channelSchema = z.object({
+  type: z.enum(['webhook', 'slack']),
+  name: z.string().min(1).max(120),
+  url: z
+    .string()
+    .url()
+    .max(2048)
+    .refine((u) => u.startsWith('https://'), 'webhook URLs must be https'),
+  events: z.array(z.enum(NOTIFY_ACTIONS)).max(NOTIFY_ACTIONS.length).optional(),
+})
+
+function isAdmin(c: Context<AppEnv>): boolean {
+  return c.var.role === 'owner' || c.var.role === 'admin'
+}
 
 export const workspaceRoutes = new Hono<AppEnv>()
   // --- Environments ---
@@ -127,16 +151,16 @@ export const workspaceRoutes = new Hono<AppEnv>()
       if (config.kind !== 'secret') {
         c.executionCtx.waitUntil(indexConfig(c.env, workspaceId, config))
       }
-      c.executionCtx.waitUntil(
-        emitAudit(c.env, {
-          workspaceId,
-          environmentId: config.environmentId,
-          action: config.version === 1 ? 'config.created' : 'config.updated',
-          resourceType: config.kind,
-          key: config.key,
-          userId: c.var.userId,
-        }),
-      )
+      const changeEvent = {
+        workspaceId,
+        environmentId: config.environmentId,
+        action: config.version === 1 ? 'config.created' : 'config.updated',
+        resourceType: config.kind,
+        key: config.key,
+        userId: c.var.userId,
+      }
+      c.executionCtx.waitUntil(emitAudit(c.env, changeEvent))
+      c.executionCtx.waitUntil(dispatchNotifications(c.env, changeEvent))
       return c.json({ config: redact(config) }, 201)
     },
   )
@@ -164,16 +188,16 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const ok = await stubFor(c, workspaceId).deleteConfig(envId, key, c.var.userId)
     if (ok) {
       c.executionCtx.waitUntil(deleteThrough(c.env, workspaceId, envId, key))
-      c.executionCtx.waitUntil(
-        emitAudit(c.env, {
-          workspaceId,
-          environmentId: envId,
-          action: 'config.deleted',
-          resourceType: 'config',
-          key,
-          userId: c.var.userId,
-        }),
-      )
+      const deleteEvent = {
+        workspaceId,
+        environmentId: envId,
+        action: 'config.deleted',
+        resourceType: 'config',
+        key,
+        userId: c.var.userId,
+      }
+      c.executionCtx.waitUntil(emitAudit(c.env, deleteEvent))
+      c.executionCtx.waitUntil(dispatchNotifications(c.env, deleteEvent))
     }
     return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
   })
@@ -190,16 +214,16 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const value = await revealSecret(c.env, c.req.param('workspaceId'), item)
     // Revealing a secret is the single most sensitive action in the product —
     // always leave an audit trail (who, what, where), regardless of outcome.
-    c.executionCtx.waitUntil(
-      emitAudit(c.env, {
-        workspaceId: c.req.param('workspaceId'),
-        environmentId: c.req.param('envId'),
-        action: 'secret.revealed',
-        resourceType: item.kind,
-        key: item.key,
-        userId: c.var.userId,
-      }),
-    )
+    const revealEvent = {
+      workspaceId: c.req.param('workspaceId'),
+      environmentId: c.req.param('envId'),
+      action: 'secret.revealed',
+      resourceType: item.kind,
+      key: item.key,
+      userId: c.var.userId,
+    }
+    c.executionCtx.waitUntil(emitAudit(c.env, revealEvent))
+    c.executionCtx.waitUntil(dispatchNotifications(c.env, revealEvent))
     return c.json({ key: item.key, kind: item.kind, content: value })
   })
   .get('/:workspaceId/environments/:envId/configs/:key/revisions', async (c) => {
@@ -226,16 +250,16 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const promotion = await stubFor(c, workspaceId).promote({ ...body, userId: c.var.userId })
     const target = await stubFor(c, workspaceId).getConfig(body.targetEnvironmentId, body.key)
     if (target) c.executionCtx.waitUntil(writeThrough(c.env, workspaceId, target))
-    c.executionCtx.waitUntil(
-      emitAudit(c.env, {
-        workspaceId,
-        environmentId: body.targetEnvironmentId,
-        action: 'config.promoted',
-        resourceType: target?.kind ?? 'config',
-        key: body.key,
-        userId: c.var.userId,
-      }),
-    )
+    const promoteEvent = {
+      workspaceId,
+      environmentId: body.targetEnvironmentId,
+      action: 'config.promoted',
+      resourceType: target?.kind ?? 'config',
+      key: body.key,
+      userId: c.var.userId,
+    }
+    c.executionCtx.waitUntil(emitAudit(c.env, promoteEvent))
+    c.executionCtx.waitUntil(dispatchNotifications(c.env, promoteEvent))
     return c.json({ promotion }, 201)
   })
   .get('/:workspaceId/promotions', async (c) => {
@@ -350,6 +374,81 @@ export const workspaceRoutes = new Hono<AppEnv>()
       return c.json({ apiKey: generated.key, key }, 201)
     },
   )
+
+  // --- Notification channels (Slack / signed webhooks) ---
+  // Admin-only: destination URLs are credentials. They're stored envelope-
+  // encrypted (keyed by workspace) and the webhook signing secret is shown
+  // exactly once at creation.
+  .post('/:workspaceId/channels', zValidator('json', channelSchema), async (c) => {
+    if (!isAdmin(c)) {
+      return c.json({ error: 'forbidden', detail: 'managing channels requires admin' }, 403)
+    }
+    const body = c.req.valid('json')
+    const workspaceId = c.req.param('workspaceId')
+    const signingSecret = body.type === 'webhook' ? `evw_${generateToken(32)}` : undefined
+    const envelope = await encryptSecret(
+      c.env.MASTER_KEK,
+      workspaceId,
+      JSON.stringify({ url: body.url, secret: signingSecret }),
+    )
+    const channel = await createNotificationChannel(c.var.database, {
+      workspaceId,
+      type: body.type,
+      name: body.name,
+      encryptedCredentials: JSON.stringify(envelope),
+      events: body.events,
+      createdByUserId: c.var.userId,
+    })
+    invalidateChannelCache(workspaceId)
+    // The signing secret is shown exactly once — receivers verify webhook HMACs with it.
+    return c.json({ channel, signingSecret }, 201)
+  })
+  .get('/:workspaceId/channels', async (c) => {
+    if (!isAdmin(c)) {
+      return c.json({ error: 'forbidden', detail: 'managing channels requires admin' }, 403)
+    }
+    const channels = await listNotificationChannels(c.var.database, c.req.param('workspaceId'))
+    // Never return credentials — even encrypted.
+    return c.json({
+      channels: channels.map(({ encryptedCredentials: _credentials, ...safe }) => safe),
+    })
+  })
+  .delete('/:workspaceId/channels/:channelId', async (c) => {
+    if (!isAdmin(c)) {
+      return c.json({ error: 'forbidden', detail: 'managing channels requires admin' }, 403)
+    }
+    const workspaceId = c.req.param('workspaceId')
+    const ok = await deleteNotificationChannel(
+      c.var.database,
+      workspaceId,
+      c.req.param('channelId'),
+    )
+    invalidateChannelCache(workspaceId)
+    return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
+  })
+  // Send a test event to one channel (bypasses event filters).
+  .post('/:workspaceId/channels/:channelId/test', async (c) => {
+    if (!isAdmin(c)) {
+      return c.json({ error: 'forbidden', detail: 'managing channels requires admin' }, 403)
+    }
+    const workspaceId = c.req.param('workspaceId')
+    const channel = await getNotificationChannel(
+      c.var.database,
+      workspaceId,
+      c.req.param('channelId'),
+    )
+    if (!channel) return c.json({ error: 'not_found' }, 404)
+    const job = await buildNotifyJob(c.env, channel, {
+      at: Date.now(),
+      workspaceId,
+      action: 'test',
+      resourceType: 'channel',
+      userId: c.var.userId,
+    })
+    if (!job) return c.json({ error: 'invalid_credentials' }, 422)
+    await c.env.NOTIFY_QUEUE.send(job)
+    return c.json({ ok: true })
+  })
 
   // --- Real-time: WebSocket upgrade ---
   // Auth + membership already enforced by the route middleware. We forward the

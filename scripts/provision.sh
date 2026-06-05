@@ -31,6 +31,10 @@ echo "== Queue + R2 (audit warehouse) =="
 w queues create edgevault-audit
 w r2 bucket create edgevault-audit   # bound by name in apps/audit (write) + apps/api (read)
 
+echo "== Queues (notification fan-out) =="
+w queues create edgevault-notify       # apps/api (producer) → apps/notify (consumer)
+w queues create edgevault-notify-dlq   # dead letters after 3 failed deliveries
+
 cat <<'NEXT'
 
 Next:

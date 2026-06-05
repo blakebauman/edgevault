@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-notify",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // Delivers fully-materialized notification jobs (signed webhooks + Slack).
+  // The api worker resolves channels and decrypts credentials before enqueueing,
+  // so this worker needs no database, no KEK, and no secrets at all.
+  "queues": {
+    "consumers": [
+      {
+        "queue": "edgevault-notify",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "edgevault-notify-dlq"
+      }
+    ]
+  },
+  "env": {
+    "staging": {
+      "queues": {
+        "consumers": [
+          {
+            "queue": "edgevault-notify-staging",
+            "max_batch_size": 25,
+            "max_batch_timeout": 5,
+            "max_retries": 3,
+            "dead_letter_queue": "edgevault-notify-dlq-staging"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -54,3 +54,47 @@ export interface AuditEvent {
    */
   count?: number
 }
+
+/**
+ * Notification fan-out contract between the api worker (producer) and the
+ * notify worker (consumer of NOTIFY_QUEUE). The api resolves channels and
+ * decrypts their credentials at dispatch time, so each job is fully
+ * materialized — the notify worker never touches Postgres or the KEK.
+ */
+
+/** Actions a notification channel can subscribe to. */
+export const NOTIFY_ACTIONS = [
+  'config.created',
+  'config.updated',
+  'config.deleted',
+  'config.promoted',
+  'promotion.awaiting_approval',
+  'secret.revealed',
+] as const
+
+export type NotifyAction = (typeof NOTIFY_ACTIONS)[number]
+
+/** The event payload delivered to webhooks / formatted for Slack. */
+export interface NotificationEvent {
+  at: number
+  workspaceId: string
+  environmentId?: string
+  /** A NotifyAction, or 'test' for channel test deliveries. */
+  action: string
+  resourceType: string
+  key?: string
+  userId: string
+  /** Extra human-facing context, e.g. riskLevel / promotionId / instanceId. */
+  detail?: Record<string, string>
+}
+
+/** One delivery job on NOTIFY_QUEUE: a single event to a single channel. */
+export interface NotifyJob {
+  channelId: string
+  channelType: 'webhook' | 'slack'
+  /** Decrypted destination URL — transits only the internal queue. */
+  url: string
+  /** HMAC-SHA256 signing secret for generic webhooks (absent for Slack). */
+  secret?: string
+  event: NotificationEvent
+}

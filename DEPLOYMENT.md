@@ -14,6 +14,7 @@ Queues, R2, Vectorize, KV, Rate Limiting) and a **Neon** Postgres database.
 | `edgevault-delivery` | `apps/delivery` | core | edge read path (KV + L1) |
 | `edgevault-console` | `apps/console` | core | React Router UI / BFF |
 | `edgevault-audit` | `apps/audit` | core | Queue → R2 audit warehouse consumer |
+| `edgevault-notify` | `apps/notify` | core | Queue → Slack / signed-webhook notification delivery |
 | `edgevault-enterprise` | `ee/enterprise` | EE (commercial) | SSO (OIDC/SAML) + SCIM — deploy only with an EE entitlement |
 | `edgevault-control-plane` | `edge/control-plane` | Managed Edge (proprietary) | Stripe billing + metering — SaaS only, excluded from OSS |
 
