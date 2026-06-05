@@ -388,3 +388,33 @@ button.compact {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.8rem;
 }
+
+/* --- Share links ----------------------------------------------------------- */
+.share-form {
+  max-width: 32rem;
+}
+.share-form textarea,
+.share-form select {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--muted) 40%, transparent);
+  background: #0e1422;
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+}
+.share-viewer {
+  max-width: 36rem;
+}
+.share-plaintext {
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: #0e1422;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: all;
+}

@@ -13,6 +13,7 @@
     "lint": "biome check ."
   },
   "dependencies": {
+    "@edgevault/crypto": "workspace:*",
     "@edgevault/realtime": "workspace:*",
     "@paulmillr/qr": "^0.3.0",
     "@simplewebauthn/browser": "^13.3.0",

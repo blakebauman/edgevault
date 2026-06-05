@@ -79,6 +79,14 @@ type Pages = {
       "workspaceId": string;
     };
   };
+  "/share": {
+    params: {};
+  };
+  "/s/:id": {
+    params: {
+      "id": string;
+    };
+  };
   "/orgs/:orgId/billing": {
     params: {
       "orgId": string;
@@ -104,7 +112,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/notifications" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -170,6 +178,14 @@ type RouteFiles = {
     id: "routes/dashboard.notifications";
     page: "/dashboard/:workspaceId/notifications";
   };
+  "routes/share.tsx": {
+    id: "routes/share";
+    page: "/share";
+  };
+  "routes/share.view.tsx": {
+    id: "routes/share.view";
+    page: "/s/:id";
+  };
   "routes/billing.tsx": {
     id: "routes/billing";
     page: "/orgs/:orgId/billing";
@@ -206,6 +222,8 @@ type RouteModules = {
   "routes/assistant": typeof import("./app/routes/assistant.tsx");
   "routes/dashboard.compare": typeof import("./app/routes/dashboard.compare.tsx");
   "routes/dashboard.notifications": typeof import("./app/routes/dashboard.notifications.tsx");
+  "routes/share": typeof import("./app/routes/share.tsx");
+  "routes/share.view": typeof import("./app/routes/share.view.tsx");
   "routes/billing": typeof import("./app/routes/billing.tsx");
   "routes/scim": typeof import("./app/routes/scim.tsx");
   "routes/sso-admin": typeof import("./app/routes/sso-admin.tsx");

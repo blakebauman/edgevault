@@ -6,4 +6,9 @@
 interface __BaseEnv_Env {
   /** Base64 master key for envelope encryption of customer secrets. */
   MASTER_KEK: string
+  /**
+   * Shared secret authenticating trusted internal workers (the console BFF) on
+   * the /internal/* surface — same token the auth/enterprise workers hold.
+   */
+  INTERNAL_TOKEN: string
 }

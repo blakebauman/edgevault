@@ -196,3 +196,63 @@ export function isSecretEnvelope(value: unknown): value is SecretEnvelope {
     typeof (value as { ciphertext?: unknown }).ciphertext === 'string'
   )
 }
+
+// --- Zero-knowledge share links ---------------------------------------------
+//
+// One-off sharing of a secret value via an expiring link. The browser encrypts
+// with a random AES-GCM-256 key and puts the key in the URL FRAGMENT — which
+// never leaves the client — so the server (and the share store) only ever sees
+// ciphertext. Decryption happens in the recipient's browser with the same
+// fragment key. WebCrypto-only: works in Workers, Node 20+, and browsers.
+
+function toBase64Url(bytes: Uint8Array): string {
+  return toBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+function fromBase64Url(encoded: string): Uint8Array<ArrayBuffer> {
+  const padded = encoded.replace(/-/g, '+').replace(/_/g, '/')
+  return fromBase64(padded + '='.repeat((4 - (padded.length % 4)) % 4))
+}
+
+export interface EncryptedShare {
+  /** base64 AES-GCM ciphertext — safe to store server-side. */
+  ciphertext: string
+  /** base64 12-byte IV. */
+  iv: string
+  /** base64url 256-bit key — goes in the URL fragment ONLY, never to a server. */
+  fragmentKey: string
+}
+
+export async function encryptShareText(plaintext: string): Promise<EncryptedShare> {
+  // Cast: some workers tsconfigs type generateKey as CryptoKey | CryptoKeyPair.
+  const key = (await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, [
+    'encrypt',
+    'decrypt',
+  ])) as CryptoKey
+  const iv = randomIv()
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, utf8(plaintext)),
+  )
+  const rawKey = new Uint8Array((await crypto.subtle.exportKey('raw', key)) as ArrayBuffer)
+  return { ciphertext: toBase64(ciphertext), iv: toBase64(iv), fragmentKey: toBase64Url(rawKey) }
+}
+
+export async function decryptShareText(
+  ciphertext: string,
+  iv: string,
+  fragmentKey: string,
+): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    fromBase64Url(fragmentKey),
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt'],
+  )
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: fromBase64(iv) },
+    key,
+    fromBase64(ciphertext),
+  )
+  return decoder.decode(plaintext)
+}

@@ -24,12 +24,14 @@
   "durable_objects": {
     "bindings": [
       { "name": "WORKSPACE", "class_name": "WorkspaceDurableObject" },
-      { "name": "AGENT", "class_name": "EdgeVaultAgent" }
+      { "name": "AGENT", "class_name": "EdgeVaultAgent" },
+      { "name": "SHARE", "class_name": "ShareDurableObject" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["WorkspaceDurableObject"] },
-    { "tag": "v2", "new_sqlite_classes": ["EdgeVaultAgent"] }
+    { "tag": "v2", "new_sqlite_classes": ["EdgeVaultAgent"] },
+    { "tag": "v3", "new_sqlite_classes": ["ShareDurableObject"] }
   ],
   "workflows": [
     {

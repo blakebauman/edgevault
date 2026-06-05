@@ -5,9 +5,11 @@ import { requireAuth } from './middleware/auth'
 import { withDatabase } from './middleware/database'
 import { requireWorkspaceMember } from './middleware/workspace'
 import { organizationRoutes } from './routes/organizations'
+import { internalShareRoutes, shareRoutes } from './routes/shares'
 import { workspaceRoutes } from './routes/workspaces'
 
 export { EdgeVaultAgent } from './agent/agent'
+export { ShareDurableObject } from './durable-objects/share'
 export { WorkspaceDurableObject } from './durable-objects/workspace'
 export { PromotionWorkflow } from './workflows/promotion'
 
@@ -72,6 +74,10 @@ app.use('/api/v1/workspaces/:workspaceId/*', requireWorkspaceMember)
 
 app.route('/api/v1/organizations', organizationRoutes)
 app.route('/api/v1/workspaces', workspaceRoutes)
+// Zero-knowledge share links: authenticated create…
+app.route('/api/v1/shares', shareRoutes)
+// …and recipient consume, reachable only by the console BFF (INTERNAL_TOKEN).
+app.route('/internal/shares', internalShareRoutes)
 
 // Remote MCP server (Streamable HTTP), one per workspace, same auth + membership.
 app.use('/mcp/:workspaceId', withDatabase, requireAuth, requireWorkspaceMember)

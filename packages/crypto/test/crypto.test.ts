@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   decryptSecret,
+  decryptShareText,
   encryptSecret,
+  encryptShareText,
   generateMasterKey,
   isSecretEnvelope,
   rewrapEnvelope,
@@ -57,5 +59,32 @@ describe('envelope encryption', () => {
   it('recognizes a secret envelope', () => {
     expect(isSecretEnvelope({ v: 1, ciphertext: 'x' })).toBe(true)
     expect(isSecretEnvelope({ foo: 'bar' })).toBe(false)
+  })
+})
+
+describe('share-link encryption (zero-knowledge)', () => {
+  it('round-trips text with the fragment key', async () => {
+    const { ciphertext, iv, fragmentKey } = await encryptShareText('postgres://user:pw@host/db')
+    // The fragment key is URL-safe (lives in a #fragment).
+    expect(fragmentKey).toMatch(/^[A-Za-z0-9_-]+$/)
+    expect(ciphertext).not.toContain('postgres://')
+    await expect(decryptShareText(ciphertext, iv, fragmentKey)).resolves.toBe(
+      'postgres://user:pw@host/db',
+    )
+  })
+
+  it('fails to decrypt with a different key or tampered ciphertext', async () => {
+    const a = await encryptShareText('value-a')
+    const b = await encryptShareText('value-b')
+    await expect(decryptShareText(a.ciphertext, a.iv, b.fragmentKey)).rejects.toThrow()
+    const tampered = `${a.ciphertext.slice(0, -4)}AAAA`
+    await expect(decryptShareText(tampered, a.iv, a.fragmentKey)).rejects.toThrow()
+  })
+
+  it('generates a unique key per share', async () => {
+    const one = await encryptShareText('same')
+    const two = await encryptShareText('same')
+    expect(one.fragmentKey).not.toBe(two.fragmentKey)
+    expect(one.ciphertext).not.toBe(two.ciphertext)
   })
 })

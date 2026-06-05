@@ -63,6 +63,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <header className="panel-head">
           <h1>Your workspaces</h1>
           <span className="org-links">
+            <Link to="/share" className="muted">
+              Share a secret →
+            </Link>
             <Link to="/account/mfa" className="muted">
               Two-factor auth →
             </Link>
