@@ -344,6 +344,31 @@ input[type="checkbox"] {
   align-self: center;
 }
 
+/* inline creation forms live behind quiet disclosures */
+.create-inline {
+  margin-top: 0.75rem;
+}
+
+.create-inline summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.create-inline summary:hover {
+  color: var(--lilac);
+}
+
+.item-form {
+  max-width: 34rem;
+}
+
+.item-form textarea {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  resize: vertical;
+}
+
 /* --- Panels ------------------------------------------------------------------ */
 .panel {
   width: min(64rem, 100%);

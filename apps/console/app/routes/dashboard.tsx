@@ -1,7 +1,7 @@
 import type { WorkspaceEvent } from '@edgevault/realtime'
 import { useWorkspaceEvents } from '@edgevault/realtime/react'
 import { type FormEvent, useState } from 'react'
-import { Link, redirect } from 'react-router'
+import { Form, Link, redirect } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { getToken } from '../lib/session.server'
 import { useAgentChat } from '../lib/use-agent-chat'
@@ -38,6 +38,25 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   }
 }
 
+export async function action({ request, params, context }: Route.ActionArgs) {
+  const token = getToken(request)
+  if (!token) throw redirect('/login')
+  const form = await request.formData()
+  const res = await context.cloudflare.env.API_SERVICE.fetch(
+    `https://api/api/v1/workspaces/${params.workspaceId}/environments`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: String(form.get('name') ?? '').trim(),
+        slug: String(form.get('slug') ?? '').trim(),
+      }),
+    },
+  )
+  if (!res.ok) return { error: `Could not create the environment (${res.status}).` }
+  return { created: true }
+}
+
 function describe(event: WorkspaceEvent): string {
   switch (event.type) {
     case 'config.changed':
@@ -55,7 +74,7 @@ function describe(event: WorkspaceEvent): string {
   }
 }
 
-export default function Dashboard({ loaderData }: Route.ComponentProps) {
+export default function Dashboard({ loaderData, actionData }: Route.ComponentProps) {
   const { environments, wsUrl, workspaceId, workspaceName } = loaderData
   const [events, setEvents] = useState<Array<{ k: string; e: WorkspaceEvent }>>([])
   const status = useWorkspaceEvents(wsUrl, (event) =>
@@ -92,11 +111,33 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             <ul className="ws-list">
               {environments.map((e) => (
                 <li key={e.id}>
-                  {e.name} <span className="muted">/{e.slug}</span>
+                  <Link to={`/dashboard/${workspaceId}/env/${e.id}`}>{e.name}</Link>{' '}
+                  <span className="muted">/{e.slug}</span>
                 </li>
               ))}
-              {environments.length === 0 && <li className="muted">No environments yet</li>}
+              {environments.length === 0 && (
+                <li className="muted">No environments yet — create one below.</li>
+              )}
             </ul>
+            {actionData?.error && (
+              <p className="error-text" role="alert">
+                {actionData.error}
+              </p>
+            )}
+            <details className="create-inline">
+              <summary>New environment</summary>
+              <Form method="post" className="form">
+                <label>
+                  Name
+                  <input type="text" name="name" required placeholder="Production" />
+                </label>
+                <label>
+                  Slug
+                  <input type="text" name="slug" required placeholder="production" />
+                </label>
+                <button type="submit">Create environment</button>
+              </Form>
+            </details>
           </div>
 
           <div>

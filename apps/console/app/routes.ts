@@ -14,6 +14,7 @@ export default [
   route('oauth/:provider/start', 'routes/oauth.start.tsx'),
   route('oauth/:provider/callback', 'routes/oauth.callback.tsx'),
   route('dashboard/:workspaceId', 'routes/dashboard.tsx'),
+  route('dashboard/:workspaceId/env/:envId', 'routes/environment.tsx'),
   route('dashboard/:workspaceId/assistant', 'routes/assistant.tsx'),
   route('dashboard/:workspaceId/compare', 'routes/dashboard.compare.tsx'),
   route('dashboard/:workspaceId/notifications', 'routes/dashboard.notifications.tsx'),

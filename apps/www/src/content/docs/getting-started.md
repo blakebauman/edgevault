@@ -19,8 +19,10 @@ workflow.
 
 ## 2. Mint an environment API key
 
-API keys are **environment-scoped**: a key for `production` can only read `production`'s resolved
-values. The key is shown once at creation — store it like the secret it is.
+Open the environment in the console and use **Mint API key** (bottom of the page). Keys are
+**environment-scoped**: a key for `production` can only read `production`'s resolved values, and
+only `secrets:read` keys (admin-minted) can include secrets. The key is shown once at creation —
+store it like the secret it is.
 
 ## 3. Read from the edge
 
