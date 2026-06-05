@@ -36,13 +36,15 @@ export class PromotionWorkflow extends WorkflowEntrypoint<Env, PromotionParams> 
         this.env.WORKSPACE.idFromName(params.workspaceId),
       ) as DurableObjectStub<WorkspaceDurableObject>
 
-    // 1. Snapshot the source and record a pending promotion.
+    // 1. Snapshot the source and record a pending promotion. The instance id
+    // travels with the row so the console can approve/reject a parked one.
     const promotion = await step.do('begin', async (): Promise<Promotion> => {
       const created = await workspace().createPendingPromotion({
         sourceEnvironmentId: params.sourceEnvironmentId,
         targetEnvironmentId: params.targetEnvironmentId,
         key: params.key,
         userId: params.requestedBy,
+        workflowInstanceId: event.instanceId,
       })
       return { ...created }
     })
@@ -59,6 +61,8 @@ export class PromotionWorkflow extends WorkflowEntrypoint<Env, PromotionParams> 
         oldContent: existing?.content ?? null,
         newContent: source?.content ?? '',
       })
+      // Stamp the verdict on the promotion row — the console shows it at the gate.
+      await workspace().setPromotionRisk(promotion.id, score.level)
       return {
         requiresApproval: score.requiresApproval,
         level: score.level,

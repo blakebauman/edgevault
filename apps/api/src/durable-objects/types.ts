@@ -62,6 +62,11 @@ export interface Promotion {
   createdAt: number
   completedAt: number | null
   createdBy: string
+  /** Set when the promotion runs through the durable workflow — the handle
+   * needed to approve or reject a promotion parked at the gate. */
+  workflowInstanceId: string | null
+  /** Risk-scan verdict (low/medium/high), recorded once the workflow scores it. */
+  riskLevel: string | null
 }
 
 export interface ActivityEntry {

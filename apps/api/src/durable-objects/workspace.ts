@@ -181,6 +181,19 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       created_by TEXT NOT NULL
     )`)
 
+    // Additive migration for pre-existing workspaces: the workflow handle and
+    // risk verdict arrived after the table did. PRAGMA-guarded, idempotent.
+    const promotionColumns = this.sql
+      .exec<{ name: string }>(`PRAGMA table_info(config_promotions)`)
+      .toArray()
+      .map((column) => column.name)
+    if (!promotionColumns.includes('workflow_instance_id')) {
+      this.sql.exec(`ALTER TABLE config_promotions ADD COLUMN workflow_instance_id TEXT`)
+    }
+    if (!promotionColumns.includes('risk_level')) {
+      this.sql.exec(`ALTER TABLE config_promotions ADD COLUMN risk_level TEXT`)
+    }
+
     this.sql.exec(`CREATE TABLE IF NOT EXISTS activity_log (
       id TEXT PRIMARY KEY,
       action TEXT NOT NULL,
@@ -751,6 +764,7 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
     targetEnvironmentId: string
     key: string
     userId: string
+    workflowInstanceId?: string | null
   }): Promotion {
     const source = this.getConfig(input.sourceEnvironmentId, input.key)
     if (!source?.publishedRevisionId) {
@@ -762,7 +776,13 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       key: input.key,
       sourceRevisionId: source.publishedRevisionId,
       createdBy: input.userId,
+      workflowInstanceId: input.workflowInstanceId ?? null,
     })
+  }
+
+  /** Record the workflow's risk verdict on the promotion row (console display). */
+  setPromotionRisk(promotionId: string, riskLevel: string): void {
+    this.promotions.setRisk(promotionId, riskLevel)
   }
 
   /** Apply an approved promotion by copying the SNAPSHOTTED source revision. */

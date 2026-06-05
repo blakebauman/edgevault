@@ -11,6 +11,8 @@ type PromotionRow = {
   created_at: number
   completed_at: number | null
   created_by: string
+  workflow_instance_id: string | null
+  risk_level: string | null
 }
 
 function toPromotion(row: PromotionRow): Promotion {
@@ -25,6 +27,8 @@ function toPromotion(row: PromotionRow): Promotion {
     createdAt: row.created_at,
     completedAt: row.completed_at,
     createdBy: row.created_by,
+    workflowInstanceId: row.workflow_instance_id,
+    riskLevel: row.risk_level,
   }
 }
 
@@ -38,20 +42,27 @@ export class PromotionManager {
     key: string
     sourceRevisionId: string
     createdBy: string
+    workflowInstanceId?: string | null
   }): Promotion {
     const id = crypto.randomUUID()
     this.sql.exec(
       `INSERT INTO config_promotions
-        (id, source_environment_id, target_environment_id, config_key, source_revision_id, status, created_by)
-       VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+        (id, source_environment_id, target_environment_id, config_key, source_revision_id, status, created_by, workflow_instance_id)
+       VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
       id,
       input.sourceEnvironmentId,
       input.targetEnvironmentId,
       input.key,
       input.sourceRevisionId,
       input.createdBy,
+      input.workflowInstanceId ?? null,
     )
     return this.get(id) as Promotion
+  }
+
+  /** Record the workflow's risk-scan verdict so the console can show it. */
+  setRisk(id: string, riskLevel: string): void {
+    this.sql.exec(`UPDATE config_promotions SET risk_level = ? WHERE id = ?`, riskLevel, id)
   }
 
   markCompleted(id: string, targetRevisionId: string): void {

@@ -90,8 +90,11 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     targetEnvironmentId: String(form.get('targetEnvironmentId') ?? ''),
     key: String(form.get('key') ?? ''),
   }
+  // Through the durable workflow, not the direct endpoint: every promotion is
+  // risk-scanned, and risky targets park at the approval gate instead of
+  // applying silently.
   const res = await context.cloudflare.env.API_SERVICE.fetch(
-    `https://api/api/v1/workspaces/${params.workspaceId}/promotions`,
+    `https://api/api/v1/workspaces/${params.workspaceId}/promotion-workflows`,
     {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
@@ -99,8 +102,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     },
   )
   if (!res.ok) return { error: `Promotion failed (${res.status})` }
-  // Re-run the loader so the row flips to "equal".
-  throw redirect(new URL(request.url).pathname + new URL(request.url).search)
+  return { started: body.key }
 }
 
 const STATUS_LABEL: Record<ComparisonEntry['status'], string> = {
@@ -174,9 +176,15 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
             {compareError}
           </p>
         )}
-        {actionData?.error && (
+        {actionData && 'error' in actionData && (
           <p className="error-text" role="alert">
             {actionData.error}
+          </p>
+        )}
+        {actionData && 'started' in actionData && (
+          <p className="status-note" role="status">
+            Promotion of "{actionData.started}" started — it applies in seconds, or parks for
+            approval if the risk scan flags it. Track it on the workspace dashboard.
           </p>
         )}
 

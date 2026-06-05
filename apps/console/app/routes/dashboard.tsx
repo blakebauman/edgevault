@@ -1,7 +1,7 @@
 import type { WorkspaceEvent } from '@edgevault/realtime'
 import { useWorkspaceEvents } from '@edgevault/realtime/react'
 import { type FormEvent, useState } from 'react'
-import { Form, Link, redirect } from 'react-router'
+import { Form, Link, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { formatTime } from '../lib/format'
 import { getToken } from '../lib/session.server'
@@ -43,6 +43,9 @@ type PromotionRow = {
   key: string
   status: 'pending' | 'completed' | 'failed'
   createdAt: number
+  workflowInstanceId: string | null
+  riskLevel: string | null
+  actor: string | null
 }
 
 type SearchHit = { key: string; environmentId: string; kind: string; score: number }
@@ -123,18 +126,32 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
+  const env = context.cloudflare.env
+  const base = `https://api/api/v1/workspaces/${params.workspaceId}`
+  const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
   const form = await request.formData()
-  const res = await context.cloudflare.env.API_SERVICE.fetch(
-    `https://api/api/v1/workspaces/${params.workspaceId}/environments`,
-    {
+  const intent = String(form.get('intent') ?? 'create-env')
+
+  // Resolve a promotion parked at the approval gate (sends the workflow event).
+  if (intent === 'approve' || intent === 'reject') {
+    const instanceId = String(form.get('instanceId') ?? '')
+    const res = await env.API_SERVICE.fetch(`${base}/promotion-workflows/${instanceId}/approve`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: String(form.get('name') ?? '').trim(),
-        slug: String(form.get('slug') ?? '').trim(),
-      }),
-    },
-  )
+      headers,
+      body: JSON.stringify({ approved: intent === 'approve' }),
+    })
+    if (!res.ok) return { error: `Could not ${intent} the promotion (${res.status}).` }
+    return intent === 'approve' ? { approved: true } : { rejected: true }
+  }
+
+  const res = await env.API_SERVICE.fetch(`${base}/environments`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      name: String(form.get('name') ?? '').trim(),
+      slug: String(form.get('slug') ?? '').trim(),
+    }),
+  })
   if (!res.ok) return { error: `Could not create the environment (${res.status}).` }
   return { created: true }
 }
@@ -169,6 +186,12 @@ const PROMOTION_CHIP: Record<PromotionRow['status'], string> = {
   failed: 'status-danger',
 }
 
+const RISK_CHIP: Record<string, string> = {
+  low: 'chip-neutral',
+  medium: 'status-warn',
+  high: 'status-danger',
+}
+
 export default function Dashboard({ loaderData, actionData }: Route.ComponentProps) {
   const {
     scores,
@@ -186,6 +209,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
     setEvents((prev) => [{ k: crypto.randomUUID(), e: event }, ...prev].slice(0, 20)),
   )
   const envSlug = (id: string) => scores.find((s) => s.id === id)?.slug ?? id.slice(0, 8)
+  const busy = useNavigation().state !== 'idle'
 
   return (
     <main className="shell">
@@ -211,12 +235,24 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
           </div>
         </header>
 
-        <h2>Environments</h2>
-        {actionData?.error && (
+        {actionData && 'error' in actionData && (
           <p className="error-text" role="alert">
             {actionData.error}
           </p>
         )}
+        {actionData && 'approved' in actionData && (
+          <p className="status-note" role="status">
+            Approved — the workflow is applying the snapshotted value and verifying the edge
+            read-back now.
+          </p>
+        )}
+        {actionData && 'rejected' in actionData && (
+          <p className="status-note" role="status">
+            Rejected — the promotion is closed; nothing was applied.
+          </p>
+        )}
+
+        <h2>Environments</h2>
         {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
         <section className="table-scroll" aria-label="Environments" tabIndex={0}>
           <table className="compare-table cards-sm">
@@ -272,6 +308,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
         <details className="create-inline">
           <summary>New environment</summary>
           <Form method="post" className="form">
+            <input type="hidden" name="intent" value="create-env" />
             <label>
               Name
               <input type="text" name="name" required placeholder="Production" />
@@ -359,16 +396,25 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
 
         {promotions.length > 0 && (
           <>
-            <h2>Recent promotions</h2>
+            <h2>Promotions</h2>
+            {promotions.some((p) => p.status === 'pending' && p.workflowInstanceId) && (
+              <p className="muted">
+                Pending rows are parked at the approval gate — the risk scan flagged the target.
+                Approving applies the value snapshotted at request time.
+              </p>
+            )}
             {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
-            <section className="table-scroll" aria-label="Recent promotions" tabIndex={0}>
+            <section className="table-scroll" aria-label="Promotions" tabIndex={0}>
               <table className="compare-table cards-sm">
                 <thead>
                   <tr>
                     <th>Key</th>
                     <th>From → To</th>
                     <th>Status</th>
+                    <th>Risk</th>
+                    <th>By</th>
                     <th>At</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
@@ -381,8 +427,30 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                       <td data-label="Status">
                         <span className={`status ${PROMOTION_CHIP[p.status]}`}>{p.status}</span>
                       </td>
+                      <td data-label="Risk">
+                        {p.riskLevel ? (
+                          <span className={`status ${RISK_CHIP[p.riskLevel] ?? 'chip-neutral'}`}>
+                            {p.riskLevel}
+                          </span>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                      <td className="muted" data-label="By">
+                        {p.actor ?? '—'}
+                      </td>
                       <td className="muted" data-label="At">
                         {formatTime(p.createdAt)}
+                      </td>
+                      <td>
+                        {p.status === 'pending' && p.workflowInstanceId && (
+                          <ApprovalControl
+                            instanceId={p.workflowInstanceId}
+                            itemKey={p.key}
+                            targetSlug={envSlug(p.targetEnvironmentId)}
+                            busy={busy}
+                          />
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -395,6 +463,70 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
         <Assistant workspaceId={workspaceId} />
       </section>
     </main>
+  )
+}
+
+/** Resolving a parked promotion is irreversible in both directions — approve
+ * applies to the target environment, reject closes the request. Both wear the
+ * two-step confirm; approve carries the danger voice (it mutates an env). */
+function ApprovalControl({
+  instanceId,
+  itemKey,
+  targetSlug,
+  busy,
+}: {
+  instanceId: string
+  itemKey: string
+  targetSlug: string
+  busy: boolean
+}) {
+  const [arming, setArming] = useState<'approve' | 'reject' | null>(null)
+
+  if (!arming) {
+    return (
+      <div className="row">
+        <button
+          type="button"
+          className="secondary compact"
+          disabled={busy}
+          onClick={() => setArming('approve')}
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          className="secondary compact"
+          disabled={busy}
+          onClick={() => setArming('reject')}
+        >
+          Reject
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="confirm-row">
+      <p className="confirm-note">
+        {arming === 'approve'
+          ? `Apply "${itemKey}" to /${targetSlug}? There is no undo.`
+          : `Reject the promotion of "${itemKey}"? Nothing is applied.`}
+      </p>
+      <Form method="post" onSubmit={() => setArming(null)}>
+        <input type="hidden" name="intent" value={arming} />
+        <input type="hidden" name="instanceId" value={instanceId} />
+        <button
+          type="submit"
+          className={`${arming === 'approve' ? 'danger' : 'secondary'} compact`}
+          disabled={busy}
+        >
+          {arming === 'approve' ? `Confirm → /${targetSlug}` : 'Confirm reject'}
+        </button>
+      </Form>
+      <button type="button" className="secondary compact" onClick={() => setArming(null)}>
+        Cancel
+      </button>
+    </div>
   )
 }
 

@@ -358,7 +358,12 @@ export const workspaceRoutes = new Hono<AppEnv>()
   })
   .get('/:workspaceId/promotions', async (c) => {
     const promotions = await stubFor(c, c.req.param('workspaceId')).listPromotions()
-    return c.json({ promotions })
+    // Same batched name resolution as /activity — approvals show who asked.
+    const ids = [...new Set(promotions.map((p) => p.createdBy))]
+    const actors = await getUserDisplayNames(c.var.database, ids)
+    return c.json({
+      promotions: promotions.map((p) => ({ ...p, actor: actors.get(p.createdBy) ?? null })),
+    })
   })
 
   // --- Durable promotion workflow (with approval gate) ---
