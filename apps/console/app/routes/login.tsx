@@ -61,38 +61,50 @@ export async function action({ request, context }: Route.ActionArgs) {
 
 export default function Login({ actionData, loaderData }: Route.ComponentProps) {
   return (
-    <main className="shell">
+    <main className="shell shell-center">
       <section className="hero">
         <p className="eyebrow">EdgeVault Console</p>
         <h1>Sign in</h1>
         <Form method="post" className="form">
-          <input name="email" type="email" placeholder="you@example.com" required />
-          <input name="password" type="password" placeholder="password" required minLength={8} />
-          {actionData?.error && <p className="error-text">{actionData.error}</p>}
+          <label>
+            Email
+            <input name="email" type="email" placeholder="you@example.com" required />
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" placeholder="••••••••" required minLength={8} />
+          </label>
+          {actionData?.error && (
+            <p className="error-text" role="alert">
+              {actionData.error}
+            </p>
+          )}
           <div className="row">
             <button type="submit" name="intent" value="signin">
               Sign in
             </button>
-            <button type="submit" name="intent" value="signup" className="secondary">
-              Create account
+            <button type="submit" name="intent" value="signup" className="linklike more-auth-alt">
+              New here? Create an account
             </button>
           </div>
         </Form>
 
-        <div className="form">
-          <p className="muted">Or continue with</p>
-          <div className="row">
-            <a className="secondary button" href="/oauth/github/start">
-              GitHub
-            </a>
-            <a className="secondary button" href="/oauth/google/start">
-              Google
-            </a>
+        <details className="more-auth">
+          <summary>More sign-in options</summary>
+          <div className="form">
+            <p className="muted">Continue with</p>
+            <div className="row">
+              <a className="secondary button" href="/oauth/github/start">
+                GitHub
+              </a>
+              <a className="secondary button" href="/oauth/google/start">
+                Google
+              </a>
+            </div>
           </div>
-        </div>
-
-        <PasskeyButton />
-        <SsoForm error={loaderData.ssoError} />
+          <PasskeyButton />
+          <SsoForm error={loaderData.ssoError} />
+        </details>
       </section>
     </main>
   )
@@ -120,7 +132,11 @@ function PasskeyButton() {
       <button type="button" className="secondary" onClick={onClick} disabled={busy}>
         {busy ? 'Waiting for passkey…' : 'Sign in with a passkey'}
       </button>
-      {error && <p className="error-text">{error}</p>}
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   )
 }
@@ -144,7 +160,12 @@ function SsoForm({ error }: { error: string | null }) {
         placeholder="organization id"
         aria-label="Organization ID"
       />
-      {error && <p className="error-text">{error}</p>}
+      <p className="field-hint">Your admin can share this from the organization's SSO page.</p>
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
       <div className="row">
         <button
           type="button"

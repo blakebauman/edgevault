@@ -2,12 +2,14 @@ import type { WorkspaceEvent } from '@edgevault/realtime'
 import { useWorkspaceEvents } from '@edgevault/realtime/react'
 import { type FormEvent, useState } from 'react'
 import { Link, redirect } from 'react-router'
+import { CopyButton } from '../components/copy-button'
 import { getToken } from '../lib/session.server'
 import { useAgentChat } from '../lib/use-agent-chat'
+import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard'
 
-export function meta(_: Route.MetaArgs) {
-  return [{ title: 'Workspace · EdgeVault' }]
+export function meta({ data }: Route.MetaArgs) {
+  return [{ title: `${data?.workspaceName ?? 'Workspace'} · EdgeVault` }]
 }
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
@@ -15,10 +17,12 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   if (!token) throw redirect('/login')
 
   const env = context.cloudflare.env
-  const res = await env.API_SERVICE.fetch(
-    `https://api/api/v1/workspaces/${params.workspaceId}/environments`,
-    { headers: { authorization: `Bearer ${token}` } },
-  )
+  const [res, workspaceName] = await Promise.all([
+    env.API_SERVICE.fetch(`https://api/api/v1/workspaces/${params.workspaceId}/environments`, {
+      headers: { authorization: `Bearer ${token}` },
+    }),
+    getWorkspaceName(env, token, params.workspaceId),
+  ])
   if (res.status === 401 || res.status === 403) throw redirect('/login')
   const environments = res.ok
     ? ((await res.json()) as { environments: Array<{ id: string; name: string; slug: string }> })
@@ -27,6 +31,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   return {
     workspaceId: params.workspaceId,
+    workspaceName,
     environments,
     // The browser connects directly to the api WebSocket with the short-lived token.
     wsUrl: `${env.API_WS_BASE}/api/v1/workspaces/${params.workspaceId}/ws?token=${encodeURIComponent(token)}`,
@@ -51,7 +56,7 @@ function describe(event: WorkspaceEvent): string {
 }
 
 export default function Dashboard({ loaderData }: Route.ComponentProps) {
-  const { environments, wsUrl, workspaceId } = loaderData
+  const { environments, wsUrl, workspaceId, workspaceName } = loaderData
   const [events, setEvents] = useState<Array<{ k: string; e: WorkspaceEvent }>>([])
   const status = useWorkspaceEvents(wsUrl, (event) =>
     setEvents((prev) => [{ k: crypto.randomUUID(), e: event }, ...prev].slice(0, 50)),
@@ -63,7 +68,10 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
         <header className="panel-head">
           <div>
             <p className="eyebrow">Workspace</p>
-            <h1>{workspaceId}</h1>
+            <h1>{workspaceName ?? workspaceId}</h1>
+            <span className="page-id">
+              {workspaceId} <CopyButton value={workspaceId} label="Copy id" />
+            </span>
           </div>
           <div className="org-links">
             <Link to={`/dashboard/${workspaceId}/compare`} className="secondary button">
@@ -93,7 +101,10 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
 
           <div>
             <h2>
-              Live activity <span className={`dot ${status}`}>● {status}</span>
+              Live activity{' '}
+              <span className={`dot ${status}`} role="status">
+                ● {status}
+              </span>
             </h2>
             <ul className="feed">
               {events.map(({ k, e }) => (
@@ -137,7 +148,11 @@ function Assistant({ workspaceId }: { workspaceId: string }) {
         ))}
         {messages.length === 0 && <li className="muted">No questions yet.</li>}
       </ul>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       <form className="chat-form" onSubmit={onSubmit}>
         <input
           type="text"

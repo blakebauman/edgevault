@@ -1,4 +1,4 @@
-import { Form, Link } from 'react-router'
+import { Link } from 'react-router'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/home'
 
@@ -44,7 +44,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export default function Home({ loaderData }: Route.ComponentProps) {
   if (!loaderData.authed) {
     return (
-      <main className="shell">
+      <main className="shell shell-center">
         <section className="hero">
           <p className="eyebrow">EdgeVault Console</p>
           <h1>Configuration, secrets &amp; flags at the edge.</h1>
@@ -62,19 +62,6 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       <section className="panel">
         <header className="panel-head">
           <h1>Your workspaces</h1>
-          <span className="org-links">
-            <Link to="/share" className="muted">
-              Share a secret →
-            </Link>
-            <Link to="/account/mfa" className="muted">
-              Two-factor auth →
-            </Link>
-            <Form method="post" action="/logout">
-              <button type="submit" className="secondary">
-                Sign out
-              </button>
-            </Form>
-          </span>
         </header>
         {loaderData.orgs.length === 0 && <p className="lede">No organizations yet.</p>}
         {loaderData.orgs.map((org) => (

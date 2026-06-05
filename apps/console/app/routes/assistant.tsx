@@ -1,3 +1,4 @@
+import { redirect } from 'react-router'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/assistant'
 
@@ -7,6 +8,13 @@ import type { Route } from './+types/assistant'
  * `/assistant` endpoint, which drives the AGENT durable object. The browser
  * never sees the bearer token. Consumed by the `useAgentChat` hook.
  */
+
+/** Humans who navigate here directly get the workspace, not raw JSON — the
+ * assistant lives on the dashboard. (POSTs from the chat hook hit `action`.) */
+export function loader({ params }: Route.LoaderArgs) {
+  throw redirect(`/dashboard/${params.workspaceId}`)
+}
+
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) return Response.json({ error: 'unauthorized' }, { status: 401 })

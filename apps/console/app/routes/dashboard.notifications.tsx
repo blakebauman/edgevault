@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { Form, Link, redirect, useNavigation } from 'react-router'
+import { CopyButton } from '../components/copy-button'
 import { getToken } from '../lib/session.server'
+import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.notifications'
 
 /**
@@ -45,13 +48,21 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
 
-  const res = await api(context.cloudflare.env, token, `/${params.workspaceId}/channels`)
+  const [res, workspaceName] = await Promise.all([
+    api(context.cloudflare.env, token, `/${params.workspaceId}/channels`),
+    getWorkspaceName(context.cloudflare.env, token, params.workspaceId),
+  ])
   if (res.status === 401) throw redirect('/login')
   if (res.status === 403) {
-    return { workspaceId: params.workspaceId, channels: [] as Channel[], forbidden: true }
+    return {
+      workspaceId: params.workspaceId,
+      workspaceName,
+      channels: [] as Channel[],
+      forbidden: true,
+    }
   }
   const channels = res.ok ? ((await res.json()) as { channels: Channel[] }).channels : []
-  return { workspaceId: params.workspaceId, channels, forbidden: false }
+  return { workspaceId: params.workspaceId, workspaceName, channels, forbidden: false }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -97,7 +108,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function Notifications({ loaderData, actionData }: Route.ComponentProps) {
-  const { workspaceId, channels, forbidden } = loaderData
+  const { workspaceId, workspaceName, channels, forbidden } = loaderData
   const navigation = useNavigation()
   const busy = navigation.state !== 'idle'
 
@@ -107,7 +118,7 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
         <header className="panel-head">
           <div>
             <p className="eyebrow">Notifications</p>
-            <h1>{workspaceId}</h1>
+            <h1>{workspaceName ?? workspaceId}</h1>
           </div>
           <Link to={`/dashboard/${workspaceId}`} className="secondary button">
             ← Workspace
@@ -115,10 +126,25 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
         </header>
 
         {forbidden && (
-          <p className="error-text">Managing notification channels requires an org admin.</p>
+          <p className="error-text" role="alert">
+            Managing notification channels requires an org admin.
+          </p>
         )}
-        {actionData?.error && <p className="error-text">{actionData.error}</p>}
-        {actionData?.tested && <p className="muted">Test notification queued.</p>}
+        {actionData?.error && (
+          <p className="error-text" role="alert">
+            {actionData.error}
+          </p>
+        )}
+        {actionData?.tested && (
+          <p className="status-note" role="status">
+            Test notification queued.
+          </p>
+        )}
+        {actionData?.deleted && (
+          <p className="status-note" role="status">
+            Channel deleted.
+          </p>
+        )}
 
         {actionData?.signingSecret && (
           <div className="token-box">
@@ -127,61 +153,60 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
               recomputing HMAC-SHA256 over <code>timestamp.body</code> against{' '}
               <code>x-edgevault-signature</code>.
             </p>
-            <code className="token-value">{actionData.signingSecret}</code>
+            <div className="token-row">
+              <code className="token-value">{actionData.signingSecret}</code>
+              <CopyButton value={actionData.signingSecret} label="Copy secret" />
+            </div>
           </div>
         )}
 
         {!forbidden && (
           <>
             <h2>Channels</h2>
-            <table className="compare-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Events</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {channels.map((channel) => (
-                  <tr key={channel.id}>
-                    <td>{channel.name}</td>
-                    <td>
-                      <span className="status status-equal">{channel.type}</span>
-                    </td>
-                    <td className="muted">
-                      {channel.events?.length ? channel.events.join(', ') : 'all events'}
-                    </td>
-                    <td>
-                      <div className="row">
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="test" />
-                          <input type="hidden" name="channelId" value={channel.id} />
-                          <button type="submit" className="secondary compact" disabled={busy}>
-                            Send test
-                          </button>
-                        </Form>
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="delete" />
-                          <input type="hidden" name="channelId" value={channel.id} />
-                          <button type="submit" className="secondary compact" disabled={busy}>
-                            Delete
-                          </button>
-                        </Form>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {channels.length === 0 && (
+            <div className="table-scroll">
+              <table className="compare-table">
+                <thead>
                   <tr>
-                    <td colSpan={4} className="muted">
-                      No channels yet — add Slack or a webhook below.
-                    </td>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Events</th>
+                    <th />
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {channels.map((channel) => (
+                    <tr key={channel.id}>
+                      <td>{channel.name}</td>
+                      <td>
+                        <span className="status status-equal">{channel.type}</span>
+                      </td>
+                      <td className="muted">
+                        {channel.events?.length ? channel.events.join(', ') : 'all events'}
+                      </td>
+                      <td>
+                        <div className="row">
+                          <Form method="post">
+                            <input type="hidden" name="intent" value="test" />
+                            <input type="hidden" name="channelId" value={channel.id} />
+                            <button type="submit" className="secondary compact" disabled={busy}>
+                              Send test
+                            </button>
+                          </Form>
+                          <DeleteChannel channelId={channel.id} name={channel.name} busy={busy} />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {channels.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="muted">
+                        No channels yet — add Slack or a webhook below.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
             <h2>Add a channel</h2>
             <Form method="post" className="form channel-form">
@@ -207,7 +232,8 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
                 />
               </label>
               <fieldset className="event-filter">
-                <legend className="muted">Events (none checked = all)</legend>
+                <legend className="muted">Events to deliver</legend>
+                <p className="field-hint">Leave every box unchecked to deliver all event types.</p>
                 {EVENT_OPTIONS.map((event) => (
                   <label key={event} className="check">
                     <input type="checkbox" name="events" value={event} /> {event}
@@ -222,5 +248,47 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
         )}
       </section>
     </main>
+  )
+}
+
+/** Channel deletion is unrecoverable — two-step inline confirm. */
+function DeleteChannel({
+  channelId,
+  name,
+  busy,
+}: {
+  channelId: string
+  name: string
+  busy: boolean
+}) {
+  const [arming, setArming] = useState(false)
+
+  if (!arming) {
+    return (
+      <button
+        type="button"
+        className="secondary compact"
+        disabled={busy}
+        onClick={() => setArming(true)}
+      >
+        Delete
+      </button>
+    )
+  }
+
+  return (
+    <div className="confirm-row">
+      <p className="confirm-note">Delete "{name}"? This cannot be undone.</p>
+      <Form method="post" onSubmit={() => setArming(false)}>
+        <input type="hidden" name="intent" value="delete" />
+        <input type="hidden" name="channelId" value={channelId} />
+        <button type="submit" className="compact" disabled={busy}>
+          Confirm delete
+        </button>
+      </Form>
+      <button type="button" className="secondary compact" onClick={() => setArming(false)}>
+        Cancel
+      </button>
+    </div>
   )
 }

@@ -148,7 +148,9 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
         </header>
 
         {!isAdmin && (
-          <p className="error-text">Only organization owners or admins can manage billing.</p>
+          <p className="error-text" role="alert">
+            Only organization owners or admins can manage billing.
+          </p>
         )}
         {isAdmin && !billingAvailable && (
           <p className="muted">
@@ -165,16 +167,24 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
                 confirm the subscription with Stripe. Refresh this page to see it.
               </p>
             )}
-            {checkoutResult === 'cancelled' && <p className="muted">Checkout cancelled.</p>}
-            {error && <p className="error-text">{error}</p>}
+            {checkoutResult === 'cancelled' && (
+              <p className="status-note" role="status">
+                Checkout cancelled.
+              </p>
+            )}
+            {error && (
+              <p className="error-text" role="alert">
+                {error}
+              </p>
+            )}
 
             <p className="lede">
               Current plan: <strong>{status?.plan ?? 'free'}</strong>
             </p>
 
-            <div className="row" style={{ gap: '1.5rem', alignItems: 'stretch' }}>
+            <div className="plan-cards">
               {(['pro', 'team'] as const).map((plan) => (
-                <div className="token-box" key={plan} style={{ flex: 1 }}>
+                <div className="token-box" key={plan}>
                   <p className="token-note">{PLAN_COPY[plan]?.title}</p>
                   <p className="muted">{PLAN_COPY[plan]?.blurb}</p>
                   {status?.plan === plan ? (
@@ -192,7 +202,7 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
                   )}
                 </div>
               ))}
-              <div className="token-box" style={{ flex: 1 }}>
+              <div className="token-box">
                 <p className="token-note">Enterprise</p>
                 <p className="muted">
                   SSO/SAML, SCIM, advanced RBAC, audit retention. Sales-led —{' '}
@@ -202,7 +212,7 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
             </div>
 
             {status?.hasCustomer && (
-              <Form method="post" style={{ marginTop: '1.5rem' }}>
+              <Form method="post" className="stack-gap">
                 <input type="hidden" name="intent" value="portal" />
                 <button type="submit" className="secondary">
                   Manage billing (invoices, payment method, cancel)

@@ -16,6 +16,7 @@ import {
   createNotificationChannel,
   deleteNotificationChannel,
   getNotificationChannel,
+  getWorkspaceWithOrg,
   listNotificationChannels,
 } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
@@ -101,6 +102,13 @@ async function publishWithDependents(
 }
 
 export const workspaceRoutes = new Hono<AppEnv>()
+  // Workspace identity — name/org for console headers. Membership is already
+  // verified by requireWorkspaceMember (which fetched the same row to authorize).
+  .get('/:workspaceId', async (c) => {
+    const workspace = await getWorkspaceWithOrg(c.var.database, c.req.param('workspaceId'))
+    if (!workspace) return c.json({ error: 'workspace_not_found' }, 404)
+    return c.json({ workspace })
+  })
   // --- Environments ---
   .post(
     '/:workspaceId/environments',

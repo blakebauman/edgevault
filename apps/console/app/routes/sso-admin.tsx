@@ -104,7 +104,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   return { saved: true as const }
 }
 
-export default function SsoAdmin({ loaderData, actionData }: Route.ComponentProps) {
+export default function SsoAdmin({ loaderData, actionData, params }: Route.ComponentProps) {
   const { org, isAdmin, ssoAvailable, entitled, connection, suggestedRedirectUri } = loaderData
   const error = actionData && 'error' in actionData ? actionData.error : null
   const saved = actionData && 'saved' in actionData ? actionData.saved : false
@@ -129,8 +129,10 @@ export default function SsoAdmin({ loaderData, actionData }: Route.ComponentProp
           <p className="error-text">Enterprise SSO is not enabled for this deployment.</p>
         )}
         {isAdmin && ssoAvailable && !entitled && (
-          <p className="error-text">
-            This organization’s plan does not include enterprise SSO. Upgrade to enable it.
+          <p className="error-text" role="alert">
+            This organization’s plan does not include enterprise SSO.{' '}
+            <Link to={`/orgs/${params.orgId}/billing`}>Upgrade on the billing page</Link> to enable
+            it.
           </p>
         )}
 
@@ -154,7 +156,7 @@ export default function SsoAdmin({ loaderData, actionData }: Route.ComponentProp
               <code className="token-value">{suggestedRedirectUri}</code>
             </div>
 
-            <Form method="post" className="form" style={{ marginTop: '1.5rem' }}>
+            <Form method="post" className="form stack-gap">
               <label>
                 Issuer URL
                 <input

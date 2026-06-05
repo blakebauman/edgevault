@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Form, Link, redirect } from 'react-router'
+import { CopyButton } from '../components/copy-button'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/account-mfa'
 
@@ -88,9 +89,21 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
           </Link>
         </header>
 
-        {error && <p className="error-text">{error}</p>}
-        {confirmed && <p className="muted">Two-factor authentication is now enabled.</p>}
-        {disabled && <p className="muted">Two-factor authentication has been disabled.</p>}
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
+        {confirmed && (
+          <p className="status-note" role="status">
+            Two-factor authentication is now enabled.
+          </p>
+        )}
+        {disabled && (
+          <p className="status-note" role="status">
+            Two-factor authentication has been disabled.
+          </p>
+        )}
 
         {enabled ? (
           <>
@@ -121,14 +134,20 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
             )}
             <div className="token-box">
               <p className="token-note">Secret (or use the otpauth URI):</p>
-              <code className="token-value">{secret}</code>
+              <div className="token-row">
+                <code className="token-value">{secret}</code>
+                <CopyButton value={secret} label="Copy secret" />
+              </div>
             </div>
             {otpauthUri && (
               <div className="token-box">
-                <code className="token-value">{otpauthUri}</code>
+                <div className="token-row">
+                  <code className="token-value">{otpauthUri}</code>
+                  <CopyButton value={otpauthUri} label="Copy URI" />
+                </div>
               </div>
             )}
-            <Form method="post" className="form" style={{ marginTop: '1rem' }}>
+            <Form method="post" className="form">
               <label>
                 Confirmation code
                 <input
@@ -188,8 +207,16 @@ function PasskeySection() {
       <p className="muted">
         Add a passkey (Touch ID, Windows Hello, a security key) for phishing-resistant sign-in.
       </p>
-      {status.kind === 'ok' && <p className="muted">{status.message}</p>}
-      {status.kind === 'error' && <p className="error-text">{status.message}</p>}
+      {status.kind === 'ok' && (
+        <p className="status-note" role="status">
+          {status.message}
+        </p>
+      )}
+      {status.kind === 'error' && (
+        <p className="error-text" role="alert">
+          {status.message}
+        </p>
+      )}
       <button type="button" onClick={onAdd} disabled={busy}>
         {busy ? 'Waiting for passkey…' : 'Add a passkey'}
       </button>

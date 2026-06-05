@@ -103,7 +103,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   return { saved: true as const }
 }
 
-export default function SamlAdmin({ loaderData, actionData }: Route.ComponentProps) {
+export default function SamlAdmin({ loaderData, actionData, params }: Route.ComponentProps) {
   const { org, isAdmin, ssoAvailable, entitled, connection, suggestedAcsUrl, suggestedSpEntityId } =
     loaderData
   const error = actionData && 'error' in actionData ? actionData.error : null
@@ -129,8 +129,10 @@ export default function SamlAdmin({ loaderData, actionData }: Route.ComponentPro
           <p className="error-text">Enterprise SSO is not enabled for this deployment.</p>
         )}
         {isAdmin && ssoAvailable && !entitled && (
-          <p className="error-text">
-            This organization’s plan does not include enterprise SSO. Upgrade to enable it.
+          <p className="error-text" role="alert">
+            This organization’s plan does not include enterprise SSO.{' '}
+            <Link to={`/orgs/${params.orgId}/billing`}>Upgrade on the billing page</Link> to enable
+            it.
           </p>
         )}
 
@@ -148,7 +150,7 @@ export default function SamlAdmin({ loaderData, actionData }: Route.ComponentPro
               <code className="token-value">{suggestedAcsUrl}</code>
             </div>
 
-            <Form method="post" className="form" style={{ marginTop: '1.5rem' }}>
+            <Form method="post" className="form stack-gap">
               <label>
                 IdP Entity ID
                 <input name="idpEntityId" defaultValue={connection.idpEntityId ?? ''} required />

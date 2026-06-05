@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
 import { getToken } from '../lib/session.server'
+import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.compare'
 
 /**
@@ -47,7 +49,10 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const headers = { authorization: `Bearer ${token}` }
 
-  const envRes = await env.API_SERVICE.fetch(`${base}/environments`, { headers })
+  const [envRes, workspaceName] = await Promise.all([
+    env.API_SERVICE.fetch(`${base}/environments`, { headers }),
+    getWorkspaceName(env, token, params.workspaceId),
+  ])
   if (envRes.status === 401 || envRes.status === 403) throw redirect('/login')
   const environments = envRes.ok
     ? ((await envRes.json()) as { environments: EnvironmentSummary[] }).environments
@@ -72,7 +77,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     }
   }
 
-  return { workspaceId: params.workspaceId, environments, comparison, compareError }
+  return { workspaceId: params.workspaceId, workspaceName, environments, comparison, compareError }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -107,7 +112,7 @@ const STATUS_LABEL: Record<ComparisonEntry['status'], string> = {
 }
 
 export default function CompareEnvironments({ loaderData, actionData }: Route.ComponentProps) {
-  const { workspaceId, environments, comparison, compareError } = loaderData
+  const { workspaceId, workspaceName, environments, comparison, compareError } = loaderData
   const [searchParams] = useSearchParams()
   const navigation = useNavigation()
   const source = searchParams.get('source') ?? ''
@@ -120,7 +125,7 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
         <header className="panel-head">
           <div>
             <p className="eyebrow">Compare environments</p>
-            <h1>{workspaceId}</h1>
+            <h1>{workspaceName ?? workspaceId}</h1>
           </div>
           <Link to={`/dashboard/${workspaceId}`} className="secondary button">
             ← Workspace
@@ -154,8 +159,16 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
           <button type="submit">Compare</button>
         </Form>
 
-        {compareError && <p className="error-text">{compareError}</p>}
-        {actionData?.error && <p className="error-text">{actionData.error}</p>}
+        {compareError && (
+          <p className="error-text" role="alert">
+            {compareError}
+          </p>
+        )}
+        {actionData?.error && (
+          <p className="error-text" role="alert">
+            {actionData.error}
+          </p>
+        )}
 
         {comparison && (
           <>
@@ -165,67 +178,104 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
               {comparison.summary.onlyInTarget} only in target · {comparison.summary.notComparable}{' '}
               secrets not compared
             </p>
-            <table className="compare-table">
-              <thead>
-                <tr>
-                  <th>Key</th>
-                  <th>Status</th>
-                  <th>{envName(comparison.sourceEnvironmentId)}</th>
-                  <th>{envName(comparison.targetEnvironmentId)}</th>
-                  <th>Changes</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {comparison.entries.map((entry) => (
-                  <tr key={entry.key} className={`row-${entry.status}`}>
-                    <td className="mono">{entry.key}</td>
-                    <td>
-                      <span className={`status status-${entry.status}`}>
-                        {STATUS_LABEL[entry.status]}
-                      </span>
-                    </td>
-                    <td className="muted">{entry.source ? `v${entry.source.version}` : '—'}</td>
-                    <td className="muted">{entry.target ? `v${entry.target.version}` : '—'}</td>
-                    <td className="muted">{entry.diffSummary ?? ''}</td>
-                    <td>
-                      {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
-                        <Form method="post">
-                          <input type="hidden" name="key" value={entry.key} />
-                          <input
-                            type="hidden"
-                            name="sourceEnvironmentId"
-                            value={comparison.sourceEnvironmentId}
-                          />
-                          <input
-                            type="hidden"
-                            name="targetEnvironmentId"
-                            value={comparison.targetEnvironmentId}
-                          />
-                          <button
-                            type="submit"
-                            className="secondary compact"
-                            disabled={navigation.state !== 'idle'}
-                          >
-                            Promote →
-                          </button>
-                        </Form>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {comparison.entries.length === 0 && (
+            <div className="table-scroll">
+              <table className="compare-table">
+                <thead>
                   <tr>
-                    <td colSpan={6} className="muted">
-                      Both environments are empty.
-                    </td>
+                    <th>Key</th>
+                    <th>Status</th>
+                    <th>{envName(comparison.sourceEnvironmentId)}</th>
+                    <th>{envName(comparison.targetEnvironmentId)}</th>
+                    <th>Changes</th>
+                    <th />
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {comparison.entries.map((entry) => (
+                    <tr key={entry.key} className={`row-${entry.status}`}>
+                      <td className="mono">{entry.key}</td>
+                      <td>
+                        <span className={`status status-${entry.status}`}>
+                          {STATUS_LABEL[entry.status]}
+                        </span>
+                      </td>
+                      <td className="muted">{entry.source ? `v${entry.source.version}` : '—'}</td>
+                      <td className="muted">{entry.target ? `v${entry.target.version}` : '—'}</td>
+                      <td className="muted">{entry.diffSummary ?? ''}</td>
+                      <td>
+                        {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
+                          <PromoteControl
+                            entryKey={entry.key}
+                            sourceEnvironmentId={comparison.sourceEnvironmentId}
+                            targetEnvironmentId={comparison.targetEnvironmentId}
+                            targetName={envName(comparison.targetEnvironmentId)}
+                            busy={navigation.state !== 'idle'}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {comparison.entries.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="muted">
+                        Both environments are empty.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </section>
     </main>
+  )
+}
+
+/** Promotion mutates another environment's config — it gets a two-step inline
+ * confirm, never a single click. */
+function PromoteControl({
+  entryKey,
+  sourceEnvironmentId,
+  targetEnvironmentId,
+  targetName,
+  busy,
+}: {
+  entryKey: string
+  sourceEnvironmentId: string
+  targetEnvironmentId: string
+  targetName: string
+  busy: boolean
+}) {
+  const [arming, setArming] = useState(false)
+
+  if (!arming) {
+    return (
+      <button
+        type="button"
+        className="secondary compact"
+        disabled={busy}
+        onClick={() => setArming(true)}
+      >
+        Promote →
+      </button>
+    )
+  }
+
+  return (
+    <div className="confirm-row">
+      <p className="confirm-note">Promote to /{targetName}?</p>
+      <Form method="post" onSubmit={() => setArming(false)}>
+        <input type="hidden" name="key" value={entryKey} />
+        <input type="hidden" name="sourceEnvironmentId" value={sourceEnvironmentId} />
+        <input type="hidden" name="targetEnvironmentId" value={targetEnvironmentId} />
+        <button type="submit" className="compact" disabled={busy}>
+          Confirm
+        </button>
+      </Form>
+      <button type="button" className="secondary compact" onClick={() => setArming(false)}>
+        Cancel
+      </button>
+    </div>
   )
 }
