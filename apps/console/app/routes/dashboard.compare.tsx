@@ -188,8 +188,9 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
               {comparison.summary.onlyInTarget} only in target · {comparison.summary.notComparable}{' '}
               secrets not compared
             </p>
-            <div className="table-scroll">
-              <table className="compare-table">
+            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
+            <section className="table-scroll" aria-label="Comparison" tabIndex={0}>
+              <table className="compare-table cards-sm">
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -204,7 +205,7 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
                   {comparison.entries.map((entry) => (
                     <tr key={entry.key} className={`row-${entry.status}`}>
                       <td className="mono">{entry.key}</td>
-                      <td>
+                      <td data-label="Status">
                         <span
                           className={`status ${
                             (entry.source ?? entry.target)?.kind === 'secret'
@@ -215,9 +216,21 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
                           {entryLabel(entry)}
                         </span>
                       </td>
-                      <td className="muted">{entry.source ? `v${entry.source.version}` : '—'}</td>
-                      <td className="muted">{entry.target ? `v${entry.target.version}` : '—'}</td>
-                      <td className="muted">{entry.diffSummary ?? ''}</td>
+                      <td
+                        className="muted"
+                        data-label={`/${envName(comparison.sourceEnvironmentId)}`}
+                      >
+                        {entry.source ? `v${entry.source.version}` : '—'}
+                      </td>
+                      <td
+                        className="muted"
+                        data-label={`/${envName(comparison.targetEnvironmentId)}`}
+                      >
+                        {entry.target ? `v${entry.target.version}` : '—'}
+                      </td>
+                      <td className="muted" data-label="Changes">
+                        {entry.diffSummary ?? ''}
+                      </td>
                       <td>
                         {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
                           <PromoteControl
@@ -241,7 +254,7 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
                   )}
                 </tbody>
               </table>
-            </div>
+            </section>
           </>
         )}
       </section>

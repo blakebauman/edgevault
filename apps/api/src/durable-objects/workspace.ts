@@ -657,6 +657,7 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       resourceType: existing.kind,
       resourceId: key,
       userId,
+      changes: { environmentId },
     })
     this.broadcast({
       type: 'config.deleted',

@@ -31,6 +31,8 @@ type ActivityEntry = {
   resourceType: string
   resourceId: string
   userId: string | null
+  actor: string | null
+  environmentId: string | null
   createdAt: number
 }
 
@@ -154,14 +156,17 @@ function describe(event: WorkspaceEvent): string {
   }
 }
 
-function describeActivity(entry: ActivityEntry): string {
-  return `${entry.action} · ${entry.resourceId}`
+function describeActivity(entry: ActivityEntry, envSlug: (id: string) => string): string {
+  // environment rows carry the env's id as resourceId — show the slug, not a UUID
+  const resource =
+    entry.resourceType === 'environment' ? `/${envSlug(entry.resourceId)}` : entry.resourceId
+  return `${entry.action} · ${resource}`
 }
 
 const PROMOTION_CHIP: Record<PromotionRow['status'], string> = {
-  completed: 'status-equal',
-  pending: 'status-drifted',
-  failed: 'status-not-comparable',
+  completed: 'status-ok',
+  pending: 'status-warn',
+  failed: 'status-danger',
 }
 
 export default function Dashboard({ loaderData, actionData }: Route.ComponentProps) {
@@ -190,7 +195,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
             <p className="eyebrow">Workspace</p>
             <h1>{workspaceName ?? workspaceId}</h1>
             <span className="page-id">
-              {workspaceId} <CopyButton value={workspaceId} label="Copy id" />
+              <CopyButton value={workspaceId} label="Copy workspace id" />
             </span>
           </div>
           <div className="org-links">
@@ -212,8 +217,9 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
             {actionData.error}
           </p>
         )}
-        <div className="table-scroll">
-          <table className="compare-table">
+        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
+        <section className="table-scroll" aria-label="Environments" tabIndex={0}>
+          <table className="compare-table cards-sm">
             <thead>
               <tr>
                 <th>Environment</th>
@@ -231,10 +237,18 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                     <Link to={`/dashboard/${workspaceId}/env/${s.id}`}>{s.name}</Link>{' '}
                     <span className="muted mono">/{s.slug}</span>
                   </td>
-                  <td className="muted">{s.configs}</td>
-                  <td className="muted">{s.flags}</td>
-                  <td className="muted">{s.secrets}</td>
-                  <td className="muted">{s.lastChange ? formatTime(s.lastChange) : '—'}</td>
+                  <td className="muted" data-label="Configs">
+                    {s.configs}
+                  </td>
+                  <td className="muted" data-label="Flags">
+                    {s.flags}
+                  </td>
+                  <td className="muted" data-label="Secrets">
+                    {s.secrets}
+                  </td>
+                  <td className="muted" data-label="Last change">
+                    {s.lastChange ? formatTime(s.lastChange) : '—'}
+                  </td>
                   <td>
                     <Link
                       className="secondary button compact"
@@ -254,7 +268,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
               )}
             </tbody>
           </table>
-        </div>
+        </section>
         <details className="create-inline">
           <summary>New environment</summary>
           <Form method="post" className="form">
@@ -310,19 +324,30 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
             <h2>
               Activity{' '}
               <span className={`dot ${status}`} role="status">
-                ● {status}
+                <span aria-hidden="true">● </span>
+                {status}
               </span>
             </h2>
             <ul className="feed">
               {events.map(({ k, e }) => (
                 <li key={k} className="feed-live">
+                  <span className="live-dot" aria-hidden="true">
+                    ●{' '}
+                  </span>
+                  <span className="visually-hidden">live: </span>
                   {describe(e)}
                 </li>
               ))}
               {activity.map((entry) => (
                 <li key={entry.id}>
-                  {describeActivity(entry)}{' '}
-                  <span className="muted feed-time">{formatTime(entry.createdAt)}</span>
+                  {describeActivity(entry, envSlug)}
+                  {entry.environmentId && (
+                    <span className="muted mono"> /{envSlug(entry.environmentId)}</span>
+                  )}{' '}
+                  <span className="muted feed-time">
+                    {entry.actor ? `${entry.actor} · ` : ''}
+                    {formatTime(entry.createdAt)}
+                  </span>
                 </li>
               ))}
               {events.length === 0 && activity.length === 0 && (
@@ -335,8 +360,9 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
         {promotions.length > 0 && (
           <>
             <h2>Recent promotions</h2>
-            <div className="table-scroll">
-              <table className="compare-table">
+            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
+            <section className="table-scroll" aria-label="Recent promotions" tabIndex={0}>
+              <table className="compare-table cards-sm">
                 <thead>
                   <tr>
                     <th>Key</th>
@@ -349,18 +375,20 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                   {promotions.map((p) => (
                     <tr key={p.id}>
                       <td className="mono">{p.key}</td>
-                      <td className="muted mono">
+                      <td className="muted mono" data-label="From → To">
                         /{envSlug(p.sourceEnvironmentId)} → /{envSlug(p.targetEnvironmentId)}
                       </td>
-                      <td>
+                      <td data-label="Status">
                         <span className={`status ${PROMOTION_CHIP[p.status]}`}>{p.status}</span>
                       </td>
-                      <td className="muted">{formatTime(p.createdAt)}</td>
+                      <td className="muted" data-label="At">
+                        {formatTime(p.createdAt)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            </section>
           </>
         )}
 

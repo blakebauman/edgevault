@@ -4,9 +4,10 @@ import {
   members,
   notificationChannels,
   organizations,
+  users,
   workspaces,
 } from '@edgevault/database/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 
 /** Neon (via Hyperdrive) queries for org/workspace metadata + membership. */
 
@@ -221,4 +222,21 @@ export async function createApiKey(
     })
   if (!created) throw new Error('Failed to create API key')
   return created
+}
+
+/**
+ * Resolve user ids to a display identity (name, falling back to email) so
+ * activity/revision UIs can show people instead of UUIDs. Batched: one query
+ * per response, not per row.
+ */
+export async function getUserDisplayNames(
+  database: Database,
+  ids: string[],
+): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map()
+  const rows = await database
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(users)
+    .where(inArray(users.id, ids))
+  return new Map(rows.map((r) => [r.id, r.name ?? r.email]))
 }

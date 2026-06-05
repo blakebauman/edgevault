@@ -16,6 +16,7 @@ import {
   createNotificationChannel,
   deleteNotificationChannel,
   getNotificationChannel,
+  getUserDisplayNames,
   getWorkspaceWithOrg,
   listNotificationChannels,
 } from '../database/queries'
@@ -300,7 +301,12 @@ export const workspaceRoutes = new Hono<AppEnv>()
       c.req.param('envId'),
       c.req.param('key'),
     )
-    return c.json({ revisions })
+    // Resolve author ids to names — same batched lookup as /activity.
+    const ids = [...new Set(revisions.map((r) => r.createdBy))]
+    const actors = await getUserDisplayNames(c.var.database, ids)
+    return c.json({
+      revisions: revisions.map((r) => ({ ...r, actor: actors.get(r.createdBy) ?? null })),
+    })
   })
 
   // --- Revisions / promotions / activity ---
@@ -387,7 +393,24 @@ export const workspaceRoutes = new Hono<AppEnv>()
   )
   .get('/:workspaceId/activity', async (c) => {
     const activity = await stubFor(c, c.req.param('workspaceId')).listActivity()
-    return c.json({ activity })
+    // The DO stores actor ids; people read names. Resolve in one batched query,
+    // and lift environmentId out of the changes payload for env context.
+    const ids = [...new Set(activity.map((a) => a.userId).filter((id): id is string => !!id))]
+    const actors = await getUserDisplayNames(c.var.database, ids)
+    return c.json({
+      activity: activity.map((a) => {
+        let environmentId: string | null = null
+        if (a.changes) {
+          try {
+            environmentId =
+              (JSON.parse(a.changes) as { environmentId?: string }).environmentId ?? null
+          } catch {
+            // pre-JSON or malformed changes payload — env context just stays absent
+          }
+        }
+        return { ...a, actor: a.userId ? (actors.get(a.userId) ?? null) : null, environmentId }
+      }),
+    })
   })
   // Cold audit history from the R2 warehouse (infinite retention). ?from&to are
   // YYYY-MM-DD (default last 7 days); ?env restricts to one environment.

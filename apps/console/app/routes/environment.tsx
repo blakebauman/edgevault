@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { formatTime } from '../lib/format'
@@ -34,6 +34,7 @@ type Revision = {
   summary: string | null
   createdAt: number
   createdBy: string
+  actor: string | null
 }
 
 export function meta({ data }: Route.MetaArgs) {
@@ -247,7 +248,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
               {workspaceName ?? workspaceId} <span className="muted">{envName}</span>
             </h1>
             <span className="page-id">
-              {envId} <CopyButton value={envId} label="Copy id" />
+              <CopyButton value={envId} label="Copy environment id" />
             </span>
           </div>
           <div className="org-links">
@@ -309,8 +310,9 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
         )}
 
         <h2>Items</h2>
-        <div className="table-scroll">
-          <table className="compare-table">
+        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
+        <section className="table-scroll" aria-label="Items" tabIndex={0}>
+          <table className="compare-table cards-sm">
             <thead>
               <tr>
                 <th>Key</th>
@@ -324,44 +326,22 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
               {configs.map((item) => (
                 <tr key={item.key}>
                   <td className="mono">{item.key}</td>
-                  <td>
-                    <span
-                      className={`status ${
-                        item.kind === 'secret' ? 'status-not-comparable' : 'status-only-in-source'
-                      }`}
-                    >
-                      {item.kind}
-                    </span>
+                  <td data-label="Kind">
+                    <span className={`status kind-${item.kind}`}>{item.kind}</span>
                   </td>
-                  <td className="muted">v{item.version}</td>
-                  <td className="muted">{formatTime(item.updatedAt)}</td>
+                  <td className="muted" data-label="Version">
+                    v{item.version}
+                  </td>
+                  <td className="muted" data-label="Updated">
+                    {formatTime(item.updatedAt)}
+                  </td>
                   <td>
-                    <div className="row">
-                      {item.kind !== 'secret' && (
-                        <button
-                          type="button"
-                          className="secondary compact"
-                          onClick={() => setEditing(item)}
-                        >
-                          Edit
-                        </button>
-                      )}
-                      <Link
-                        className="secondary button compact"
-                        to={baseSearch({ history: item.key })}
-                      >
-                        History
-                      </Link>
-                      {item.kind === 'secret' && (
-                        <Link
-                          className="secondary button compact"
-                          to={baseSearch({ reveal: item.key })}
-                        >
-                          Reveal
-                        </Link>
-                      )}
-                      <DeleteItem itemKey={item.key} busy={busy} />
-                    </div>
+                    <ItemActions
+                      item={item}
+                      busy={busy}
+                      baseSearch={baseSearch}
+                      onEdit={() => setEditing(item)}
+                    />
                   </td>
                 </tr>
               ))}
@@ -374,7 +354,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
               )}
             </tbody>
           </table>
-        </div>
+        </section>
 
         {historyKey && revisions && (
           <>
@@ -384,8 +364,9 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                 (close)
               </Link>
             </h2>
-            <div className="table-scroll">
-              <table className="compare-table">
+            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
+            <section className="table-scroll" aria-label="Revision history" tabIndex={0}>
+              <table className="compare-table cards-sm">
                 <thead>
                   <tr>
                     <th>Version</th>
@@ -399,13 +380,21 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                 <tbody>
                   {revisions.map((rev) => (
                     <tr key={rev.id}>
-                      <td className="muted">v{rev.version}</td>
-                      <td>
-                        <span className="status status-only-in-source">{rev.changeType}</span>
+                      <td className="muted" data-label="Version">
+                        v{rev.version}
                       </td>
-                      <td className="muted">{rev.summary ?? '—'}</td>
-                      <td className="muted mono">{rev.createdBy.slice(0, 8)}</td>
-                      <td className="muted">{formatTime(rev.createdAt)}</td>
+                      <td data-label="Change">
+                        <span className="status chip-neutral">{rev.changeType}</span>
+                      </td>
+                      <td className="muted" data-label="Summary">
+                        {rev.summary ?? '—'}
+                      </td>
+                      <td className="muted" data-label="By">
+                        {rev.actor ?? <span className="mono">{rev.createdBy.slice(0, 8)}</span>}
+                      </td>
+                      <td className="muted" data-label="At">
+                        {formatTime(rev.createdAt)}
+                      </td>
                       <td>
                         <RevertControl revisionId={rev.id} version={rev.version} busy={busy} />
                       </td>
@@ -420,7 +409,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                   )}
                 </tbody>
               </table>
-            </div>
+            </section>
           </>
         )}
 
@@ -472,6 +461,16 @@ function ItemForm({
   onDone: () => void
 }) {
   const [kind, setKind] = useState<string>(editing?.kind ?? 'config')
+  const contentRef = useRef<HTMLTextAreaElement>(null)
+
+  // "Edit" lives in the table; the form lives below it. Carry the user there —
+  // scroll and focus the value they came to change.
+  useEffect(() => {
+    if (editing) {
+      contentRef.current?.scrollIntoView({ block: 'center' })
+      contentRef.current?.focus()
+    }
+  }, [editing])
 
   return (
     <Form method="post" className="form item-form" onSubmit={onDone}>
@@ -510,6 +509,7 @@ function ItemForm({
       <label>
         Value
         <textarea
+          ref={contentRef}
           name="content"
           required
           rows={4}
@@ -531,13 +531,56 @@ function ItemForm({
   )
 }
 
-/** Deleting breaks consumers immediately and (if referenced) the API refuses —
- * either way it deserves the danger voice. */
-function DeleteItem({ itemKey, busy }: { itemKey: string; busy: boolean }) {
+/** The row's action group. Arming a delete replaces the WHOLE group (same
+ * height, no sibling reflow) — and the confirm never lands where Delete was,
+ * so a double-click can't fall through to it. Deleting breaks consumers
+ * immediately and (if referenced) the API refuses; it gets the danger voice. */
+function ItemActions({
+  item,
+  busy,
+  baseSearch,
+  onEdit,
+}: {
+  item: ConfigRow
+  busy: boolean
+  baseSearch: (extra: Record<string, string>) => string
+  onEdit: () => void
+}) {
   const [arming, setArming] = useState(false)
 
-  if (!arming) {
+  if (arming) {
     return (
+      <div className="confirm-row">
+        <p className="confirm-note">Delete "{item.key}"?</p>
+        <Form method="post" onSubmit={() => setArming(false)}>
+          <input type="hidden" name="intent" value="delete" />
+          <input type="hidden" name="key" value={item.key} />
+          <button type="submit" className="danger compact" disabled={busy}>
+            Confirm delete
+          </button>
+        </Form>
+        <button type="button" className="secondary compact" onClick={() => setArming(false)}>
+          Cancel
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="row">
+      {item.kind !== 'secret' && (
+        <button type="button" className="secondary compact" onClick={onEdit}>
+          Edit
+        </button>
+      )}
+      <Link className="secondary button compact" to={baseSearch({ history: item.key })}>
+        History
+      </Link>
+      {item.kind === 'secret' && (
+        <Link className="secondary button compact" to={baseSearch({ reveal: item.key })}>
+          Reveal
+        </Link>
+      )}
       <button
         type="button"
         className="secondary compact"
@@ -545,22 +588,6 @@ function DeleteItem({ itemKey, busy }: { itemKey: string; busy: boolean }) {
         onClick={() => setArming(true)}
       >
         Delete
-      </button>
-    )
-  }
-
-  return (
-    <div className="confirm-row">
-      <p className="confirm-note">Delete "{itemKey}" from this environment?</p>
-      <Form method="post" onSubmit={() => setArming(false)}>
-        <input type="hidden" name="intent" value="delete" />
-        <input type="hidden" name="key" value={itemKey} />
-        <button type="submit" className="danger compact" disabled={busy}>
-          Confirm delete
-        </button>
-      </Form>
-      <button type="button" className="secondary compact" onClick={() => setArming(false)}>
-        Cancel
       </button>
     </div>
   )

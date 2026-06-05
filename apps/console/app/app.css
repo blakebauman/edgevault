@@ -24,7 +24,7 @@
   --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-body:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: "Martian Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 * {
@@ -52,6 +52,19 @@ h3 {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius);
+}
+
+/* screen-reader-only text: visible to AT, removed from the visual layout */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* --- App shell -------------------------------------------------------------- */
@@ -221,7 +234,9 @@ button:disabled:hover {
   color: var(--lilac);
 }
 
-button.compact {
+/* covers buttons AND link-buttons (a.button.compact) — element-qualifying
+   this to `button` left links a rem taller and offset, shifting table rows */
+.compact {
   margin-top: 0;
   padding: 0.3rem 0.7rem;
   font-size: 0.8rem;
@@ -587,8 +602,9 @@ input[type="checkbox"] {
   background: color-mix(in srgb, var(--ok) 9%, var(--surface-2));
 }
 
-.feed-live::before {
-  content: "● ";
+/* the live marker lives in markup (aria-hidden dot + visually-hidden "live")
+   so assistive tech hears what sighted users see */
+.live-dot {
   color: var(--ok);
   font-size: 0.7em;
 }
@@ -716,6 +732,44 @@ pre.error {
   overflow-x: auto;
 }
 
+/* Phones: tables marked .cards-sm become stacked cards — every action stays
+   reachable without horizontal scroll (the on-call path is the mobile path). */
+@media (max-width: 640px) {
+  .cards-sm,
+  .cards-sm tbody,
+  .cards-sm tr,
+  .cards-sm td {
+    display: block;
+  }
+
+  .cards-sm thead {
+    display: none;
+  }
+
+  .cards-sm tr {
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.2rem;
+    margin: 0 0 0.65rem;
+  }
+
+  .cards-sm td {
+    border-bottom: none;
+    padding: 0.3rem 0.55rem;
+  }
+
+  .cards-sm td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.15rem;
+  }
+}
+
 .compare-table {
   width: 100%;
   border-collapse: collapse;
@@ -773,12 +827,65 @@ pre.error {
   border-color: var(--rule-strong);
 }
 
+/* Item kinds are a tinted-fill chip family ("what it is") — deliberately
+   distinct from the outline drift family above ("how it compares"). */
+.kind-config,
+.chip-neutral {
+  background: rgba(243, 244, 246, 0.08);
+  color: var(--fg);
+}
+
+.kind-flag {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.kind-secret {
+  background: color-mix(in srgb, var(--lilac) 14%, transparent);
+  color: var(--lilac);
+  /* sealed corner — the brand's dog-ear motif, unopened */
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+}
+
+/* Outcome chips (promotions etc.) — plain semantic colors, no drift vocabulary. */
+.status-ok {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+
+.status-warn {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+}
+
+.status-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+
 /* two-step inline confirm for irreversible actions */
 .confirm-row {
   display: flex;
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+/* In table rows the confirm replaces the whole action group at the same
+   height — nothing shifts at the moment of an irreversible click. */
+.compare-table td .row,
+.compare-table td .confirm-row {
+  flex-wrap: nowrap;
+  align-items: center;
+  min-height: 2rem;
+}
+
+/* card mode (phones): vertical room is free — wrap into full-width rows */
+@media (max-width: 640px) {
+  .compare-table td .row,
+  .compare-table td .confirm-row {
+    flex-wrap: wrap;
+  }
 }
 
 .confirm-row .confirm-note {
