@@ -47,4 +47,31 @@ else
   echo "  FAIL auth JWKS (no key)"; fail=1
 fi
 
+# Staging only: exercise the authenticated requireUser path end-to-end
+# (sign-in → /token → /me). This is the surface the unauthenticated checks
+# can't see — a sign-only verification key once broke every requireUser route
+# while health/JWKS stayed green. Uses a fixed, idempotent smoke account
+# (no org, no data; staging sign-up is public anyway). Prod stays read-only.
+if [ "$ENVNAME" = staging ]; then
+  SMOKE_EMAIL="smoke-fixed@edgevault.io"
+  SMOKE_PASS="edgevault-smoke-fixed-account"
+  JAR=$(mktemp)
+  # Create on first run (409 email_taken thereafter), then sign in.
+  curl -s --max-time 15 -o /dev/null -X POST "$AUTH/sign-up/email" \
+    -H 'content-type: application/json' \
+    -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\",\"name\":\"Smoke\"}"
+  curl -s --max-time 15 -c "$JAR" -o /dev/null -X POST "$AUTH/sign-in/email" \
+    -H 'content-type: application/json' \
+    -d "{\"email\":\"$SMOKE_EMAIL\",\"password\":\"$SMOKE_PASS\"}"
+  ACCESS=$(curl -s --max-time 15 -b "$JAR" -X POST "$AUTH/token" \
+    | sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p')
+  ME=$(curl -s --max-time 15 -H "authorization: Bearer $ACCESS" "$AUTH/me")
+  rm -f "$JAR"
+  if printf '%s' "$ME" | grep -q "\"email\":\"$SMOKE_EMAIL\""; then
+    echo "  ok   auth /me (requireUser verify path)"
+  else
+    echo "  FAIL auth /me (requireUser verify path): $ME"; fail=1
+  fi
+fi
+
 [ "$fail" = 0 ] && echo "PASS" || { echo "SMOKE FAILED"; exit 1; }
