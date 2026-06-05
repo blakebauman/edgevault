@@ -41,7 +41,9 @@ hold placeholder ids):
 - `HYPERDRIVE` → `apps/api`, `apps/auth` (and `ee/enterprise`, `edge/control-plane` if deployed)
 - `CONFIGS_CACHE`, `ENVIRONMENT_API_KEYS` → `apps/api` **and** `apps/delivery` (same ids → shared)
 - `AUTH_CACHE` → `apps/auth`
-- `VECTORIZE` (`edgevault-configs`), `AUDIT_QUEUE`/`AUDIT_BUCKET` are bound by name.
+- `VECTORIZE` (`edgevault-configs`), `AUDIT_QUEUE`/`AUDIT_BUCKET` are bound by name
+  (`AUDIT_BUCKET` is written by `apps/audit`, read by `apps/api` for audit queries
+  and by `edge/control-plane` as the usage-metering source).
 
 Rate-limit namespaces (`AUTH_IP_LIMITER`, `AUTH_ACCOUNT_LIMITER` in `apps/auth`)
 are config-only — no resource to create. Pair them with WAF rate-limiting rules

@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@edgevault/database": "workspace:*",
+    "@edgevault/edge-protocol": "workspace:*",
     "@edgevault/licensing": "workspace:*"
   },
   "devDependencies": {

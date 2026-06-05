@@ -8,6 +8,9 @@
   "vars": { "ENVIRONMENT": "production" },
   // Usage-metering cron: aggregate billable usage and report to Stripe meters.
   "triggers": { "crons": ["0 * * * *"] },
+  // Stripe webhooks need a stable public URL — custom domain per the platform's
+  // single-level-subdomain scheme. Webhook route: /webhooks/stripe.
+  "routes": [{ "pattern": "billing.edgevault.io", "custom_domain": true }],
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
@@ -15,22 +18,23 @@
       "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
     }
   ],
-  // Proprietary, SaaS-only. HYPERDRIVE writes the shared Neon entitlements table
-  // the OSS api/auth read. Other bindings added at deploy: ANALYTICS/audit source
-  // for metering. Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET (Secrets
-  // Store). Excluded from the OSS distribution.
-  // Public surface = workers.dev only (Stripe webhooks need a reachable URL; no
-  // custom domain, matching the enterprise worker). Webhook route: /webhooks/stripe.
+  // Read-only metering source: the NDJSON audit warehouse apps/audit writes.
+  "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit" }],
+  // Proprietary, SaaS-only. HYPERDRIVE writes the shared Neon entitlements +
+  // stripe_customers tables; AUDIT_BUCKET feeds the metering cron. Secrets:
+  // STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. Excluded from the OSS distribution.
   "env": {
     "staging": {
       "vars": { "ENVIRONMENT": "staging" },
+      "routes": [{ "pattern": "billing-staging.edgevault.io", "custom_domain": true }],
       "hyperdrive": [
         {
           "binding": "HYPERDRIVE",
           "id": "774bd4e3e43f4ae0ad7d35a80045e6d3",
           "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
         }
-      ]
+      ],
+      "r2_buckets": [{ "binding": "AUDIT_BUCKET", "bucket_name": "edgevault-audit-staging" }]
     }
   }
 }

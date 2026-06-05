@@ -91,39 +91,41 @@ grant an `ee/` feature.
 
 ## 4. Stripe billing — Managed Edge (`edge/control-plane`, proprietary)
 
-This is the SaaS-only tier (excluded from the OSS distribution). The worker is
-internal-style (workers.dev only, no custom domain):
-`edgevault-control-plane[-staging].<subdomain>.workers.dev`. To activate the
-hosted billing/metering plane:
+This is the SaaS-only tier (excluded from the OSS distribution). Public URL
+(Stripe needs to reach the webhook): **`billing.edgevault.io`**
+(`billing-staging.edgevault.io` for staging). To activate the hosted
+billing/metering plane:
 
 1. Deploy the worker: `cd edge/control-plane && wrangler deploy` (staging:
-   `wrangler deploy --env staging`). It needs only the `HYPERDRIVE` (Neon)
-   binding, already pinned per environment in `wrangler.jsonc`.
+   `wrangler deploy --env staging`). Bindings (`HYPERDRIVE` Neon +
+   `AUDIT_BUCKET` R2 metering source) are pinned per environment in
+   `wrangler.jsonc`.
 2. Set Stripe secrets per environment (use `--name
    edgevault-control-plane-staging` with test-mode keys for staging):
    ```sh
    wrangler secret put STRIPE_SECRET_KEY      --name edgevault-control-plane
    wrangler secret put STRIPE_WEBHOOK_SECRET  --name edgevault-control-plane
    ```
-3. In the Stripe Dashboard: create the products/prices + **Billing Meters**, and
-   add a webhook endpoint pointing at the control-plane's **`/webhooks/stripe`**
-   route, subscribed to `customer.subscription.*` events. Subscriptions must
-   carry `metadata.organizationId` + `metadata.plan` (set at Checkout) — events
+3. In the Stripe Dashboard: add a webhook endpoint pointing at
+   **`https://billing.edgevault.io/webhooks/stripe`**, subscribed to
+   `customer.subscription.*` events. Subscriptions must carry
+   `metadata.organizationId` + `metadata.plan` (set at Checkout) — events
    without them are ignored. The control-plane writes resulting plan +
-   entitlements into the same Neon `entitlements` table that `api`/`auth`/`ee`
-   read (§3), so subscription state and self-host license keys converge on one
-   model.
+   entitlements into the shared Neon `entitlements` table that `api`/`auth`/`ee`
+   read (§3), and records the org → Stripe customer mapping
+   (`stripe_customers`) that attributes metered usage.
+4. Create **Billing Meters** whose event names match the meters the cron
+   reports: `config_writes` (config + flag mutations) and `secret_operations`
+   (secret lifecycle incl. reveals). The hourly cron aggregates the durable
+   audit pipeline (R2 NDJSON) per fully-elapsed UTC hour and reports
+   idempotently (deterministic event `identifier`s + a Neon watermark that only
+   advances on full acceptance). Orgs without a `stripe_customers` row are
+   skipped. Note: **edge reads and MAU are not metered** — they are not audit
+   events; billing them needs a delivery-side counter (future work).
 
-**Still to build before charging money** (the webhook→entitlement path above is
-complete; these are not):
-
-- **Checkout** — nothing creates Stripe Checkout Sessions yet. Until a pricing
-  page / console billing flow exists, create subscriptions manually in the
-  Dashboard with the two metadata keys above.
-- **Usage metering** — the hourly cron is a stub. Wiring it needs (a) an
-  aggregation source off the durable audit pipeline (R2 SQL over the audit
-  bucket, not sampled Analytics Engine), (b) idempotent per-period watermarks,
-  and (c) an organization → Stripe customer-id mapping, which has no table yet.
-  `reportMeterEvents()` (the Stripe side) is built and tested.
+**Still to build before charging money**: **Checkout** — nothing creates Stripe
+Checkout Sessions yet. Until a pricing page / console billing flow exists,
+create subscriptions manually in the Dashboard with the two metadata keys above
+(the webhook then fills both `entitlements` and `stripe_customers`).
 
 See [`edge/README.md`](edge/README.md) for the control-plane details.

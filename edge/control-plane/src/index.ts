@@ -1,3 +1,4 @@
+import { runMeteringCron } from './metering'
 import {
   entitlementUpdateFromEvent,
   type StripeEntitlementUpdate,
@@ -9,10 +10,14 @@ import {
  * the OSS api/auth workers read. `@edgevault/database` is imported dynamically so
  * its `pg` (CommonJS) dependency stays out of the static module graph. On
  * cancellation `entitlementUpdateFromEvent` already collapses the grant to the
- * free plan, so a single upsert covers both grant and revoke.
+ * free plan, so a single upsert covers both grant and revoke. The org → Stripe
+ * customer mapping is recorded alongside so the metering cron can attribute
+ * usage.
  */
 async function applyEntitlementUpdate(env: Env, update: StripeEntitlementUpdate): Promise<void> {
-  const { createDatabase, upsertEntitlements } = await import('@edgevault/database')
+  const { createDatabase, upsertEntitlements, upsertStripeCustomer } = await import(
+    '@edgevault/database'
+  )
   const conn = createDatabase(env.HYPERDRIVE.connectionString)
   try {
     await upsertEntitlements(conn.database, {
@@ -20,6 +25,43 @@ async function applyEntitlementUpdate(env: Env, update: StripeEntitlementUpdate)
       plan: update.grant.plan,
       entitlements: update.grant.entitlements,
     })
+    if (update.stripeCustomerId) {
+      await upsertStripeCustomer(conn.database, {
+        organizationId: update.organizationId,
+        stripeCustomerId: update.stripeCustomerId,
+      })
+    }
+  } finally {
+    await conn.close()
+  }
+}
+
+/**
+ * Meter the previous window's billable usage (audit R2 → Stripe Billing
+ * Meters), with the Neon-backed watermark + customer roster injected as deps.
+ */
+async function runScheduledMetering(env: Env): Promise<void> {
+  const {
+    createDatabase,
+    getMeterWatermark,
+    listStripeCustomers,
+    listWorkspaceOrganizations,
+    setMeterWatermark,
+  } = await import('@edgevault/database')
+  const conn = createDatabase(env.HYPERDRIVE.connectionString)
+  try {
+    const summary = await runMeteringCron(
+      {
+        bucket: env.AUDIT_BUCKET,
+        stripeSecretKey: env.STRIPE_SECRET_KEY,
+        getWatermark: (source) => getMeterWatermark(conn.database, source),
+        setWatermark: (source, watermark) => setMeterWatermark(conn.database, source, watermark),
+        listStripeCustomers: () => listStripeCustomers(conn.database),
+        listWorkspaceOrganizations: (ids) => listWorkspaceOrganizations(conn.database, ids),
+      },
+      Date.now(),
+    )
+    console.log('metering run', summary)
   } finally {
     await conn.close()
   }
@@ -65,10 +107,13 @@ export default {
     return new Response('Not found', { status: 404 })
   },
 
-  async scheduled(_event, _env, ctx): Promise<void> {
-    // Usage-metering cron: aggregate billable counters off the durable audit
-    // pipeline (NOT sampled Analytics Engine) with idempotent watermarks, then
-    // report to Stripe Billing Meters via reportMeterEvents(). Wired at deploy.
-    ctx.waitUntil(Promise.resolve())
+  async scheduled(_event, env, ctx): Promise<void> {
+    // Deployed-but-not-activated: nothing can be reported without a Stripe key,
+    // and skipping leaves the watermark untouched for when activation lands.
+    if (!env.STRIPE_SECRET_KEY) {
+      console.log('metering skipped: STRIPE_SECRET_KEY not set')
+      return
+    }
+    ctx.waitUntil(runScheduledMetering(env))
   },
 } satisfies ExportedHandler<Env>

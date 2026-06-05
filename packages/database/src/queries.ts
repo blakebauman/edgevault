@@ -1,11 +1,13 @@
-import { and, eq, lt } from 'drizzle-orm'
+import { and, eq, inArray, lt } from 'drizzle-orm'
 import type { Database } from './client'
 import { accounts } from './schema/auth'
 import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
 import { samlAssertionReplay, samlConnections } from './schema/saml'
 import { ssoConnections } from './schema/sso'
+import { stripeCustomers, stripeMeterWatermarks } from './schema/stripe'
 import { authenticators } from './schema/webauthn'
+import { workspaces } from './schema/workspace'
 
 /** Shared entitlement queries (used by api/auth read paths + the control plane). */
 
@@ -76,6 +78,72 @@ export async function upsertEntitlements(
     .onConflictDoUpdate({
       target: entitlements.organizationId,
       set: { plan: input.plan, entitlements: input.entitlements, updatedAt: new Date() },
+    })
+}
+
+/** Record (or move) the Stripe customer that pays for an org. */
+export async function upsertStripeCustomer(
+  database: Database,
+  input: { organizationId: string; stripeCustomerId: string },
+): Promise<void> {
+  await database
+    .insert(stripeCustomers)
+    .values(input)
+    .onConflictDoUpdate({
+      target: stripeCustomers.organizationId,
+      set: { stripeCustomerId: input.stripeCustomerId, updatedAt: new Date() },
+    })
+}
+
+export interface StripeCustomerRow {
+  organizationId: string
+  stripeCustomerId: string
+}
+
+/** All billable org → Stripe customer mappings (the metering cron's roster). */
+export async function listStripeCustomers(database: Database): Promise<StripeCustomerRow[]> {
+  return database
+    .select({
+      organizationId: stripeCustomers.organizationId,
+      stripeCustomerId: stripeCustomers.stripeCustomerId,
+    })
+    .from(stripeCustomers)
+}
+
+/** Resolve workspaces to their owning orgs (audit events carry workspaceId only). */
+export async function listWorkspaceOrganizations(
+  database: Database,
+  workspaceIds: string[],
+): Promise<Array<{ workspaceId: string; organizationId: string }>> {
+  if (workspaceIds.length === 0) return []
+  return database
+    .select({ workspaceId: workspaces.id, organizationId: workspaces.organizationId })
+    .from(workspaces)
+    .where(inArray(workspaces.id, workspaceIds))
+}
+
+/** The metering cron's high-water mark, or null before the first run. */
+export async function getMeterWatermark(database: Database, source: string): Promise<Date | null> {
+  const [row] = await database
+    .select({ watermark: stripeMeterWatermarks.watermark })
+    .from(stripeMeterWatermarks)
+    .where(eq(stripeMeterWatermarks.source, source))
+    .limit(1)
+  return row?.watermark ?? null
+}
+
+/** Advance the metering high-water mark (only after Stripe accepted the window). */
+export async function setMeterWatermark(
+  database: Database,
+  source: string,
+  watermark: Date,
+): Promise<void> {
+  await database
+    .insert(stripeMeterWatermarks)
+    .values({ source, watermark })
+    .onConflictDoUpdate({
+      target: stripeMeterWatermarks.source,
+      set: { watermark, updatedAt: new Date() },
     })
 }
 

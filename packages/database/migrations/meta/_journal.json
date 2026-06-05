@@ -64,6 +64,13 @@
       "when": 1780612905246,
       "tag": "0008_fixed_nightmare",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780622556120,
+      "tag": "0009_ambiguous_scalphunter",
+      "breakpoints": true
     }
   ]
 }

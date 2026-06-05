@@ -84,6 +84,10 @@ export interface StripeEntitlementUpdate {
   grant: EntitlementGrant
   /** true when the subscription was cancelled — revoke to free. */
   revoked: boolean
+  /** Stripe customer id (`customer` on the subscription) — recorded so the
+   * metering cron can attribute usage. Kept on cancellation (final invoices
+   * may still need meter events). */
+  stripeCustomerId?: string
 }
 
 interface StripeEvent {
@@ -106,5 +110,11 @@ export function entitlementUpdateFromEvent(event: StripeEvent): StripeEntitlemen
   const revoked =
     event.type === 'customer.subscription.deleted' || subscription.status === 'canceled'
   const plan = revoked ? 'free' : (metadata.plan ?? 'free')
-  return { organizationId, grant: planToEntitlements(plan), revoked }
+  const customer = subscription.customer
+  return {
+    organizationId,
+    grant: planToEntitlements(plan),
+    revoked,
+    ...(typeof customer === 'string' && customer !== '' ? { stripeCustomerId: customer } : {}),
+  }
 }

@@ -71,6 +71,32 @@ describe('entitlementUpdateFromEvent', () => {
     expect(update?.grant.plan).toBe('free')
   })
 
+  it('captures the Stripe customer id for the metering roster', () => {
+    const update = entitlementUpdateFromEvent({
+      type: 'customer.subscription.created',
+      data: {
+        object: {
+          status: 'active',
+          customer: 'cus_42',
+          metadata: { organizationId: 'org-1', plan: 'team' },
+        },
+      },
+    })
+    expect(update?.stripeCustomerId).toBe('cus_42')
+    // Cancellation keeps the mapping (final invoices may still meter usage).
+    const cancelled = entitlementUpdateFromEvent({
+      type: 'customer.subscription.deleted',
+      data: { object: { customer: 'cus_42', metadata: { organizationId: 'org-1' } } },
+    })
+    expect(cancelled?.stripeCustomerId).toBe('cus_42')
+    // Expanded (object-valued) customer fields are not silently misused.
+    const expanded = entitlementUpdateFromEvent({
+      type: 'customer.subscription.created',
+      data: { object: { customer: { id: 'cus_42' }, metadata: { organizationId: 'org-1' } } },
+    })
+    expect(expanded?.stripeCustomerId).toBeUndefined()
+  })
+
   it('ignores unrelated events and events without an org', () => {
     expect(entitlementUpdateFromEvent({ type: 'invoice.paid' })).toBeNull()
     expect(
