@@ -16,7 +16,8 @@
   "dependencies": {
     "@edgevault/database": "workspace:*",
     "@edgevault/edge-protocol": "workspace:*",
-    "@edgevault/licensing": "workspace:*"
+    "@edgevault/licensing": "workspace:*",
+    "hono": "^4.9.2"
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",

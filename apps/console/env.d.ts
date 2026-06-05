@@ -11,4 +11,10 @@ interface __BaseEnv_Env {
    * optional in the OSS core configuration.
    */
   ENTERPRISE_SERVICE?: Fetcher
+  /**
+   * Managed-Edge control plane (proprietary edge/control-plane) hosting the
+   * Stripe Checkout/Portal billing surface. Bound only on the hosted SaaS; the
+   * billing page degrades gracefully (self-host = license keys) without it.
+   */
+  BILLING_SERVICE?: Fetcher
 }

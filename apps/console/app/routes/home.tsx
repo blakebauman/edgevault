@@ -79,6 +79,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             <div className="panel-head">
               <h2>{org.name}</h2>
               <span className="org-links">
+                <Link to={`/orgs/${org.id}/billing`} className="muted">
+                  Billing →
+                </Link>
                 <Link to={`/orgs/${org.id}/sso`} className="muted">
                   OIDC →
                 </Link>

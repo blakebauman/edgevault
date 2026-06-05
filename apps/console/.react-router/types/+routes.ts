@@ -69,6 +69,11 @@ type Pages = {
       "workspaceId": string;
     };
   };
+  "/orgs/:orgId/billing": {
+    params: {
+      "orgId": string;
+    };
+  };
   "/orgs/:orgId/scim": {
     params: {
       "orgId": string;
@@ -89,7 +94,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/assistant" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -147,6 +152,10 @@ type RouteFiles = {
     id: "routes/assistant";
     page: "/dashboard/:workspaceId/assistant";
   };
+  "routes/billing.tsx": {
+    id: "routes/billing";
+    page: "/orgs/:orgId/billing";
+  };
   "routes/scim.tsx": {
     id: "routes/scim";
     page: "/orgs/:orgId/scim";
@@ -177,6 +186,7 @@ type RouteModules = {
   "routes/oauth.callback": typeof import("./app/routes/oauth.callback.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/assistant": typeof import("./app/routes/assistant.tsx");
+  "routes/billing": typeof import("./app/routes/billing.tsx");
   "routes/scim": typeof import("./app/routes/scim.tsx");
   "routes/sso-admin": typeof import("./app/routes/sso-admin.tsx");
   "routes/saml-admin": typeof import("./app/routes/saml-admin.tsx");

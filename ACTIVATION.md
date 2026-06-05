@@ -100,21 +100,33 @@ billing/metering plane:
    `wrangler deploy --env staging`). Bindings (`HYPERDRIVE` Neon +
    `AUDIT_BUCKET` R2 metering source) are pinned per environment in
    `wrangler.jsonc`.
-2. Set Stripe secrets per environment (use `--name
-   edgevault-control-plane-staging` with test-mode keys for staging):
+2. Set secrets per environment (use `--name edgevault-control-plane-staging`
+   with test-mode keys for staging). `INTERNAL_TOKEN` must equal the value on
+   auth/console/enterprise — it admits the console BFF to the `/billing/*`
+   Checkout surface:
    ```sh
    wrangler secret put STRIPE_SECRET_KEY      --name edgevault-control-plane
    wrangler secret put STRIPE_WEBHOOK_SECRET  --name edgevault-control-plane
+   wrangler secret put INTERNAL_TOKEN         --name edgevault-control-plane
    ```
 3. In the Stripe Dashboard: add a webhook endpoint pointing at
    **`https://billing.edgevault.io/webhooks/stripe`**, subscribed to
    `customer.subscription.*` events. Subscriptions must carry
-   `metadata.organizationId` + `metadata.plan` (set at Checkout) — events
-   without them are ignored. The control-plane writes resulting plan +
-   entitlements into the shared Neon `entitlements` table that `api`/`auth`/`ee`
-   read (§3), and records the org → Stripe customer mapping
-   (`stripe_customers`) that attributes metered usage.
-4. Create **Billing Meters** whose event names match the meters the cron
+   `metadata.organizationId` + `metadata.plan` — the console's Checkout flow
+   sets both automatically; only manually-created subscriptions need them added
+   by hand. The control-plane writes resulting plan + entitlements into the
+   shared Neon `entitlements` table that `api`/`auth`/`ee` read (§3), and
+   records the org → Stripe customer mapping (`stripe_customers`) that
+   attributes metered usage.
+4. Create recurring **prices** for the self-serve plans and put their ids in the
+   control-plane's `wrangler.jsonc` vars (`STRIPE_PRICE_PRO`,
+   `STRIPE_PRICE_TEAM`; empty = that plan shows "Coming soon"), then redeploy.
+   The console's **`/orgs/:orgId/billing`** page (owner/admin-only) then offers
+   Stripe Checkout upgrades and — once a customer exists — the Stripe Billing
+   Portal (invoices, payment method, cancel). `enterprise` is deliberately
+   sales-led: grant it via §3, never via Checkout. Self-host deployments without
+   the console's `BILLING_SERVICE` binding show the license-key note instead.
+5. Create **Billing Meters** whose event names match the meters the cron
    reports: `config_writes` (config + flag mutations) and `secret_operations`
    (secret lifecycle incl. reveals). The hourly cron aggregates the durable
    audit pipeline (R2 NDJSON) per fully-elapsed UTC hour and reports
@@ -122,10 +134,5 @@ billing/metering plane:
    advances on full acceptance). Orgs without a `stripe_customers` row are
    skipped. Note: **edge reads and MAU are not metered** — they are not audit
    events; billing them needs a delivery-side counter (future work).
-
-**Still to build before charging money**: **Checkout** — nothing creates Stripe
-Checkout Sessions yet. Until a pricing page / console billing flow exists,
-create subscriptions manually in the Dashboard with the two metadata keys above
-(the webhook then fills both `entitlements` and `stripe_customers`).
 
 See [`edge/README.md`](edge/README.md) for the control-plane details.

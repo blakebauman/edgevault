@@ -20,7 +20,8 @@
   "services": [
     { "binding": "AUTH_SERVICE", "service": "edgevault-auth" },
     { "binding": "API_SERVICE", "service": "edgevault-api" },
-    { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise" }
+    { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise" },
+    { "binding": "BILLING_SERVICE", "service": "edgevault-control-plane" }
   ],
   "env": {
     "staging": {
@@ -32,7 +33,8 @@
       "services": [
         { "binding": "AUTH_SERVICE", "service": "edgevault-auth-staging" },
         { "binding": "API_SERVICE", "service": "edgevault-api-staging" },
-        { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise-staging" }
+        { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise-staging" },
+        { "binding": "BILLING_SERVICE", "service": "edgevault-control-plane-staging" }
       ]
     }
   }

@@ -1,7 +1,16 @@
+import type { Database } from '@edgevault/database'
+import { Hono, type MiddlewareHandler } from 'hono'
+import {
+  createCheckoutSession,
+  createPortalSession,
+  isSelfServePlan,
+  priceIdForPlan,
+} from './checkout'
 import { runMeteringCron } from './metering'
 import {
   entitlementUpdateFromEvent,
   type StripeEntitlementUpdate,
+  timingSafeEqual,
   verifyStripeWebhook,
 } from './stripe'
 
@@ -67,45 +76,167 @@ async function runScheduledMetering(env: Env): Promise<void> {
   }
 }
 
+function httpUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? value : null
+  } catch {
+    return null
+  }
+}
+
+type Vars = { database: Database }
+
 /**
  * Managed Edge control plane (proprietary, SaaS-only). Handles Stripe billing
- * webhooks (→ tenant entitlements written to Neon) and the usage-metering cron.
+ * webhooks (→ tenant entitlements written to Neon), the self-serve Checkout /
+ * Billing Portal surface for the console BFF, and the usage-metering cron.
  * Excluded from the OSS distribution.
  */
+const app = new Hono<{ Bindings: Env; Variables: Vars }>()
+
+app.get('/health', (c) => c.json({ status: 'ok', service: 'edgevault-control-plane' }))
+
+app.onError((err, c) => {
+  console.error('control-plane error', err)
+  return c.json({ error: 'internal_error' }, 500)
+})
+
+app.post('/webhooks/stripe', async (c) => {
+  // Deployed-but-not-activated: without the webhook secret, signature
+  // verification can never succeed — fail clean instead of a WebCrypto 500.
+  if (!c.env.STRIPE_WEBHOOK_SECRET) {
+    return c.text('webhook secret not configured', 503)
+  }
+  const body = await c.req.text()
+  const signature = c.req.header('stripe-signature') ?? ''
+  const valid = await verifyStripeWebhook(body, signature, c.env.STRIPE_WEBHOOK_SECRET)
+  if (!valid) return c.text('invalid signature', 400)
+
+  let event: unknown
+  try {
+    event = JSON.parse(body)
+  } catch {
+    return c.text('invalid payload', 400)
+  }
+  const update = entitlementUpdateFromEvent(event as { type?: string })
+  if (update) {
+    c.executionCtx.waitUntil(applyEntitlementUpdate(c.env, update))
+  }
+  return c.json({ received: true })
+})
+
+// --- /billing/* — console-BFF-only (shared INTERNAL_TOKEN mesh secret, checked
+// constant-time BEFORE any DB or Stripe work). The console performs the
+// user-facing authz (verified session + org owner/admin role) first.
+const requireInternalToken: MiddlewareHandler<{ Bindings: Env; Variables: Vars }> = async (
+  c,
+  next,
+) => {
+  const presented = c.req.header('x-internal-token') ?? ''
+  if (!c.env.INTERNAL_TOKEN || !timingSafeEqual(presented, c.env.INTERNAL_TOKEN)) {
+    return c.json({ error: 'unauthorized' }, 401)
+  }
+  if (!c.env.STRIPE_SECRET_KEY) {
+    return c.json({ error: 'billing_not_activated' }, 503)
+  }
+  await next()
+}
+
+const billing = new Hono<{ Bindings: Env; Variables: Vars }>()
+billing.use('*', requireInternalToken)
+
+// Open a Neon connection per billing request (closed after the response).
+billing.use('*', async (c, next) => {
+  const { createDatabase } = await import('@edgevault/database')
+  const conn = createDatabase(c.env.HYPERDRIVE.connectionString)
+  c.set('database', conn.database)
+  try {
+    await next()
+  } finally {
+    c.executionCtx.waitUntil(conn.close())
+  }
+})
+
+// Plan + customer state, and which self-serve plans are buyable now.
+billing.get('/status', async (c) => {
+  const organizationId = c.req.query('organizationId')
+  if (!organizationId) return c.json({ error: 'organizationId required' }, 400)
+  const { getEntitlements, getStripeCustomer } = await import('@edgevault/database')
+  const [row, customerId] = await Promise.all([
+    getEntitlements(c.var.database, organizationId),
+    getStripeCustomer(c.var.database, organizationId),
+  ])
+  return c.json({
+    plan: row?.plan ?? 'free',
+    entitlements: row?.entitlements ?? [],
+    hasCustomer: customerId !== null,
+    plans: {
+      pro: Boolean(c.env.STRIPE_PRICE_PRO),
+      team: Boolean(c.env.STRIPE_PRICE_TEAM),
+    },
+  })
+})
+
+// Mint a hosted Stripe Checkout page for a self-serve plan upgrade.
+billing.post('/checkout', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as {
+    organizationId?: string
+    plan?: string
+    successUrl?: string
+    cancelUrl?: string
+  } | null
+  const successUrl = httpUrl(body?.successUrl)
+  const cancelUrl = httpUrl(body?.cancelUrl)
+  if (!body?.organizationId || !body.plan || !successUrl || !cancelUrl) {
+    return c.json({ error: 'invalid request' }, 400)
+  }
+  if (!isSelfServePlan(body.plan)) return c.json({ error: 'plan_not_self_serve' }, 400)
+  const priceId = priceIdForPlan(c.env, body.plan)
+  if (!priceId) return c.json({ error: 'price_not_configured' }, 501)
+
+  const { getStripeCustomer } = await import('@edgevault/database')
+  const customerId = await getStripeCustomer(c.var.database, body.organizationId)
+  const session = await createCheckoutSession(c.env.STRIPE_SECRET_KEY, {
+    organizationId: body.organizationId,
+    plan: body.plan,
+    priceId,
+    successUrl,
+    cancelUrl,
+    ...(customerId ? { customerId } : {}),
+  })
+  if ('error' in session) {
+    console.error('checkout session failed', session.error)
+    return c.json({ error: 'stripe_error' }, 502)
+  }
+  return c.json(session)
+})
+
+// Mint a Billing Portal session (manage payment method, change plan, cancel).
+billing.post('/portal', async (c) => {
+  const body = (await c.req.json().catch(() => null)) as {
+    organizationId?: string
+    returnUrl?: string
+  } | null
+  const returnUrl = httpUrl(body?.returnUrl)
+  if (!body?.organizationId || !returnUrl) return c.json({ error: 'invalid request' }, 400)
+
+  const { getStripeCustomer } = await import('@edgevault/database')
+  const customerId = await getStripeCustomer(c.var.database, body.organizationId)
+  if (!customerId) return c.json({ error: 'no_customer' }, 404)
+  const session = await createPortalSession(c.env.STRIPE_SECRET_KEY, { customerId, returnUrl })
+  if ('error' in session) {
+    console.error('portal session failed', session.error)
+    return c.json({ error: 'stripe_error' }, 502)
+  }
+  return c.json(session)
+})
+
+app.route('/billing', billing)
+
 export default {
-  async fetch(request, env, ctx): Promise<Response> {
-    const url = new URL(request.url)
-
-    if (url.pathname === '/health') {
-      return Response.json({ status: 'ok', service: 'edgevault-control-plane' })
-    }
-
-    if (request.method === 'POST' && url.pathname === '/webhooks/stripe') {
-      // Deployed-but-not-activated: without the webhook secret, signature
-      // verification can never succeed — fail clean instead of a WebCrypto 500.
-      if (!env.STRIPE_WEBHOOK_SECRET) {
-        return new Response('webhook secret not configured', { status: 503 })
-      }
-      const body = await request.text()
-      const signature = request.headers.get('stripe-signature') ?? ''
-      const valid = await verifyStripeWebhook(body, signature, env.STRIPE_WEBHOOK_SECRET)
-      if (!valid) return new Response('invalid signature', { status: 400 })
-
-      let event: unknown
-      try {
-        event = JSON.parse(body)
-      } catch {
-        return new Response('invalid payload', { status: 400 })
-      }
-      const update = entitlementUpdateFromEvent(event as { type?: string })
-      if (update) {
-        ctx.waitUntil(applyEntitlementUpdate(env, update))
-      }
-      return Response.json({ received: true })
-    }
-
-    return new Response('Not found', { status: 404 })
-  },
+  fetch: app.fetch,
 
   async scheduled(_event, env, ctx): Promise<void> {
     // Deployed-but-not-activated: nothing can be reported without a Stripe key,

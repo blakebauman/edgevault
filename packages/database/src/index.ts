@@ -15,6 +15,7 @@ export {
   getSamlConnection,
   getScimTokenHash,
   getSsoConnection,
+  getStripeCustomer,
   getTotpCredential,
   listStripeCustomers,
   listWorkspaceOrganizations,

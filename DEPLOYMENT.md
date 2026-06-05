@@ -66,7 +66,7 @@ node scripts/gen-secrets.mjs   # prints JWT_PRIVATE_JWK, MASTER_KEK, INTERNAL_TO
 |---|---|---|
 | `JWT_PRIVATE_JWK` | auth | EdDSA signing key (JWKS is derived/published) |
 | `MASTER_KEK` | auth, api, **enterprise** | envelope-encryption key — **must be identical** across all three |
-| `INTERNAL_TOKEN` | auth, console, enterprise | trusted-mesh shared secret (SSO/SAML + MFA provisioning) |
+| `INTERNAL_TOKEN` | auth, console, enterprise, control-plane | trusted-mesh shared secret (SSO/SAML + MFA provisioning + billing) |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | auth | optional — enables GitHub login |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | auth | optional — enables Google login |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | control-plane | Managed Edge only |
@@ -177,7 +177,8 @@ pnpm db:migrate:local  # apply drizzle migrations to the fresh branch
 
 # .dev.vars per worker: apps/auth (JWT_PRIVATE_JWK, MASTER_KEK, INTERNAL_TOKEN),
 # apps/api (MASTER_KEK), apps/console (INTERNAL_TOKEN),
-# ee/enterprise (MASTER_KEK, INTERNAL_TOKEN)
+# ee/enterprise (MASTER_KEK, INTERNAL_TOKEN), edge/control-plane (INTERNAL_TOKEN,
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
 (cd apps/auth     && npx wrangler dev --port 8788 --inspector-port 9320)
 (cd apps/api      && npx wrangler dev --port 8790 --inspector-port 9321)
 (cd apps/delivery && npx wrangler dev --port 8791 --inspector-port 9322)

@@ -100,6 +100,19 @@ export interface StripeCustomerRow {
   stripeCustomerId: string
 }
 
+/** The Stripe customer paying for an org, or null if unbilled. */
+export async function getStripeCustomer(
+  database: Database,
+  organizationId: string,
+): Promise<string | null> {
+  const [row] = await database
+    .select({ stripeCustomerId: stripeCustomers.stripeCustomerId })
+    .from(stripeCustomers)
+    .where(eq(stripeCustomers.organizationId, organizationId))
+    .limit(1)
+  return row?.stripeCustomerId ?? null
+}
+
 /** All billable org → Stripe customer mappings (the metering cron's roster). */
 export async function listStripeCustomers(database: Database): Promise<StripeCustomerRow[]> {
   return database

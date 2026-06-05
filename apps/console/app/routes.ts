@@ -15,6 +15,7 @@ export default [
   route('oauth/:provider/callback', 'routes/oauth.callback.tsx'),
   route('dashboard/:workspaceId', 'routes/dashboard.tsx'),
   route('dashboard/:workspaceId/assistant', 'routes/assistant.tsx'),
+  route('orgs/:orgId/billing', 'routes/billing.tsx'),
   route('orgs/:orgId/scim', 'routes/scim.tsx'),
   route('orgs/:orgId/sso', 'routes/sso-admin.tsx'),
   route('orgs/:orgId/saml', 'routes/saml-admin.tsx'),

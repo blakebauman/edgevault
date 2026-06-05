@@ -5,7 +5,9 @@
   "compatibility_date": "2026-06-03",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  "vars": { "ENVIRONMENT": "production" },
+  // STRIPE_PRICE_* hold the live Stripe price ids for the self-serve plans;
+  // empty = that plan is not purchasable yet (checkout returns 501).
+  "vars": { "ENVIRONMENT": "production", "STRIPE_PRICE_PRO": "", "STRIPE_PRICE_TEAM": "" },
   // Usage-metering cron: aggregate billable usage and report to Stripe meters.
   "triggers": { "crons": ["0 * * * *"] },
   // Stripe webhooks need a stable public URL — custom domain per the platform's
