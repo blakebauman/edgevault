@@ -27,7 +27,12 @@
   // STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. Excluded from the OSS distribution.
   "env": {
     "staging": {
-      "vars": { "ENVIRONMENT": "staging" },
+      "vars": {
+        "ENVIRONMENT": "staging",
+        // Test-mode prices in the EdgeVault sandbox Stripe account.
+        "STRIPE_PRICE_PRO": "price_1TeoDI5uYJn3fmoQ9x8WD17L",
+        "STRIPE_PRICE_TEAM": "price_1TeoDI5uYJn3fmoQRYiWnM4f"
+      },
       "routes": [{ "pattern": "billing-staging.edgevault.io", "custom_domain": true }],
       "hyperdrive": [
         {
