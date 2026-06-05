@@ -1,12 +1,17 @@
 import { DurableObject } from 'cloudflare:workers'
+import { generateDiff, summarizeDiff } from '@edgevault/diff'
 import type { WorkspaceEvent } from '@edgevault/realtime'
 import { ActivityLogger } from './activity-log'
 import { PromotionManager } from './promotion-manager'
 import { RevisionManager } from './revision-manager'
 import type {
   ActivityEntry,
+  ComparisonDiffEntry,
   ConfigItem,
   ConfigKind,
+  EnvComparison,
+  EnvComparisonEntry,
+  EnvComparisonSide,
   Environment,
   Promotion,
   Revision,
@@ -55,6 +60,28 @@ type EnvRow = {
   created_by: string
   created_at: number
   updated_at: number
+}
+
+function toComparisonSide(item: ConfigItem): EnvComparisonSide {
+  return {
+    kind: item.kind,
+    contentType: item.contentType,
+    version: item.version,
+    updatedAt: item.updatedAt,
+    updatedBy: item.updatedBy,
+  }
+}
+
+/** Parse JSON content for structural diffing; fall back to the raw string. */
+function parseForDiff(item: ConfigItem): unknown {
+  if (item.contentType === 'json') {
+    try {
+      return JSON.parse(item.content)
+    } catch {
+      return item.content
+    }
+  }
+  return item.content
 }
 
 function toEnvironment(row: EnvRow): Environment {
@@ -239,6 +266,57 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
   getEnvironment(id: string): Environment | null {
     const row = this.sql.exec<EnvRow>(`SELECT * FROM environments WHERE id = ?`, id).toArray()[0]
     return row ? toEnvironment(row) : null
+  }
+
+  /**
+   * Compare two environments key-by-key. Config/flag values compare by stored
+   * content (with a structural diff for drifted items); secrets only report
+   * presence — their ciphertext is non-deterministic, so value equality is
+   * unknowable without decrypting, which this method never does.
+   */
+  async compareEnvironments(
+    sourceEnvironmentId: string,
+    targetEnvironmentId: string,
+  ): Promise<EnvComparison> {
+    if (!this.getEnvironment(sourceEnvironmentId) || !this.getEnvironment(targetEnvironmentId)) {
+      throw new Error('Environment not found')
+    }
+
+    const sourceItems = new Map(this.listConfigs(sourceEnvironmentId).map((i) => [i.key, i]))
+    const targetItems = new Map(this.listConfigs(targetEnvironmentId).map((i) => [i.key, i]))
+    const keys = [...new Set([...sourceItems.keys(), ...targetItems.keys()])].sort()
+
+    const summary = { equal: 0, drifted: 0, onlyInSource: 0, onlyInTarget: 0, notComparable: 0 }
+    const entries: EnvComparisonEntry[] = keys.map((key) => {
+      const source = sourceItems.get(key)
+      const target = targetItems.get(key)
+      if (source && !target) {
+        summary.onlyInSource++
+        return { key, status: 'only-in-source', source: toComparisonSide(source) }
+      }
+      if (!source && target) {
+        summary.onlyInTarget++
+        return { key, status: 'only-in-target', target: toComparisonSide(target) }
+      }
+      const s = source as ConfigItem
+      const t = target as ConfigItem
+      const sides = { source: toComparisonSide(s), target: toComparisonSide(t) }
+      if (s.kind === 'secret' || t.kind === 'secret') {
+        summary.notComparable++
+        return { key, status: 'not-comparable', ...sides }
+      }
+      if (s.content === t.content && s.kind === t.kind) {
+        summary.equal++
+        return { key, status: 'equal', ...sides }
+      }
+      const rawDiff = generateDiff(parseForDiff(s), parseForDiff(t))
+      // Content is parsed JSON or a raw string, so diff values are JSON-safe.
+      const diff = rawDiff as ComparisonDiffEntry[]
+      summary.drifted++
+      return { key, status: 'drifted', ...sides, diff, diffSummary: summarizeDiff(rawDiff) }
+    })
+
+    return { sourceEnvironmentId, targetEnvironmentId, entries, summary }
   }
 
   // --- Config items -------------------------------------------------------

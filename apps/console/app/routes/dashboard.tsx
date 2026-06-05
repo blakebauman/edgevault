@@ -65,9 +65,14 @@ export default function Dashboard({ loaderData }: Route.ComponentProps) {
             <p className="eyebrow">Workspace</p>
             <h1>{workspaceId}</h1>
           </div>
-          <Link to="/" className="secondary button">
-            ← All workspaces
-          </Link>
+          <div className="org-links">
+            <Link to={`/dashboard/${workspaceId}/compare`} className="secondary button">
+              Compare environments
+            </Link>
+            <Link to="/" className="secondary button">
+              ← All workspaces
+            </Link>
+          </div>
         </header>
 
         <div className="grid">

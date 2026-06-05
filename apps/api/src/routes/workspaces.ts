@@ -68,6 +68,33 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const environments = await stubFor(c, c.req.param('workspaceId')).listEnvironments()
     return c.json({ environments })
   })
+  // Side-by-side comparison of two environments. Secrets compare by presence
+  // only (their ciphertext is non-deterministic) — values are never decrypted.
+  .get('/:workspaceId/environments/compare', async (c) => {
+    const source = c.req.query('source')
+    const target = c.req.query('target')
+    if (!source || !target) {
+      return c.json(
+        { error: 'missing_environments', detail: '?source= and ?target= environment ids required' },
+        400,
+      )
+    }
+    if (source === target) {
+      return c.json({ error: 'same_environment', detail: 'source and target must differ' }, 400)
+    }
+    try {
+      const comparison = await stubFor(c, c.req.param('workspaceId')).compareEnvironments(
+        source,
+        target,
+      )
+      return c.json({ comparison })
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Environment not found')) {
+        return c.json({ error: 'not_found', detail: 'unknown source or target environment' }, 404)
+      }
+      throw error
+    }
+  })
 
   // --- Config items ---
   .post(

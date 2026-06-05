@@ -34,6 +34,7 @@ describe('MCP server', () => {
         'get_config',
         'set_config',
         'promote_config',
+        'compare_environments',
         'search_configs',
         'get_activity',
       ]),
@@ -112,6 +113,28 @@ describe('MCP server', () => {
       params: { name: 'reveal_secret', arguments: { environmentId: e.id, key: 'db.pw' } },
     })
     expect(JSON.parse(revealRes.body.result.content[0].text).content).toBe('hunter2')
+  })
+
+  it('compare_environments reports drift between two environments', async () => {
+    const ws = workspace()
+    const a = await ws.createEnvironment({ name: 'Cmp A', slug: 'cmp-a', userId: 'u1' })
+    const b = await ws.createEnvironment({ name: 'Cmp B', slug: 'cmp-b', userId: 'u1' })
+    await ws.setConfig({ environmentId: a.id, key: 'cmp.k', content: '{"v":1}', userId: 'u1' })
+    await ws.setConfig({ environmentId: b.id, key: 'cmp.k', content: '{"v":2}', userId: 'u1' })
+
+    const res = await call({
+      jsonrpc: '2.0',
+      id: 10,
+      method: 'tools/call',
+      params: {
+        name: 'compare_environments',
+        arguments: { sourceEnvironmentId: a.id, targetEnvironmentId: b.id },
+      },
+    })
+    const comparison = JSON.parse(res.body.result.content[0].text)
+    expect(comparison.summary.drifted).toBe(1)
+    expect(comparison.entries[0].key).toBe('cmp.k')
+    expect(comparison.entries[0].diffSummary).toBe('1 modified')
   })
 
   it('returns an error for an unknown tool and unknown method', async () => {

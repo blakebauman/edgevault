@@ -113,6 +113,76 @@ describe('WorkspaceDurableObject', () => {
     expect((await ws.getPromotion(pending.id))?.status).toBe('completed')
   })
 
+  it('compares environments key-by-key without decrypting secrets', async () => {
+    const ws = workspace('ws-compare')
+    const dev = await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })
+    const prod = await ws.createEnvironment({ name: 'Prod', slug: 'prod', userId: 'u1' })
+
+    // equal in both
+    await ws.setConfig({ environmentId: dev.id, key: 'same', content: '{"a":1}', userId: 'u1' })
+    await ws.setConfig({ environmentId: prod.id, key: 'same', content: '{"a":1}', userId: 'u1' })
+    // drifted JSON value
+    await ws.setConfig({ environmentId: dev.id, key: 'drift', content: '{"a":2}', userId: 'u1' })
+    await ws.setConfig({ environmentId: prod.id, key: 'drift', content: '{"a":1}', userId: 'u1' })
+    // only in source / only in target
+    await ws.setConfig({ environmentId: dev.id, key: 'new', content: '"x"', userId: 'u1' })
+    await ws.setConfig({ environmentId: prod.id, key: 'old', content: '"y"', userId: 'u1' })
+    // secrets: different ciphertext even for identical plaintext — must not compare
+    await ws.setConfig({
+      environmentId: dev.id,
+      key: 'db.password',
+      kind: 'secret',
+      content: 'ciphertext-a',
+      isEncrypted: true,
+      userId: 'u1',
+    })
+    await ws.setConfig({
+      environmentId: prod.id,
+      key: 'db.password',
+      kind: 'secret',
+      content: 'ciphertext-b',
+      isEncrypted: true,
+      userId: 'u1',
+    })
+
+    const comparison = await ws.compareEnvironments(dev.id, prod.id)
+    expect(comparison.summary).toEqual({
+      equal: 1,
+      drifted: 1,
+      onlyInSource: 1,
+      onlyInTarget: 1,
+      notComparable: 1,
+    })
+
+    const byKey = new Map(comparison.entries.map((e) => [e.key, e]))
+    expect(byKey.get('same')?.status).toBe('equal')
+    expect(byKey.get('new')?.status).toBe('only-in-source')
+    expect(byKey.get('old')?.status).toBe('only-in-target')
+
+    const drift = byKey.get('drift')
+    expect(drift?.status).toBe('drifted')
+    expect(drift?.diffSummary).toBe('1 modified')
+    expect(drift?.diff).toEqual([{ type: 'modified', path: 'a', oldValue: 2, newValue: 1 }])
+
+    // Secrets report presence only — no content, no diff.
+    const secret = byKey.get('db.password')
+    expect(secret?.status).toBe('not-comparable')
+    expect(secret?.diff).toBeUndefined()
+    expect(JSON.stringify(comparison)).not.toContain('ciphertext')
+  })
+
+  it('compareEnvironments rejects unknown environments', async () => {
+    const ws = workspace('ws-compare-unknown')
+    const dev = await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })
+    // Call the instance directly — a rejection over the RPC stub also surfaces
+    // as an unhandled error inside the DO under vitest-pool-workers.
+    await runInDurableObject(ws, async (instance) => {
+      await expect(instance.compareEnvironments(dev.id, 'nope')).rejects.toThrow(
+        'Environment not found',
+      )
+    })
+  })
+
   it('can inspect internal SQLite state directly', async () => {
     const ws = workspace('ws-internal')
     await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })

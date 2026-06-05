@@ -130,6 +130,24 @@ export const edgevaultTools = [
     },
   }),
   defineTool({
+    name: 'compare_environments',
+    description:
+      'Compare two environments key-by-key (equal / drifted / only-in-one). Secrets compare by presence only; values are never decrypted.',
+    inputSchema: objectSchema(
+      {
+        sourceEnvironmentId: { type: 'string' },
+        targetEnvironmentId: { type: 'string' },
+      },
+      ['sourceEnvironmentId', 'targetEnvironmentId'],
+    ),
+    schema: z.object({
+      sourceEnvironmentId: z.string(),
+      targetEnvironmentId: z.string(),
+    }),
+    handler: async (args, ctx) =>
+      stub(ctx).compareEnvironments(args.sourceEnvironmentId, args.targetEnvironmentId),
+  }),
+  defineTool({
     name: 'search_configs',
     description: 'Semantic search over the workspace configs; returns ranked keys.',
     inputSchema: objectSchema({ query: { type: 'string' }, environmentId: { type: 'string' } }, [
