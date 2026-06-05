@@ -1,0 +1,31 @@
+# Neon Local — spawns an ephemeral Neon branch at container start and deletes
+# it at container stop. Apps connect to localhost:5432 with the static creds
+# below; the proxy forwards to the real branch in the Neon cloud.
+#
+# Usage:
+#   pnpm db:up             # start the proxy (branch created)
+#   pnpm db:down           # stop it (branch deleted)
+#   pnpm db:migrate:local  # apply drizzle migrations against the fresh branch
+#
+# Requires a repo-root .env with NEON_API_KEY + NEON_PROJECT_ID.
+# See .env.example.
+
+services:
+  neon-local:
+    image: neondatabase/neon_local:latest
+    container_name: edgevault-db
+    ports:
+      - "5432:5432"
+    environment:
+      NEON_API_KEY: ${NEON_API_KEY:?set NEON_API_KEY in .env}
+      NEON_PROJECT_ID: ${NEON_PROJECT_ID:?set NEON_PROJECT_ID in .env}
+      # Fork ephemeral branches from staging by default (keeps prod data off
+      # dev machines). Override via NEON_PARENT_BRANCH_ID in .env.
+      PARENT_BRANCH_ID: ${NEON_PARENT_BRANCH_ID:-br-bold-river-a6pz154a}
+      # Ephemeral by default — set DELETE_BRANCH=false in your shell to persist.
+      DELETE_BRANCH: ${DELETE_BRANCH:-true}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U neon"]
+      interval: 2s
+      timeout: 3s
+      retries: 15

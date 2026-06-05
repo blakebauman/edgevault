@@ -17,12 +17,13 @@
   "hyperdrive": [
     {
       // Placeholder id — replace with the output of `wrangler hyperdrive create`
-      // at deploy time. For `wrangler dev`/tests, the connection string comes
-      // from CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (no secret
-      // committed).
+      // at deploy time. For `wrangler dev`/tests, localConnectionString points at
+      // the Neon Local proxy (`pnpm db:up`, see docker-compose.yml); override via
+      // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE to target a real
+      // branch (no secret committed).
       "binding": "HYPERDRIVE",
       "id": "2297a04370d24da7b267223e7d8837f5",
-      "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+      "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
     }
   ],
   // Read-through cache for session validation (sub-ms edge reads; ≤60s staleness;
@@ -56,7 +57,7 @@
         {
           "binding": "HYPERDRIVE",
           "id": "774bd4e3e43f4ae0ad7d35a80045e6d3",
-          "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+          "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
         }
       ],
       "kv_namespaces": [{ "binding": "AUTH_CACHE", "id": "928e673235794226b54bcf31f6b9d565" }],

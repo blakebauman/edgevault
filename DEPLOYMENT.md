@@ -162,8 +162,17 @@ Queues/Hyperdrive edit scope). Worker secrets are set out-of-band
 
 ## Local development
 
+The local database is [Neon Local](https://neon.com/docs/local/neon-local)
+(`docker-compose.yml`): a proxy container that spawns an **ephemeral Neon
+branch** (forked from `staging` by default) on start and deletes it on stop.
+The Hyperdrive `localConnectionString` in every worker's wrangler.jsonc already
+points at it, so `wrangler dev` connects with no env vars.
+
 ```sh
-export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgres://...neon..."
+cp .env.example .env   # fill in NEON_API_KEY (console.neon.tech → API keys)
+pnpm db:up             # start the proxy (ephemeral branch created)
+pnpm db:migrate:local  # apply drizzle migrations to the fresh branch
+
 # .dev.vars per worker: apps/auth (JWT_PRIVATE_JWK, MASTER_KEK, INTERNAL_TOKEN),
 # apps/api (MASTER_KEK), apps/console (INTERNAL_TOKEN),
 # ee/enterprise (MASTER_KEK, INTERNAL_TOKEN)
@@ -171,7 +180,15 @@ export CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgres://...n
 (cd apps/api      && npx wrangler dev --port 8790 --inspector-port 9321)
 (cd apps/delivery && npx wrangler dev --port 8791 --inspector-port 9322)
 (cd apps/console  && npx wrangler dev --port 8787 --inspector-port 9323)
+
+pnpm db:down           # stop the proxy (branch deleted)
 ```
+
+Set `DELETE_BRANCH=false` in `.env` to persist the branch (same data across
+sessions); set `NEON_PARENT_BRANCH_ID` to fork from a different parent. To
+point `wrangler dev` at a real Neon branch instead, export
+`CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgres://...neon..."`
+— it overrides `localConnectionString`.
 
 The dev registry auto-connects the service bindings (`AUTH_SERVICE`,
 `API_SERVICE`, `ENTERPRISE_SERVICE`). WebAuthn binds to the origin, so passkeys

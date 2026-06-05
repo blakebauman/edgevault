@@ -12,7 +12,7 @@
     {
       "binding": "HYPERDRIVE",
       "id": "2297a04370d24da7b267223e7d8837f5",
-      "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+      "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
     }
   ]
   // Proprietary, SaaS-only. HYPERDRIVE writes the shared Neon entitlements table

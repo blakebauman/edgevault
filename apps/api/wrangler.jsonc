@@ -46,7 +46,7 @@
     {
       "binding": "HYPERDRIVE",
       "id": "2297a04370d24da7b267223e7d8837f5",
-      "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+      "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
     }
   ],
   "services": [{ "binding": "AUTH_SERVICE", "service": "edgevault-auth" }],
@@ -92,7 +92,7 @@
         {
           "binding": "HYPERDRIVE",
           "id": "774bd4e3e43f4ae0ad7d35a80045e6d3",
-          "localConnectionString": "postgresql://user:password@localhost:5432/edgevault"
+          "localConnectionString": "postgres://neon:npg@localhost:5432/neondb?sslmode=require"
         }
       ],
       "services": [{ "binding": "AUTH_SERVICE", "service": "edgevault-auth-staging" }],
