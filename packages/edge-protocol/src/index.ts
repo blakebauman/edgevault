@@ -42,8 +42,15 @@ export interface AuditEvent {
   environmentId?: string
   /** e.g. config.created, config.updated, config.deleted, config.promoted */
   action: string
-  /** config | flag | secret | environment */
+  /** config | flag | secret | environment | edge_read */
   resourceType: string
   key?: string
   userId: string
+  /**
+   * How many billable occurrences this record represents. Defaults to 1 for a
+   * normal per-change audit event. High-volume signals that are pre-aggregated
+   * at the edge (e.g. `edge_read` counts from the delivery worker) set this so
+   * one record can stand in for many reads without one event per read.
+   */
+  count?: number
 }

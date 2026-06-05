@@ -19,6 +19,12 @@
     { "binding": "CONFIGS_CACHE", "id": "702bc01738e842218dee178a1deda5e4" },
     { "binding": "ENVIRONMENT_API_KEYS", "id": "d6fc0922ffb64a70b91cd107e745d249" }
   ],
+  // Edge reads are pre-aggregated per isolate and flushed (off the response
+  // path via waitUntil) as count-carrying audit events onto the same queue the
+  // api writes to; the metering cron bills them. Producer only — never consumed.
+  "queues": {
+    "producers": [{ "queue": "edgevault-audit", "binding": "AUDIT_QUEUE" }]
+  },
   // No Smart Placement: the delivery worker must run close to the user.
   "env": {
     "staging": {
@@ -30,7 +36,10 @@
       "kv_namespaces": [
         { "binding": "CONFIGS_CACHE", "id": "ba14f0f4936e40caa063a43ec44c639d" },
         { "binding": "ENVIRONMENT_API_KEYS", "id": "574a639279fd4d75bca56d4a48167a3e" }
-      ]
+      ],
+      "queues": {
+        "producers": [{ "queue": "edgevault-audit-staging", "binding": "AUDIT_QUEUE" }]
+      }
     }
   }
 }

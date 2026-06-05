@@ -1,8 +1,9 @@
-import { and, eq, inArray, lt } from 'drizzle-orm'
+import { and, countDistinct, eq, gte, inArray, lt } from 'drizzle-orm'
 import type { Database } from './client'
-import { accounts } from './schema/auth'
+import { accounts, sessions } from './schema/auth'
 import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
+import { members } from './schema/organization'
 import { samlAssertionReplay, samlConnections } from './schema/saml'
 import { ssoConnections } from './schema/sso'
 import { stripeCustomers, stripeMeterWatermarks } from './schema/stripe'
@@ -133,6 +134,29 @@ export async function listWorkspaceOrganizations(
     .select({ workspaceId: workspaces.id, organizationId: workspaces.organizationId })
     .from(workspaces)
     .where(inArray(workspaces.id, workspaceIds))
+}
+
+/**
+ * Distinct monthly-active users per organization for `[monthStart, monthEnd)`.
+ * A user is active if they hold a session whose lifetime overlaps the window
+ * (created before it ends, not yet expired at its start); a user counts once per
+ * org they belong to. The source for the `mau` Stripe meter.
+ */
+export async function monthlyActiveUsersByOrg(
+  database: Database,
+  monthStart: Date,
+  monthEnd: Date,
+): Promise<Array<{ organizationId: string; users: number }>> {
+  const rows = await database
+    .select({
+      organizationId: members.organizationId,
+      users: countDistinct(sessions.userId),
+    })
+    .from(sessions)
+    .innerJoin(members, eq(members.userId, sessions.userId))
+    .where(and(lt(sessions.createdAt, monthEnd), gte(sessions.expiresAt, monthStart)))
+    .groupBy(members.organizationId)
+  return rows.map((r) => ({ organizationId: r.organizationId, users: Number(r.users) }))
 }
 
 /** The metering cron's high-water mark, or null before the first run. */

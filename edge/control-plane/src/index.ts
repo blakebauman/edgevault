@@ -6,6 +6,7 @@ import {
   isSelfServePlan,
   priceIdForPlan,
 } from './checkout'
+import { runMauMetering } from './mau'
 import { runMeteringCron } from './metering'
 import {
   entitlementUpdateFromEvent,
@@ -55,9 +56,11 @@ async function runScheduledMetering(env: Env): Promise<void> {
     getMeterWatermark,
     listStripeCustomers,
     listWorkspaceOrganizations,
+    monthlyActiveUsersByOrg,
     setMeterWatermark,
   } = await import('@edgevault/database')
   const conn = createDatabase(env.HYPERDRIVE.connectionString)
+  const now = Date.now()
   try {
     const summary = await runMeteringCron(
       {
@@ -68,9 +71,22 @@ async function runScheduledMetering(env: Env): Promise<void> {
         listStripeCustomers: () => listStripeCustomers(conn.database),
         listWorkspaceOrganizations: (ids) => listWorkspaceOrganizations(conn.database, ids),
       },
-      Date.now(),
+      now,
     )
     console.log('metering run', summary)
+
+    // MAU is a distinct count, reported once per fully-elapsed UTC month.
+    const mau = await runMauMetering(
+      {
+        stripeSecretKey: env.STRIPE_SECRET_KEY,
+        getWatermark: (source) => getMeterWatermark(conn.database, source),
+        setWatermark: (source, watermark) => setMeterWatermark(conn.database, source, watermark),
+        monthlyActiveUsers: (start, end) => monthlyActiveUsersByOrg(conn.database, start, end),
+        listStripeCustomers: () => listStripeCustomers(conn.database),
+      },
+      now,
+    )
+    console.log('mau run', mau)
   } finally {
     await conn.close()
   }

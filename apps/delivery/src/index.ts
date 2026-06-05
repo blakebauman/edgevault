@@ -5,7 +5,8 @@ import {
   configCacheKey,
   type ResolvedConfig,
 } from '@edgevault/edge-protocol'
-import { Hono } from 'hono'
+import { type Context, Hono } from 'hono'
+import { EdgeReadMeter, flushMeter } from './metering'
 
 /**
  * EdgeVault delivery worker — the <10ms edge read path. Serves pre-resolved
@@ -32,6 +33,23 @@ function l1Get(key: string): { value: ResolvedConfig | null } | undefined {
 
 function l1Set(key: string, value: ResolvedConfig | null): void {
   l1.set(key, { value, expires: Date.now() + L1_TTL_MS })
+}
+
+// Per-isolate edge-read meter. Counting is a cheap Map bump on the hot path;
+// the flush to the audit queue runs off the response path via waitUntil.
+const meter = new EdgeReadMeter()
+
+function meterRead(c: Context<AppEnv>, n: number): void {
+  const { workspaceId, environmentId } = c.var.apiKey
+  const now = Date.now()
+  meter.record(workspaceId, environmentId, n, now)
+  if (meter.shouldFlush(now)) {
+    try {
+      c.executionCtx.waitUntil(flushMeter(meter, c.env.AUDIT_QUEUE, now))
+    } catch {
+      // No execution context (e.g. unit tests) — flush on a later request.
+    }
+  }
 }
 
 const app = new Hono<AppEnv>()
@@ -89,6 +107,7 @@ function timed<T extends { source: 'l1' | 'kv' }>(
 app.get('/v1/configs/:key', async (c) => {
   const t0 = Date.now()
   const { value } = timed(c, t0, await resolve(c, c.req.param('key')))
+  meterRead(c, 1)
   if (!value) return c.json({ error: 'not_found' }, 404)
   return c.json({ key: c.req.param('key'), ...value })
 })
@@ -96,6 +115,7 @@ app.get('/v1/configs/:key', async (c) => {
 app.get('/v1/flags/:key', async (c) => {
   const t0 = Date.now()
   const { value } = timed(c, t0, await resolve(c, c.req.param('key')))
+  meterRead(c, 1)
   if (value?.kind !== 'flag') return c.json({ error: 'not_found' }, 404)
   return c.json({ key: c.req.param('key'), ...value })
 })
@@ -107,6 +127,7 @@ app.post('/v1/batch', async (c) => {
   const entries = await Promise.all(
     keys.map(async (key) => [key, (await resolve(c, key)).value] as const),
   )
+  if (keys.length > 0) meterRead(c, keys.length)
   c.header('Server-Timing', `resolve;dur=${Date.now() - t0};desc="batch:${keys.length}"`)
   return c.json({ configs: Object.fromEntries(entries) })
 })

@@ -10,9 +10,11 @@ import type { AuditEvent } from '@edgevault/edge-protocol'
  * once Stripe has accepted every event for the window.
  *
  * Meter names must match the **Billing Meter event names** configured in the
- * Stripe Dashboard (see ACTIVATION.md §4). Edge reads and MAU are NOT in the
- * audit pipeline (far too high-volume / not audit events) — metering those
- * needs a delivery-side counter and is intentionally out of scope here.
+ * Stripe Dashboard (see ACTIVATION.md §4). High-volume signals that are not
+ * one-per-change — edge reads (pre-aggregated in the delivery worker) and MAU
+ * (one record per user per UTC month from auth) — are emitted into this same
+ * durable pipeline as `AuditEvent`s carrying a `count`, so the cron bills them
+ * exactly like writes.
  */
 
 export const METERING_SOURCE = 'audit'
@@ -30,6 +32,11 @@ const MAX_WINDOW_MS = 24 * HOUR_MS
 export function meterForAuditEvent(event: AuditEvent): string | null {
   if (event.resourceType === 'secret') return 'secret_operations'
   if (event.resourceType === 'config' || event.resourceType === 'flag') return 'config_writes'
+  // Edge reads arrive pre-aggregated from the delivery worker (one record per
+  // flush carries `count` reads), and MAU as one record per user per UTC month
+  // — both ride the same durable pipeline as writes.
+  if (event.resourceType === 'edge_read') return 'edge_reads'
+  if (event.resourceType === 'mau') return 'mau'
   return null
 }
 
@@ -50,9 +57,11 @@ export function aggregateUsage(events: AuditEvent[], fromMs: number, toMs: numbe
     if (!meter) continue
     const hourStart = Math.floor(event.at / HOUR_MS) * HOUR_MS
     const key = `${hourStart}|${meter}|${event.workspaceId}`
+    // Pre-aggregated events (edge reads) carry a count; per-change events imply 1.
+    const n = event.count && event.count > 0 ? event.count : 1
     const bucket = buckets.get(key)
-    if (bucket) bucket.count++
-    else buckets.set(key, { hourStart, meter, workspaceId: event.workspaceId, count: 1 })
+    if (bucket) bucket.count += n
+    else buckets.set(key, { hourStart, meter, workspaceId: event.workspaceId, count: n })
   }
   return [...buckets.values()]
 }

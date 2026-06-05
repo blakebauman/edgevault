@@ -19,6 +19,7 @@ export {
   getTotpCredential,
   listStripeCustomers,
   listWorkspaceOrganizations,
+  monthlyActiveUsersByOrg,
   type SamlConnectionRow,
   type SsoConnectionRow,
   type StripeCustomerRow,

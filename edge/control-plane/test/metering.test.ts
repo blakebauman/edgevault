@@ -61,6 +61,8 @@ describe('meterForAuditEvent', () => {
     expect(meterForAuditEvent(auditEvent({ resourceType: 'secret' }))).toBe('secret_operations')
     expect(meterForAuditEvent(auditEvent({ resourceType: 'config' }))).toBe('config_writes')
     expect(meterForAuditEvent(auditEvent({ resourceType: 'flag' }))).toBe('config_writes')
+    expect(meterForAuditEvent(auditEvent({ resourceType: 'edge_read' }))).toBe('edge_reads')
+    expect(meterForAuditEvent(auditEvent({ resourceType: 'mau' }))).toBe('mau')
     expect(meterForAuditEvent(auditEvent({ resourceType: 'environment' }))).toBeNull()
   })
 })
@@ -87,6 +89,22 @@ describe('aggregateUsage', () => {
       ]),
     )
     expect(usage).toHaveLength(4)
+  })
+
+  it('sums the count on pre-aggregated edge_read events', () => {
+    const h0 = 1_700_000 * HOUR
+    const events = [
+      auditEvent({ at: h0 + 1, resourceType: 'edge_read', count: 40 }),
+      auditEvent({ at: h0 + 2, resourceType: 'edge_read', count: 60 }),
+      auditEvent({ at: h0 + 3, resourceType: 'config' }), // count omitted → 1
+    ]
+    const usage = aggregateUsage(events, h0, h0 + HOUR)
+    expect(usage).toEqual(
+      expect.arrayContaining([
+        { hourStart: h0, meter: 'edge_reads', workspaceId: 'ws-1', count: 100 },
+        { hourStart: h0, meter: 'config_writes', workspaceId: 'ws-1', count: 1 },
+      ]),
+    )
   })
 })
 

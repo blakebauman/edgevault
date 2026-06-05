@@ -126,13 +126,21 @@ billing/metering plane:
    Portal (invoices, payment method, cancel). `enterprise` is deliberately
    sales-led: grant it via §3, never via Checkout. Self-host deployments without
    the console's `BILLING_SERVICE` binding show the license-key note instead.
-5. Create **Billing Meters** whose event names match the meters the cron
-   reports: `config_writes` (config + flag mutations) and `secret_operations`
-   (secret lifecycle incl. reveals). The hourly cron aggregates the durable
-   audit pipeline (R2 NDJSON) per fully-elapsed UTC hour and reports
-   idempotently (deterministic event `identifier`s + a Neon watermark that only
-   advances on full acceptance). Orgs without a `stripe_customers` row are
-   skipped. Note: **edge reads and MAU are not metered** — they are not audit
-   events; billing them needs a delivery-side counter (future work).
+5. Create **Billing Meters** whose event names match the four the cron reports:
+   - `config_writes` — config + flag mutations.
+   - `secret_operations` — secret lifecycle incl. reveals.
+   - `edge_reads` — config/flag reads served by the delivery worker. Reads are
+     **pre-aggregated per isolate** in the delivery worker and flushed (off the
+     response path) onto the same audit queue as count-carrying events, so they
+     ride the same hourly pipeline without one event per read.
+   - `mau` — monthly active users (distinct users with an active session in a
+     UTC month, per org). Reported **once per fully-elapsed month** with a
+     per-month idempotent `identifier`, computed directly from Neon (not the
+     audit pipeline, since MAU is a distinct count).
+
+   `config_writes`/`secret_operations`/`edge_reads` aggregate the durable audit
+   pipeline (R2 NDJSON) per fully-elapsed UTC hour; all reports are idempotent
+   (deterministic event `identifier`s + per-source Neon watermarks that only
+   advance on full acceptance). Orgs without a `stripe_customers` row are skipped.
 
 See [`edge/README.md`](edge/README.md) for the control-plane details.
