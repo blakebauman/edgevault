@@ -24,7 +24,7 @@ export function VaultMark({ size = 22 }: { size?: number }) {
  * root layout on every page; account links only when a session exists. */
 export function TopBar({ authed }: { authed: boolean }) {
   return (
-    <header className="flex h-13 items-center justify-between gap-4 border-b border-border bg-card px-6">
+    <header className="flex min-h-13 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-card px-6 py-2 max-sm:px-4">
       <Link
         to="/"
         className="flex items-center gap-2 text-foreground no-underline"
@@ -33,7 +33,7 @@ export function TopBar({ authed }: { authed: boolean }) {
         <VaultMark />
         <span className="font-display text-base font-semibold tracking-tight">EdgeVault</span>
       </Link>
-      <nav className="flex items-center gap-5" aria-label="Account">
+      <nav className="flex items-center gap-5 max-sm:gap-3" aria-label="Account">
         <a
           href="https://edgevault.io/docs"
           className="text-sm text-muted-foreground no-underline hover:text-accent"
