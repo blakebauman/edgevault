@@ -38,14 +38,18 @@ type ChatTurnRow = {
   created_at: number
 }
 
-function describeEvent(event: ActivityEntry): string {
-  const who = event.userId ? ` by ${event.userId}` : ''
+function describeEvent(event: ActivityEntry, names: Map<string, string>): string {
+  const actor = event.userId ? (names.get(event.userId) ?? event.userId) : null
+  const who = actor ? ` by ${actor}` : ''
   return `- ${event.action} ${event.resourceType} "${event.resourceId}"${who}`
 }
 
-function fallbackAnswer(events: ActivityEntry[]): string {
+function fallbackAnswer(events: ActivityEntry[], names: Map<string, string>): string {
   if (events.length === 0) return 'No recent activity has been recorded for this workspace yet.'
-  const recent = events.slice(0, 6).map(describeEvent).join('\n')
+  const recent = events
+    .slice(0, 6)
+    .map((event) => describeEvent(event, names))
+    .join('\n')
   return `Here are the most recent changes in this workspace:\n${recent}`
 }
 
@@ -71,10 +75,30 @@ export class EdgeVaultAgent extends DurableObject<Env> {
     ) as DurableObjectStub<WorkspaceDurableObject>
     const events = await workspace.listActivity(25)
 
+    // The model (and the fallback) speak about people, not UUIDs — resolve
+    // actor ids to names before anything reaches a prompt. Best-effort: on
+    // lookup failure the ids degrade through gracefully.
+    let names = new Map<string, string>()
+    const ids = [...new Set(events.map((e) => e.userId).filter((id): id is string => !!id))]
+    if (ids.length > 0) {
+      try {
+        const { createDatabase } = await import('@edgevault/database')
+        const conn = createDatabase(this.env.HYPERDRIVE.connectionString)
+        try {
+          const { getUserDisplayNames } = await import('../database/queries')
+          names = await getUserDisplayNames(conn.database, ids)
+        } finally {
+          this.ctx.waitUntil(conn.close())
+        }
+      } catch {
+        // names stay empty; raw ids are still meaningful to admins
+      }
+    }
+
     let answer = ''
     let source: 'ai' | 'fallback' = 'fallback'
     try {
-      const context = events.map(describeEvent).join('\n')
+      const context = events.map((event) => describeEvent(event, names)).join('\n')
       const result = (await aiRunner(this.env).run(textModel(this.env), {
         messages: [
           {
@@ -89,7 +113,7 @@ export class EdgeVaultAgent extends DurableObject<Env> {
       if (!answer) throw new Error('empty response')
       source = 'ai'
     } catch {
-      answer = fallbackAnswer(events)
+      answer = fallbackAnswer(events, names)
       source = 'fallback'
     }
 

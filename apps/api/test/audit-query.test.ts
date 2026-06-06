@@ -47,7 +47,7 @@ describe('daysInRange', () => {
 
 describe('queryAuditHistory', () => {
   it('returns the workspace events in range, newest first, excluding other workspaces', async () => {
-    const events = await queryAuditHistory(bucket, { workspaceId: 'ws-1', now: NOW })
+    const { events } = await queryAuditHistory(bucket, { workspaceId: 'ws-1', now: NOW })
     const keys = events.map((e) => e.key)
     expect(keys).toEqual(['today-2', 'today-1', 'older']) // newest first; default 7-day window
     expect(keys).not.toContain('other-ws')
@@ -55,7 +55,7 @@ describe('queryAuditHistory', () => {
   })
 
   it('filters by environment', async () => {
-    const events = await queryAuditHistory(bucket, {
+    const { events } = await queryAuditHistory(bucket, {
       workspaceId: 'ws-1',
       environmentId: 'prod',
       now: NOW,
@@ -64,7 +64,7 @@ describe('queryAuditHistory', () => {
   })
 
   it('honors an explicit range and limit', async () => {
-    const events = await queryAuditHistory(bucket, {
+    const { events } = await queryAuditHistory(bucket, {
       workspaceId: 'ws-1',
       from: '2026-05-01',
       to: '2026-06-04',

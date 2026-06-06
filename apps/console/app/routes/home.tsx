@@ -1,4 +1,4 @@
-import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
+import { Button, CardTable, Chip, ErrorNote, Field, Input, Td, Th } from '@edgevault/ui'
 import { Form, Link } from 'react-router'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
@@ -13,7 +13,7 @@ interface Org {
   name: string
   slug: string
   role: string
-  workspaces: Array<{ id: string; name: string; slug: string }>
+  workspaces: Array<{ id: string; name: string; slug: string; environments: number }>
 }
 
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -29,15 +29,33 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const { organizations } = (await res.json()) as {
     organizations: Array<{ id: string; name: string; slug: string; role: string }>
   }
+  const headers = { authorization: `Bearer ${token}` }
   const orgs = await Promise.all(
     organizations.map(async (org): Promise<Org> => {
       const wsRes = await env.API_SERVICE.fetch(
         `https://api/api/v1/organizations/${org.id}/workspaces`,
-        { headers: { authorization: `Bearer ${token}` } },
+        { headers },
       )
-      const workspaces = wsRes.ok
-        ? ((await wsRes.json()) as { workspaces: Org['workspaces'] }).workspaces
+      const rows = wsRes.ok
+        ? (
+            (await wsRes.json()) as {
+              workspaces: Array<{ id: string; name: string; slug: string }>
+            }
+          ).workspaces
         : []
+      // Environment counts make the rows informative — parallel, one DO hop each.
+      const workspaces = await Promise.all(
+        rows.map(async (ws) => {
+          const envRes = await env.API_SERVICE.fetch(
+            `https://api/api/v1/workspaces/${ws.id}/environments`,
+            { headers },
+          )
+          const environments = envRes.ok
+            ? ((await envRes.json()) as { environments: unknown[] }).environments.length
+            : 0
+          return { ...ws, environments }
+        }),
+      )
       return { ...org, workspaces }
     }),
   )
@@ -101,6 +119,23 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
         <header className="panel-head">
           <h1>Your workspaces</h1>
         </header>
+        {loaderData.orgs.length > 0 && (
+          <details className="create-inline">
+            <summary>New organization</summary>
+            <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+              <input type="hidden" name="intent" value="create-org" />
+              <Field label="Name">
+                <Input type="text" name="name" required placeholder="Acme Inc" />
+              </Field>
+              <Field label="Slug">
+                <Input type="text" name="slug" required placeholder="acme" />
+              </Field>
+              <Button type="submit" className="self-start">
+                Create organization
+              </Button>
+            </Form>
+          </details>
+        )}
         {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
         {loaderData.orgs.length === 0 && (
           <div className="max-w-xl">
@@ -134,42 +169,83 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           </div>
         )}
         {loaderData.orgs.map((org) => (
-          <div key={org.id} className="org">
-            <div className="panel-head">
-              <h2>{org.name}</h2>
+          <section key={org.id} className="org mt-8">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h2 className="m-0 text-lg">{org.name}</h2>
+              <Chip variant="neutral">{org.role}</Chip>
               {/* Admin doors only for those who can open them — members see
                   no affordances that 403. */}
               {(org.role === 'owner' || org.role === 'admin') && (
-                <span className="org-links">
-                  <Link to={`/orgs/${org.id}/billing`} className="text-muted-foreground">
-                    Billing →
+                <span className="font-mono text-xs text-muted-foreground">
+                  settings:{' '}
+                  <Link
+                    to={`/orgs/${org.id}/billing`}
+                    className="text-muted-foreground hover:text-accent"
+                  >
+                    billing
                   </Link>
-                  <Link to={`/orgs/${org.id}/sso`} className="text-muted-foreground">
-                    OIDC →
+                  {' · '}
+                  <Link
+                    to={`/orgs/${org.id}/sso`}
+                    className="text-muted-foreground hover:text-accent"
+                  >
+                    oidc
                   </Link>
-                  <Link to={`/orgs/${org.id}/saml`} className="text-muted-foreground">
-                    SAML →
+                  {' · '}
+                  <Link
+                    to={`/orgs/${org.id}/saml`}
+                    className="text-muted-foreground hover:text-accent"
+                  >
+                    saml
                   </Link>
-                  <Link to={`/orgs/${org.id}/scim`} className="text-muted-foreground">
-                    SCIM →
+                  {' · '}
+                  <Link
+                    to={`/orgs/${org.id}/scim`}
+                    className="text-muted-foreground hover:text-accent"
+                  >
+                    scim
                   </Link>
                 </span>
               )}
             </div>
-            <ul className="ws-list">
-              {org.workspaces.map((ws) => (
-                <li key={ws.id}>
-                  <Link to={`/dashboard/${ws.id}`}>{ws.name}</Link>
-                  <span className="text-muted-foreground"> /{ws.slug}</span>
-                </li>
-              ))}
-              {org.workspaces.length === 0 && (
-                <li className="text-muted-foreground">
-                  No workspaces yet — step 2: create one below. Environments, configs, and the audit
-                  trail all live inside it.
-                </li>
-              )}
-            </ul>
+            {org.workspaces.length > 0 ? (
+              <div className="mt-3">
+                <CardTable label={`${org.name} workspaces`}>
+                  <thead>
+                    <tr>
+                      <Th>Workspace</Th>
+                      <Th>Environments</Th>
+                      <Th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {org.workspaces.map((ws) => (
+                      <tr key={ws.id}>
+                        <Td>
+                          <Link to={`/dashboard/${ws.id}`}>{ws.name}</Link>{' '}
+                          <span className="font-mono text-sm text-muted-foreground">
+                            /{ws.slug}
+                          </span>
+                        </Td>
+                        <Td label="Environments" className="text-muted-foreground">
+                          {ws.environments}
+                        </Td>
+                        <Td>
+                          <Button variant="secondary" size="compact" asChild>
+                            <Link to={`/dashboard/${ws.id}`}>Open →</Link>
+                          </Button>
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </CardTable>
+              </div>
+            ) : (
+              <p className="mt-3 max-w-prose text-sm text-muted-foreground">
+                No workspaces yet — step 2: create one below. Environments, configs, and the audit
+                trail all live inside it.
+              </p>
+            )}
             <details className="create-inline" open={org.workspaces.length === 0}>
               <summary>New workspace</summary>
               <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
@@ -186,25 +262,8 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                 </Button>
               </Form>
             </details>
-          </div>
+          </section>
         ))}
-        {loaderData.orgs.length > 0 && (
-          <details className="create-inline">
-            <summary>New organization</summary>
-            <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
-              <input type="hidden" name="intent" value="create-org" />
-              <Field label="Name">
-                <Input type="text" name="name" required placeholder="Acme Inc" />
-              </Field>
-              <Field label="Slug">
-                <Input type="text" name="slug" required placeholder="acme" />
-              </Field>
-              <Button type="submit" className="self-start">
-                Create organization
-              </Button>
-            </Form>
-          </details>
-        )}
       </section>
     </main>
   )

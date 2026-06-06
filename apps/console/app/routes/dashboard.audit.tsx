@@ -2,6 +2,7 @@ import { Button, CardTable, Chip, ErrorNote, Field, Input, Select, Td, Th } from
 import { Form, Link, redirect } from 'react-router'
 import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
+import { friendlyError } from '../lib/errors'
 import { humanizeAction } from '../lib/format'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
@@ -61,9 +62,13 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     ? ((await envsRes.json()) as { environments: EnvironmentSummary[] }).environments
     : []
   let events: AuditEventRow[] = []
+  let total = 0
   let auditError: string | null = null
-  if (auditRes.ok) events = ((await auditRes.json()) as { events: AuditEventRow[] }).events
-  else auditError = `The audit warehouse is unavailable right now (${auditRes.status}).`
+  if (auditRes.ok) {
+    const body = (await auditRes.json()) as { events: AuditEventRow[]; total?: number }
+    events = body.events
+    total = body.total ?? body.events.length
+  } else auditError = friendlyError(auditRes.status, 'querying the audit warehouse')
 
   // Preset ranges, computed server-side (the worker's clock, UTC).
   const today = new Date().toISOString().slice(0, 10)
@@ -74,6 +79,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     workspaceName,
     environments,
     events,
+    total,
     auditError,
     from,
     to,
@@ -92,6 +98,7 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
     workspaceName,
     environments,
     events,
+    total,
     auditError,
     from,
     to,
@@ -165,7 +172,7 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
         {!auditError && (
           <>
             <p className="mb-3 text-sm tabular-nums text-muted-foreground">
-              {events.length} event{events.length === 1 ? '' : 's'}
+              Showing {events.length} of {total} event{total === 1 ? '' : 's'} in range
               {events.length >= 1000 ? ' — the 1000-per-query cap; narrow the range' : ''}
             </p>
             <CardTable label="Audit events">
@@ -212,7 +219,7 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
                 )}
               </tbody>
             </CardTable>
-            {events.length === limit && limit < 1000 && (
+            {total > events.length && limit < 1000 && (
               <Button variant="secondary" size="compact" asChild className="mt-3">
                 <Link to={`?${moreParams}`}>Show 200 more</Link>
               </Button>

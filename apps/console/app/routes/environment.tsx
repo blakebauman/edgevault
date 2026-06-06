@@ -437,7 +437,19 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
         <CardTable label="Items">
           <thead>
             <tr>
-              <Th aria-label="Select" />
+              <Th>
+                <Checkbox
+                  checked={selected.size === configs.length && configs.length > 0}
+                  onChange={() =>
+                    setSelected(
+                      selected.size === configs.length
+                        ? new Set()
+                        : new Set(configs.map((c) => c.key)),
+                    )
+                  }
+                  aria-label="Select all keys"
+                />
+              </Th>
               <Th>Key</Th>
               <Th>Kind</Th>
               <Th>Version</Th>

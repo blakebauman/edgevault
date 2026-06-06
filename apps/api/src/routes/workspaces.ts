@@ -467,7 +467,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
   // Cold audit history from the R2 warehouse (infinite retention). ?from&to are
   // YYYY-MM-DD (default last 7 days); ?env restricts to one environment.
   .get('/:workspaceId/audit', async (c) => {
-    const events = await queryAuditHistory(c.env.AUDIT_BUCKET, {
+    const { events, total } = await queryAuditHistory(c.env.AUDIT_BUCKET, {
       workspaceId: c.req.param('workspaceId'),
       from: c.req.query('from'),
       to: c.req.query('to'),
@@ -479,6 +479,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const actors = await getUserDisplayNames(c.var.database, ids)
     return c.json({
       events: events.map((e) => ({ ...e, actor: actors.get(e.userId) ?? null })),
+      total,
     })
   })
 

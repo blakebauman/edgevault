@@ -49,7 +49,7 @@ export interface AuditQuery {
 export async function queryAuditHistory(
   bucket: R2Bucket,
   query: AuditQuery,
-): Promise<AuditEvent[]> {
+): Promise<{ events: AuditEvent[]; total: number }> {
   const limit = Math.min(Math.max(query.limit ?? 100, 1), 1000)
   const now = query.now ?? Date.now()
   const to = query.to && isYmd(query.to) ? query.to : new Date(now).toISOString().slice(0, 10)
@@ -85,5 +85,5 @@ export async function queryAuditHistory(
   }
 
   events.sort((a, b) => b.at - a.at)
-  return events.slice(0, limit)
+  return { events: events.slice(0, limit), total: events.length }
 }
