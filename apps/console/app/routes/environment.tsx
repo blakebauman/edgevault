@@ -209,6 +209,28 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return { mintedKey: apiKey }
   }
 
+  if (intent === 'bulk-delete') {
+    const keys = String(form.get('keys') ?? '')
+      .split('\n')
+      .filter(Boolean)
+    let deleted = 0
+    const failures: string[] = []
+    // Sequential on purpose: each delete validates references against the
+    // post-state of the previous one.
+    for (const key of keys) {
+      const res = await api(
+        env,
+        token,
+        `${base}/environments/${params.envId}/configs/${encodeURIComponent(key)}`,
+        { method: 'DELETE' },
+      )
+      if (res.ok) deleted += 1
+      else if (res.status === 409) failures.push(`"${key}" is still referenced`)
+      else failures.push(`"${key}" failed`)
+    }
+    return { bulkDeleted: { count: deleted, failures } }
+  }
+
   if (intent === 'restore') {
     const key = String(form.get('key'))
     const res = await api(
@@ -265,11 +287,20 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
   const busy = navigation.state !== 'idle'
   const [searchParams] = useSearchParams()
   const [editing, setEditing] = useState<ConfigRow | null>(null)
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (key: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
   const error = actionData && 'error' in actionData ? actionData.error : null
   const saved = actionData && 'saved' in actionData ? actionData.saved : null
   const deleted = actionData && 'deleted' in actionData ? actionData.deleted : null
   const restored = actionData && 'restored' in actionData ? actionData.restored : null
+  const bulkDeleted = actionData && 'bulkDeleted' in actionData ? actionData.bulkDeleted : null
   const mintedKey = actionData && 'mintedKey' in actionData ? actionData.mintedKey : null
   const reverted = actionData && 'reverted' in actionData ? actionData.reverted : false
 
@@ -326,6 +357,15 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
             Restored "{restored.key}" — now v{restored.version}, live at the edge in seconds.
           </StatusNote>
         )}
+        {bulkDeleted && (
+          <StatusNote>
+            Deleted {bulkDeleted.count} key{bulkDeleted.count === 1 ? '' : 's'} — restorable from
+            Recently deleted below.
+          </StatusNote>
+        )}
+        {bulkDeleted && bulkDeleted.failures.length > 0 && (
+          <ErrorNote>Not deleted: {bulkDeleted.failures.join('; ')}.</ErrorNote>
+        )}
         {reverted && (
           <StatusNote>Reverted — a new revision now carries the old content.</StatusNote>
         )}
@@ -357,9 +397,44 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
         )}
 
         <h2>Items</h2>
+        {selected.size > 0 && (
+          <div className="mb-2 flex min-h-8 flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">{selected.size} selected</span>
+            <TwoStepConfirm
+              trigger="Delete selected"
+              disabled={busy}
+              note={`Delete ${selected.size} key${selected.size === 1 ? '' : 's'} from this environment?`}
+            >
+              {(close) => (
+                <Form
+                  method="post"
+                  onSubmit={() => {
+                    close()
+                    setSelected(new Set())
+                  }}
+                >
+                  <input type="hidden" name="intent" value="bulk-delete" />
+                  <input type="hidden" name="keys" value={[...selected].join('\n')} />
+                  <Button type="submit" variant="danger" size="compact" disabled={busy}>
+                    Confirm delete {selected.size}
+                  </Button>
+                </Form>
+              )}
+            </TwoStepConfirm>
+            <Button
+              type="button"
+              variant="linklike"
+              size="compact"
+              onClick={() => setSelected(new Set())}
+            >
+              Clear
+            </Button>
+          </div>
+        )}
         <CardTable label="Items">
           <thead>
             <tr>
+              <Th aria-label="Select" />
               <Th>Key</Th>
               <Th>Kind</Th>
               <Th>Version</Th>
@@ -370,6 +445,13 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
           <tbody>
             {configs.map((item) => (
               <tr key={item.key}>
+                <Td>
+                  <Checkbox
+                    checked={selected.has(item.key)}
+                    onChange={() => toggle(item.key)}
+                    aria-label={`Select ${item.key}`}
+                  />
+                </Td>
                 <Td className="font-mono text-sm">{item.key}</Td>
                 <Td label="Kind">
                   <Chip variant={`kind-${item.kind}`}>{item.kind}</Chip>
@@ -392,7 +474,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
             ))}
             {configs.length === 0 && (
               <tr>
-                <Td colSpan={5} className="text-muted-foreground">
+                <Td colSpan={6} className="text-muted-foreground">
                   Nothing here yet. Add your first config, flag, or secret below — it's live at the
                   edge seconds after saving. Then mint an API key (bottom of the page) and read it
                   from your code with the SDK or CLI.

@@ -1,6 +1,7 @@
 import {
   Button,
   CardTable,
+  Checkbox,
   Chip,
   type ChipVariant,
   ErrorNote,
@@ -11,6 +12,7 @@ import {
   Th,
   TwoStepConfirm,
 } from '@edgevault/ui'
+import { useState } from 'react'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
@@ -98,6 +100,30 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   if (!token) throw redirect('/login')
 
   const form = await request.formData()
+
+  if (String(form.get('intent')) === 'bulk-promote') {
+    const sourceEnvironmentId = String(form.get('sourceEnvironmentId') ?? '')
+    const targetEnvironmentId = String(form.get('targetEnvironmentId') ?? '')
+    const keys = String(form.get('keys') ?? '')
+      .split('\n')
+      .filter(Boolean)
+    let started = 0
+    const failures: string[] = []
+    for (const key of keys) {
+      const res = await context.cloudflare.env.API_SERVICE.fetch(
+        `https://api/api/v1/workspaces/${params.workspaceId}/promotion-workflows`,
+        {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ sourceEnvironmentId, targetEnvironmentId, key }),
+        },
+      )
+      if (res.ok) started += 1
+      else failures.push(`"${key}"`)
+    }
+    return { bulkStarted: { count: started, failures } }
+  }
+
   const body = {
     sourceEnvironmentId: String(form.get('sourceEnvironmentId') ?? ''),
     targetEnvironmentId: String(form.get('targetEnvironmentId') ?? ''),
@@ -151,6 +177,16 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
   const source = searchParams.get('source') ?? ''
   const target = searchParams.get('target') ?? ''
   const envName = (id: string) => environments.find((e) => e.id === id)?.slug ?? id
+  const bulkStarted =
+    actionData && 'bulkStarted' in actionData ? (actionData.bulkStarted ?? null) : null
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (key: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
 
   return (
     <main className="shell">
@@ -192,6 +228,14 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
 
         {compareError && <ErrorNote>{compareError}</ErrorNote>}
         {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
+        {bulkStarted && (
+          <StatusNote>
+            Started {bulkStarted.count} promotion
+            {bulkStarted.count === 1 ? '' : 's'} — each runs the risk scan; risky targets park for
+            approval on the dashboard.
+            {bulkStarted.failures.length > 0 && ` Not started: ${bulkStarted.failures.join(', ')}.`}
+          </StatusNote>
+        )}
         {actionData && 'started' in actionData && (
           <StatusNote>
             Promotion of "{actionData.started}" started — it applies in seconds, or parks for
@@ -207,9 +251,59 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
               {comparison.summary.onlyInTarget} only in target · {comparison.summary.notComparable}{' '}
               secrets not compared
             </p>
+            {selected.size > 0 && (
+              <div className="mb-2 flex min-h-8 flex-wrap items-center gap-2">
+                <span className="text-sm text-muted-foreground">{selected.size} selected</span>
+                <TwoStepConfirm
+                  trigger={`Promote ${selected.size} → /${envName(comparison.targetEnvironmentId)}`}
+                  disabled={navigation.state !== 'idle'}
+                  note={`Promote ${selected.size} key${selected.size === 1 ? '' : 's'} to /${envName(comparison.targetEnvironmentId)}? Each runs the risk scan first.`}
+                >
+                  {(close) => (
+                    <Form
+                      method="post"
+                      onSubmit={() => {
+                        close()
+                        setSelected(new Set())
+                      }}
+                    >
+                      <input type="hidden" name="intent" value="bulk-promote" />
+                      <input type="hidden" name="keys" value={[...selected].join('\n')} />
+                      <input
+                        type="hidden"
+                        name="sourceEnvironmentId"
+                        value={comparison.sourceEnvironmentId}
+                      />
+                      <input
+                        type="hidden"
+                        name="targetEnvironmentId"
+                        value={comparison.targetEnvironmentId}
+                      />
+                      <Button
+                        type="submit"
+                        variant="danger"
+                        size="compact"
+                        disabled={navigation.state !== 'idle'}
+                      >
+                        Confirm {selected.size} → /{envName(comparison.targetEnvironmentId)}
+                      </Button>
+                    </Form>
+                  )}
+                </TwoStepConfirm>
+                <Button
+                  type="button"
+                  variant="linklike"
+                  size="compact"
+                  onClick={() => setSelected(new Set())}
+                >
+                  Clear
+                </Button>
+              </div>
+            )}
             <CardTable label="Comparison">
               <thead>
                 <tr>
+                  <Th aria-label="Select" />
                   <Th>Key</Th>
                   <Th>Status</Th>
                   <Th>{envName(comparison.sourceEnvironmentId)}</Th>
@@ -221,6 +315,15 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
               <tbody>
                 {comparison.entries.map((entry) => (
                   <tr key={entry.key}>
+                    <Td>
+                      {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
+                        <Checkbox
+                          checked={selected.has(entry.key)}
+                          onChange={() => toggle(entry.key)}
+                          aria-label={`Select ${entry.key}`}
+                        />
+                      )}
+                    </Td>
                     <Td className="font-mono text-sm">{entry.key}</Td>
                     <Td label="Status">
                       <Chip
@@ -264,7 +367,7 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
                 ))}
                 {comparison.entries.length === 0 && (
                   <tr>
-                    <Td colSpan={6} className="text-muted-foreground">
+                    <Td colSpan={7} className="text-muted-foreground">
                       Both environments are empty.
                     </Td>
                   </tr>

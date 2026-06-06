@@ -41,11 +41,13 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const to = url.searchParams.get('to') ?? ''
   const envId = url.searchParams.get('env') ?? ''
 
+  // "Show more" grows the limit; the API caps at 1000 per query.
+  const limit = Math.min(Number(url.searchParams.get('limit')) || 200, 1000)
   const query = new URLSearchParams()
   if (from) query.set('from', from)
   if (to) query.set('to', to)
   if (envId) query.set('env', envId)
-  query.set('limit', '200')
+  query.set('limit', String(limit))
 
   const [workspaceName, envsRes, auditRes] = await Promise.all([
     getWorkspaceName(env, token, params.workspaceId),
@@ -75,6 +77,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     from,
     to,
     envId,
+    limit,
     presets: [
       { label: 'Last 7 days', from: daysAgo(6), to: today },
       { label: 'Last 30 days', from: daysAgo(29), to: today },
@@ -83,8 +86,23 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 }
 
 export default function AuditHistory({ loaderData }: Route.ComponentProps) {
-  const { workspaceId, workspaceName, environments, events, auditError, from, to, envId, presets } =
-    loaderData
+  const {
+    workspaceId,
+    workspaceName,
+    environments,
+    events,
+    auditError,
+    from,
+    to,
+    envId,
+    limit,
+    presets,
+  } = loaderData
+  const moreParams = new URLSearchParams()
+  if (from) moreParams.set('from', from)
+  if (to) moreParams.set('to', to)
+  if (envId) moreParams.set('env', envId)
+  moreParams.set('limit', String(limit + 200))
   const envSlug = (id?: string) =>
     id ? (environments.find((e) => e.id === id)?.slug ?? id.slice(0, 8)) : null
 
@@ -143,7 +161,7 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
           <>
             <p className="mb-3 text-sm tabular-nums text-muted-foreground">
               {events.length} event{events.length === 1 ? '' : 's'}
-              {events.length === 200 ? ' (showing the most recent 200 — narrow the range)' : ''}
+              {events.length >= 1000 ? ' — the 1000-per-query cap; narrow the range' : ''}
             </p>
             <CardTable label="Audit events">
               <thead>
@@ -189,6 +207,11 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
                 )}
               </tbody>
             </CardTable>
+            {events.length === limit && limit < 1000 && (
+              <Button variant="secondary" size="compact" asChild className="mt-3">
+                <Link to={`?${moreParams}`}>Show 200 more</Link>
+              </Button>
+            )}
           </>
         )}
       </section>
