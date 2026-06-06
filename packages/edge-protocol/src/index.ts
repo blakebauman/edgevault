@@ -21,6 +21,14 @@ export interface ApiKeyRecord {
   scopes: string[]
 }
 
+/**
+ * Valid config/flag/secret key: the character set `${...}` references can name
+ * (packages/refs) and that composes safely into the `config:{ws}:{env}:{key}`
+ * cache key below. Enforced at every write surface (HTTP, MCP).
+ */
+export const CONFIG_KEY_PATTERN = /^[a-zA-Z0-9._-]+$/
+export const MAX_CONFIG_KEY_LENGTH = 256
+
 /** `config:{workspaceId}:{environmentId}:{key}` */
 export function configCacheKey(workspaceId: string, environmentId: string, key: string): string {
   return `config:${workspaceId}:${environmentId}:${key}`

@@ -1,10 +1,13 @@
 import { searchConfigs } from '@edgevault/ai'
+import { CONFIG_KEY_PATTERN, MAX_CONFIG_KEY_LENGTH } from '@edgevault/edge-protocol'
 import { hasRefs } from '@edgevault/refs'
 import { z } from 'zod'
 import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
+import { configChangeEvent, emitAudit, promoteEvent, revealEvent } from '../audit'
 import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 import { publishTargets } from '../edge-cache'
+import { dispatchNotifications } from '../notify'
 import { prepareSecretContent, revealSecret } from '../secrets'
 import { defineTool, type McpToolContext } from './server'
 
@@ -16,7 +19,13 @@ function redact(item: ConfigItem): ConfigItem {
   return item.kind === 'secret' ? { ...item, content: '' } : item
 }
 
+function isAdmin(ctx: McpToolContext): boolean {
+  return ctx.role === 'owner' || ctx.role === 'admin'
+}
+
 const kindEnum = ['config', 'flag', 'secret'] as const
+// Same write-time key constraint as the HTTP routes (KV-key and ref safe).
+const keySchema = z.string().min(1).max(MAX_CONFIG_KEY_LENGTH).regex(CONFIG_KEY_PATTERN)
 const objectSchema = (properties: Record<string, unknown>, required: string[] = []) => ({
   type: 'object',
   properties,
@@ -87,7 +96,7 @@ export const edgevaultTools = [
     ),
     schema: z.object({
       environmentId: z.string(),
-      key: z.string(),
+      key: keySchema,
       content: z.string(),
       kind: z.enum(kindEnum).optional(),
       contentType: z.string().optional(),
@@ -107,24 +116,48 @@ export const edgevaultTools = [
       const { targets } = await stub(ctx).collectPublishTargets(item.environmentId, item.key)
       await publishTargets(ctx.env, ctx.workspaceId, targets)
       await indexConfig(ctx.env, ctx.workspaceId, item)
+      // Same cold audit trail + notifications as the HTTP write surface.
+      const changed = configChangeEvent({
+        workspaceId: ctx.workspaceId,
+        environmentId: item.environmentId,
+        kind: item.kind,
+        key: item.key,
+        version: item.version,
+        userId: ctx.userId,
+      })
+      await emitAudit(ctx.env, changed)
+      await dispatchNotifications(ctx.env, changed)
       return redact(item)
     },
   }),
   defineTool({
     name: 'reveal_secret',
-    description: 'Decrypt and return a secret value. Use sparingly.',
+    description: 'Decrypt and return a secret value. Use sparingly. Requires an admin role.',
     inputSchema: objectSchema({ environmentId: { type: 'string' }, key: { type: 'string' } }, [
       'environmentId',
       'key',
     ]),
     schema: z.object({ environmentId: z.string(), key: z.string() }),
     handler: async (args, ctx) => {
+      // Same privilege bar as the HTTP reveal endpoint — workspace membership
+      // alone must never decrypt a secret.
+      if (!isAdmin(ctx)) {
+        return { error: 'forbidden', detail: 'revealing secrets requires admin' }
+      }
       const item = await stub(ctx).getConfig(args.environmentId, args.key)
       if (!item) return { error: 'not_found' }
-      return {
+      const content = await revealSecret(ctx.env, ctx.workspaceId, item)
+      // Reveals always leave a cold audit trail, whichever surface they use.
+      const revealed = revealEvent({
+        workspaceId: ctx.workspaceId,
+        environmentId: args.environmentId,
+        kind: item.kind,
         key: item.key,
-        content: await revealSecret(ctx.env, ctx.workspaceId, item),
-      }
+        userId: ctx.userId,
+      })
+      await emitAudit(ctx.env, revealed)
+      await dispatchNotifications(ctx.env, revealed)
+      return { key: item.key, content }
     },
   }),
   defineTool({
@@ -141,7 +174,7 @@ export const edgevaultTools = [
     schema: z.object({
       sourceEnvironmentId: z.string(),
       targetEnvironmentId: z.string(),
-      key: z.string(),
+      key: keySchema,
     }),
     handler: async (args, ctx) => {
       const promotion = await stub(ctx).promote({
@@ -150,6 +183,16 @@ export const edgevaultTools = [
       })
       const { targets } = await stub(ctx).collectPublishTargets(args.targetEnvironmentId, args.key)
       await publishTargets(ctx.env, ctx.workspaceId, targets)
+      const target = await stub(ctx).getConfig(args.targetEnvironmentId, args.key)
+      const promoted = promoteEvent({
+        workspaceId: ctx.workspaceId,
+        targetEnvironmentId: args.targetEnvironmentId,
+        kind: target?.kind,
+        key: args.key,
+        userId: ctx.userId,
+      })
+      await emitAudit(ctx.env, promoted)
+      await dispatchNotifications(ctx.env, promoted)
       return promotion
     },
   }),

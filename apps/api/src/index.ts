@@ -86,4 +86,12 @@ app.route('/machine', machineRoutes)
 app.use('/mcp/:workspaceId', withDatabase, requireAuth, requireWorkspaceMember)
 app.route('/mcp', mcpRoutes)
 
+// Unhandled errors stay server-side: log the real cause, return a generic body
+// (no message/stack passthrough to clients).
+app.onError((err, c) => {
+  console.error('unhandled error', err)
+  return c.json({ error: 'internal_error' }, 500)
+})
+app.notFound((c) => c.json({ error: 'not_found' }, 404))
+
 export default app

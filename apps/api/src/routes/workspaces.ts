@@ -2,13 +2,13 @@ import { searchConfigs } from '@edgevault/ai'
 import { generateApiKey, generateToken } from '@edgevault/auth'
 import { type ConfigFormat, isConfigFormat, validateContent } from '@edgevault/config-formats'
 import { encryptSecret } from '@edgevault/crypto'
-import { NOTIFY_ACTIONS } from '@edgevault/edge-protocol'
+import { CONFIG_KEY_PATTERN, MAX_CONFIG_KEY_LENGTH, NOTIFY_ACTIONS } from '@edgevault/edge-protocol'
 import { hasRefs } from '@edgevault/refs'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 import { aiRunner, embeddingModel, indexConfig, unindexConfig, vectorize } from '../ai'
-import { emitAudit } from '../audit'
+import { configChangeEvent, emitAudit, promoteEvent, revealEvent } from '../audit'
 import { queryAuditHistory } from '../audit-query'
 import type { AppEnv } from '../context'
 import {
@@ -24,6 +24,7 @@ import type { ConfigItem } from '../durable-objects/types'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 import { deleteThrough, publishApiKey, publishTargets } from '../edge-cache'
 import { buildNotifyJob, dispatchNotifications, invalidateChannelCache } from '../notify'
+import { enforceRateLimit } from '../rate-limit'
 import { prepareSecretContent, revealSecret } from '../secrets'
 
 /**
@@ -47,8 +48,15 @@ function redact(item: ConfigItem): ConfigItem {
 
 const kindSchema = z.enum(['config', 'flag', 'secret'])
 
+// Keys compose into KV cache keys and ${...} references — constrain at write time.
+const keySchema = z
+  .string()
+  .min(1)
+  .max(MAX_CONFIG_KEY_LENGTH)
+  .regex(CONFIG_KEY_PATTERN, 'key may only contain letters, digits, ".", "_" and "-"')
+
 const setConfigSchema = z.object({
-  key: z.string().min(1),
+  key: keySchema,
   content: z.string(),
   kind: kindSchema.optional(),
   contentType: z.string().optional(),
@@ -58,8 +66,30 @@ const setConfigSchema = z.object({
 const promoteSchema = z.object({
   sourceEnvironmentId: z.string().min(1),
   targetEnvironmentId: z.string().min(1),
-  key: z.string().min(1),
+  key: keySchema,
 })
+
+/**
+ * SSRF guard for notification destinations: public https hosts only. Workers
+ * have no privileged network position, so this stays a lightweight hostname
+ * check (no DNS resolution) — it rejects the obviously-internal shapes.
+ */
+export function isPublicWebhookUrl(raw: string): boolean {
+  let url: URL
+  try {
+    url = new URL(raw)
+  } catch {
+    return false
+  }
+  if (url.protocol !== 'https:') return false
+  const host = url.hostname.toLowerCase()
+  if (host === 'localhost' || host.endsWith('.localhost')) return false
+  if (host.endsWith('.local') || host.endsWith('.internal')) return false
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return false // IPv4 literal
+  if (host.includes(':') || host.startsWith('[')) return false // IPv6 literal
+  if (!host.includes('.')) return false // bare/intranet hostname
+  return true
+}
 
 const channelSchema = z.object({
   type: z.enum(['webhook', 'slack']),
@@ -68,7 +98,7 @@ const channelSchema = z.object({
     .string()
     .url()
     .max(2048)
-    .refine((u) => u.startsWith('https://'), 'webhook URLs must be https'),
+    .refine(isPublicWebhookUrl, 'webhook URL must be a public https host'),
   events: z.array(z.enum(NOTIFY_ACTIONS)).max(NOTIFY_ACTIONS.length).optional(),
 })
 
@@ -205,14 +235,14 @@ export const workspaceRoutes = new Hono<AppEnv>()
       if (config.kind !== 'secret') {
         c.executionCtx.waitUntil(indexConfig(c.env, workspaceId, config))
       }
-      const changeEvent = {
+      const changeEvent = configChangeEvent({
         workspaceId,
         environmentId: config.environmentId,
-        action: config.version === 1 ? 'config.created' : 'config.updated',
-        resourceType: config.kind,
+        kind: config.kind,
         key: config.key,
+        version: config.version,
         userId: c.var.userId,
-      }
+      })
       c.executionCtx.waitUntil(emitAudit(c.env, changeEvent))
       c.executionCtx.waitUntil(dispatchNotifications(c.env, changeEvent))
       return c.json({ config: redact(config) }, 201)
@@ -326,16 +356,15 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const value = await revealSecret(c.env, c.req.param('workspaceId'), item)
     // Revealing a secret is the single most sensitive action in the product —
     // always leave an audit trail (who, what, where), regardless of outcome.
-    const revealEvent = {
+    const revealed = revealEvent({
       workspaceId: c.req.param('workspaceId'),
       environmentId: c.req.param('envId'),
-      action: 'secret.revealed',
-      resourceType: item.kind,
+      kind: item.kind,
       key: item.key,
       userId: c.var.userId,
-    }
-    c.executionCtx.waitUntil(emitAudit(c.env, revealEvent))
-    c.executionCtx.waitUntil(dispatchNotifications(c.env, revealEvent))
+    })
+    c.executionCtx.waitUntil(emitAudit(c.env, revealed))
+    c.executionCtx.waitUntil(dispatchNotifications(c.env, revealed))
     return c.json({ key: item.key, kind: item.kind, content: value })
   })
   .get('/:workspaceId/environments/:envId/configs/:key/revisions', async (c) => {
@@ -379,16 +408,15 @@ export const workspaceRoutes = new Hono<AppEnv>()
       })
       const target = await stubFor(c, workspaceId).getConfig(body.targetEnvironmentId, body.key)
       if (target) c.executionCtx.waitUntil(publishWithDependents(c, workspaceId, target))
-      const promoteEvent = {
+      const promoted = promoteEvent({
         workspaceId,
-        environmentId: body.targetEnvironmentId,
-        action: 'config.promoted',
-        resourceType: target?.kind ?? 'config',
+        targetEnvironmentId: body.targetEnvironmentId,
+        kind: target?.kind,
         key: body.key,
         userId: c.var.userId,
-      }
-      c.executionCtx.waitUntil(emitAudit(c.env, promoteEvent))
-      c.executionCtx.waitUntil(dispatchNotifications(c.env, promoteEvent))
+      })
+      c.executionCtx.waitUntil(emitAudit(c.env, promoted))
+      c.executionCtx.waitUntil(dispatchNotifications(c.env, promoted))
       return c.json({ promotion }, 201)
     } catch (error) {
       // e.g. promoting "${HOST}" into an env that has no HOST yet.
@@ -487,6 +515,9 @@ export const workspaceRoutes = new Hono<AppEnv>()
   .get('/:workspaceId/search', async (c) => {
     const query = c.req.query('q')
     if (!query) return c.json({ error: 'missing_query' }, 400)
+    // Embedding + Vectorize work is metered upstream — cap per user.
+    const limited = await enforceRateLimit(c, c.env.AI_USER_LIMITER, `ai:${c.var.userId}`)
+    if (limited) return limited
     const hits = await searchConfigs(
       {
         ai: aiRunner(c.env),
@@ -508,6 +539,9 @@ export const workspaceRoutes = new Hono<AppEnv>()
     '/:workspaceId/assistant',
     zValidator('json', z.object({ question: z.string().min(1).max(1000) })),
     async (c) => {
+      // Each question runs a text model — same per-user cap as /search.
+      const limited = await enforceRateLimit(c, c.env.AI_USER_LIMITER, `ai:${c.var.userId}`)
+      if (limited) return limited
       const workspaceId = c.req.param('workspaceId')
       const agent = c.env.AGENT.get(c.env.AGENT.idFromName(workspaceId))
       const result = await agent.ask({

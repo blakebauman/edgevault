@@ -1,10 +1,11 @@
 import { env } from 'cloudflare:test'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { WorkspaceDurableObject } from '../src/durable-objects/workspace'
 import { handleMcpMessage, type McpToolContext } from '../src/mcp/server'
 import { edgevaultTools } from '../src/mcp/tools'
 
-const ctx: McpToolContext = { env, workspaceId: 'mcp-ws', userId: 'mcp-user' }
+// Admin context: reveal_secret carries the same owner/admin bar as HTTP reveal.
+const ctx: McpToolContext = { env, workspaceId: 'mcp-ws', userId: 'mcp-user', role: 'admin' }
 
 // biome-ignore lint/suspicious/noExplicitAny: test reads into JSON-RPC result shapes
 function call(message: Record<string, unknown>): Promise<{ status: number; body?: any }> {
@@ -127,7 +128,7 @@ describe('MCP server', () => {
     expect(stored?.content).not.toContain('hunter2')
     expect(JSON.parse(stored?.content ?? '{}').v).toBe(1)
 
-    // reveal_secret decrypts it back.
+    // reveal_secret decrypts it back (admin context).
     const revealRes = await call({
       jsonrpc: '2.0',
       id: 9,
@@ -138,6 +139,100 @@ describe('MCP server', () => {
       },
     })
     expect(JSON.parse(revealRes.body.result.content[0].text).content).toBe('hunter2')
+  })
+
+  it('reveal_secret is forbidden for non-admin members', async () => {
+    const e = await workspace().createEnvironment({
+      name: 'Sec',
+      slug: 'sec',
+      userId: 'u1',
+    })
+    await call({
+      jsonrpc: '2.0',
+      id: 20,
+      method: 'tools/call',
+      params: {
+        name: 'set_config',
+        arguments: { environmentId: e.id, key: 'api.token', content: 's3cret', kind: 'secret' },
+      },
+    })
+    const memberCtx: McpToolContext = { ...ctx, role: 'member' }
+    const res = await handleMcpMessage(
+      {
+        jsonrpc: '2.0',
+        id: 21,
+        method: 'tools/call',
+        params: { name: 'reveal_secret', arguments: { environmentId: e.id, key: 'api.token' } },
+      },
+      edgevaultTools,
+      memberCtx,
+    )
+    // biome-ignore lint/suspicious/noExplicitAny: test reads into JSON-RPC result shapes
+    const text = (res.body as any).result.content[0].text
+    expect(JSON.parse(text).error).toBe('forbidden')
+    expect(text).not.toContain('s3cret')
+  })
+
+  it('reveal_secret and set_config leave a cold audit trail', async () => {
+    const e = await workspace().createEnvironment({
+      name: 'Aud',
+      slug: 'aud',
+      userId: 'u1',
+    })
+    const send = vi.fn(async () => {})
+    const spyCtx: McpToolContext = {
+      ...ctx,
+      env: { ...env, AUDIT_QUEUE: { send } } as unknown as Env,
+    }
+    await handleMcpMessage(
+      {
+        jsonrpc: '2.0',
+        id: 22,
+        method: 'tools/call',
+        params: {
+          name: 'set_config',
+          arguments: { environmentId: e.id, key: 'aud.secret', content: 'x', kind: 'secret' },
+        },
+      },
+      edgevaultTools,
+      spyCtx,
+    )
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'config.created', key: 'aud.secret', userId: 'mcp-user' }),
+    )
+
+    send.mockClear()
+    await handleMcpMessage(
+      {
+        jsonrpc: '2.0',
+        id: 23,
+        method: 'tools/call',
+        params: { name: 'reveal_secret', arguments: { environmentId: e.id, key: 'aud.secret' } },
+      },
+      edgevaultTools,
+      spyCtx,
+    )
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'secret.revealed', key: 'aud.secret', userId: 'mcp-user' }),
+    )
+  })
+
+  it('set_config rejects keys unsafe for cache keys and references', async () => {
+    const e = await workspace().createEnvironment({
+      name: 'Keys',
+      slug: 'keys',
+      userId: 'u1',
+    })
+    for (const key of ['db:pw', 'bad key!', 'a/b', '${oops}']) {
+      const res = await call({
+        jsonrpc: '2.0',
+        id: 24,
+        method: 'tools/call',
+        params: { name: 'set_config', arguments: { environmentId: e.id, key, content: 'v' } },
+      })
+      expect(res.body.result.isError).toBe(true)
+      expect(res.body.result.content[0].text).toContain('Invalid arguments')
+    }
   })
 
   it('get_config reports resolved content for items with ${...} references', async () => {

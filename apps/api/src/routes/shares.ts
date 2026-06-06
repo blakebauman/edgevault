@@ -3,6 +3,8 @@ import { zValidator } from '@hono/zod-validator'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { z } from 'zod'
 import type { AppEnv } from '../context'
+import { rateLimitByIp } from '../rate-limit'
+import { timingSafeEqual } from '../timing'
 
 /**
  * Zero-knowledge share links. Creation is a normal authenticated API call; the
@@ -47,14 +49,6 @@ export const shareRoutes = new Hono<AppEnv>().post(
   },
 )
 
-/** Constant-time compare of two equal-length tokens. */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false
-  let diff = 0
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  return diff === 0
-}
-
 // Recipients are anonymous, so the console BFF performs the consume on their
 // behalf; the shared INTERNAL_TOKEN keeps this endpoint from being driven
 // directly by the public even though it shares the api's fetch handler.
@@ -68,6 +62,11 @@ const requireInternalToken: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 /** Internal consume surface (mounted under /internal/shares). */
 export const internalShareRoutes = new Hono<AppEnv>()
+  // Share ids are capabilities — cap online guessing before the token check.
+  .use(
+    '*',
+    rateLimitByIp((env) => env.SHARE_IP_LIMITER, 'share-consume'),
+  )
   .use('*', requireInternalToken)
   .post('/:id/consume', async (c) => {
     const id = c.req.param('id')

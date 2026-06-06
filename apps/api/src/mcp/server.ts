@@ -15,6 +15,8 @@ export interface McpToolContext {
   env: Env
   workspaceId: string
   userId: string
+  /** Caller's org role (owner | admin | member), set by requireWorkspaceMember. */
+  role: string | null
 }
 
 export interface McpTool {

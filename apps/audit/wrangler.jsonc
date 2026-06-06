@@ -11,7 +11,10 @@
         "queue": "edgevault-audit",
         "max_batch_size": 100,
         "max_batch_timeout": 30,
-        "max_retries": 3
+        "max_retries": 3,
+        // Audit events are compliance data — never drop a batch silently.
+        // Queue must exist before deploy: `wrangler queues create edgevault-audit-dlq`.
+        "dead_letter_queue": "edgevault-audit-dlq"
       }
     ]
   },
@@ -26,7 +29,8 @@
             "queue": "edgevault-audit-staging",
             "max_batch_size": 100,
             "max_batch_timeout": 30,
-            "max_retries": 3
+            "max_retries": 3,
+            "dead_letter_queue": "edgevault-audit-dlq-staging"
           }
         ]
       },

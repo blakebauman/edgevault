@@ -11,4 +11,12 @@ interface __BaseEnv_Env {
    * the /internal/* surface — same token the auth/enterprise workers hold.
    */
   INTERNAL_TOKEN: string
+  /**
+   * Workers Rate Limiting bindings (wrangler.jsonc `ratelimits`). Optional here
+   * so the vitest pool (wrangler.test.jsonc omits them) typechecks — the
+   * rate-limit helpers fail open when a binding is absent.
+   */
+  MACHINE_IP_LIMITER?: RateLimit
+  SHARE_IP_LIMITER?: RateLimit
+  AI_USER_LIMITER?: RateLimit
 }

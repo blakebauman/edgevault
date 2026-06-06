@@ -25,7 +25,12 @@ export const mcpRoutes = new Hono<AppEnv>()
         400,
       )
     }
-    const ctx = { env: c.env, workspaceId: c.req.param('workspaceId'), userId: c.var.userId }
+    const ctx = {
+      env: c.env,
+      workspaceId: c.req.param('workspaceId'),
+      userId: c.var.userId,
+      role: c.var.role,
+    }
 
     // Batched JSON-RPC.
     if (Array.isArray(payload)) {

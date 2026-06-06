@@ -3,6 +3,7 @@ import { type ApiKeyRecord, apiKeyCacheKey, type ResolvedConfig } from '@edgevau
 import { Hono } from 'hono'
 import { emitAudit } from '../audit'
 import type { WorkspaceDurableObject } from '../durable-objects/workspace'
+import { rateLimitByIp } from '../rate-limit'
 import { revealSecret } from '../secrets'
 
 /**
@@ -15,6 +16,11 @@ import { revealSecret } from '../secrets'
 type MachineEnv = { Bindings: Env; Variables: { apiKey: ApiKeyRecord } }
 
 export const machineRoutes = new Hono<MachineEnv>()
+  // Cap unauthenticated key-guessing before the hash + KV lookup even runs.
+  .use(
+    '*',
+    rateLimitByIp((env) => env.MACHINE_IP_LIMITER, 'machine'),
+  )
   .use('*', async (c, next) => {
     const header = c.req.header('authorization')
     const presented = header?.toLowerCase().startsWith('bearer ')
