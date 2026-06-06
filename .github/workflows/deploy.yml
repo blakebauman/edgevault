@@ -61,7 +61,7 @@ jobs:
           echo "Deploying to: $TARGET"
 
           # Order matters: services must exist before the workers that bind them.
-          for app in auth api delivery audit; do
+          for app in auth api delivery audit notify; do
             echo "::group::deploy $app"
             (cd "apps/$app" && pnpm exec wrangler deploy $ENV_ARG)
             echo "::endgroup::"
