@@ -16,6 +16,7 @@ import {
 import { type FormEvent, useState } from 'react'
 import { Form, Link, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
+import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
 import { friendlyError } from '../lib/errors'
 import { humanizeAction } from '../lib/format'
@@ -240,6 +241,9 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
       <section className="panel">
         <header className="panel-head">
           <div>
+            <Crumbs
+              items={[{ label: 'workspaces', to: '/' }, { label: workspaceName ?? 'workspace' }]}
+            />
             <p className="eyebrow">Workspace</p>
             <h1>{workspaceName ?? workspaceId}</h1>
             <span className="page-id">
@@ -255,9 +259,6 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
             </Button>
             <Button variant="secondary" asChild>
               <Link to={`/dashboard/${workspaceId}/notifications`}>Notifications</Link>
-            </Button>
-            <Button variant="secondary" asChild>
-              <Link to="/">← All workspaces</Link>
             </Button>
           </div>
         </header>

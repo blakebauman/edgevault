@@ -1,5 +1,6 @@
 import { Button, CardTable, Chip, ErrorNote, Field, Input, Select, Td, Th } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
+import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
 import { humanizeAction } from '../lib/format'
 import { getToken } from '../lib/session.server'
@@ -111,12 +112,16 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
       <section className="panel">
         <header className="panel-head">
           <div>
+            <Crumbs
+              items={[
+                { label: 'workspaces', to: '/' },
+                { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
+                { label: 'audit' },
+              ]}
+            />
             <p className="eyebrow">Audit history</p>
             <h1>{workspaceName ?? workspaceId}</h1>
           </div>
-          <Button variant="secondary" asChild>
-            <Link to={`/dashboard/${workspaceId}`}>← Workspace</Link>
-          </Button>
         </header>
 
         <p className="mt-2 max-w-prose text-sm text-muted-foreground">

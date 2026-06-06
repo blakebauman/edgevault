@@ -19,6 +19,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
 import { CopyButton } from '../components/copy-button'
+import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
@@ -318,6 +319,13 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
       <section className="panel">
         <header className="panel-head">
           <div>
+            <Crumbs
+              items={[
+                { label: 'workspaces', to: '/' },
+                { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
+                { label: envName },
+              ]}
+            />
             <p className="eyebrow">Environment</p>
             <h1>
               {workspaceName ?? workspaceId}{' '}
@@ -326,11 +334,6 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
             <span className="page-id">
               <CopyButton value={envId} label="Copy environment id" />
             </span>
-          </div>
-          <div className="org-links">
-            <Button variant="secondary" asChild>
-              <Link to={`/dashboard/${workspaceId}`}>← Workspace</Link>
-            </Button>
           </div>
         </header>
 
