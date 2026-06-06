@@ -1,5 +1,5 @@
 import { redirect } from 'react-router'
-import { setOAuthCookie } from '../lib/session.server'
+import { safeRelativePath, setOAuthCookie } from '../lib/session.server'
 import type { Route } from './+types/oauth.start'
 
 /**
@@ -10,7 +10,9 @@ import type { Route } from './+types/oauth.start'
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env
   const provider = params.provider
-  const redirectUri = `${new URL(request.url).origin}/oauth/${provider}/callback`
+  const url = new URL(request.url)
+  const redirectUri = `${url.origin}/oauth/${provider}/callback`
+  const next = safeRelativePath(url.searchParams.get('next')) ?? undefined
 
   const res = await env.AUTH_SERVICE.fetch(`https://auth/oauth/${provider}/start`, {
     method: 'POST',
@@ -27,7 +29,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   return redirect(authorizeUrl, {
     headers: {
       'Set-Cookie': setOAuthCookie(
-        { provider, state, codeVerifier: codeVerifier ?? undefined },
+        { provider, state, codeVerifier: codeVerifier ?? undefined, next },
         request,
       ),
     },

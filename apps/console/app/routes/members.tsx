@@ -13,6 +13,7 @@ import {
   Th,
   TwoStepConfirm,
 } from '@edgevault/ui'
+import { useState } from 'react'
 import { Form, redirect } from 'react-router'
 import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
@@ -220,22 +221,7 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
                   </Td>
                   <Td label="Role">
                     {isAdmin && !lastOwner ? (
-                      <Form method="post" className="inline">
-                        <input type="hidden" name="intent" value="role" />
-                        <input type="hidden" name="userId" value={m.userId} />
-                        <Select
-                          name="role"
-                          defaultValue={m.role}
-                          className="px-2 py-1 text-xs"
-                          aria-label={`Role for ${m.email}`}
-                          onChange={(e) => e.currentTarget.form?.requestSubmit()}
-                        >
-                          <option value="member">member</option>
-                          <option value="admin">admin</option>
-                          {/* only an owner may grant owner */}
-                          {isOwner && <option value="owner">owner</option>}
-                        </Select>
-                      </Form>
+                      <RoleControl member={m} canGrantOwner={isOwner} />
                     ) : (
                       <Chip variant={ROLE_CHIP[m.role]}>{m.role}</Chip>
                     )}
@@ -354,5 +340,52 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
         )}
       </section>
     </main>
+  )
+}
+
+/**
+ * Role change as a deliberate act, not a side effect of opening a dropdown.
+ * Picking a new role stages it; an explicit Save commits. Owner transitions
+ * (granting owner, or moving someone off owner) wear the danger voice — they
+ * cross a privilege boundary. Browsing the options never submits anything,
+ * which also keeps screen-reader option-arrowing from firing a PATCH.
+ */
+function RoleControl({ member, canGrantOwner }: { member: Member; canGrantOwner: boolean }) {
+  const [pending, setPending] = useState<Role>(member.role)
+  const changed = pending !== member.role
+  const ownerBoundary = pending === 'owner' || member.role === 'owner'
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <Select
+        value={pending}
+        onChange={(e) => setPending(e.currentTarget.value as Role)}
+        className="px-2 py-1 text-xs"
+        aria-label={`Role for ${member.email}`}
+      >
+        <option value="member">member</option>
+        <option value="admin">admin</option>
+        {/* only an owner may grant owner */}
+        {canGrantOwner && <option value="owner">owner</option>}
+      </Select>
+      {changed && (
+        <Form method="post" className="inline-flex items-center gap-2">
+          <input type="hidden" name="intent" value="role" />
+          <input type="hidden" name="userId" value={member.userId} />
+          <input type="hidden" name="role" value={pending} />
+          <Button type="submit" variant={ownerBoundary ? 'danger' : 'secondary'} size="compact">
+            {ownerBoundary ? `Confirm → ${pending}` : `Save ${pending}`}
+          </Button>
+          <Button
+            type="button"
+            variant="linklike"
+            size="compact"
+            onClick={() => setPending(member.role)}
+          >
+            Cancel
+          </Button>
+        </Form>
+      )}
+    </span>
   )
 }

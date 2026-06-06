@@ -1,5 +1,5 @@
 import { redirect } from 'react-router'
-import { setSsoCookie } from '../lib/session.server'
+import { safeRelativePath, setSsoCookie } from '../lib/session.server'
 import type { Route } from './+types/sso.start'
 
 /**
@@ -11,6 +11,7 @@ import type { Route } from './+types/sso.start'
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env
   const orgId = params.orgId
+  const next = safeRelativePath(new URL(request.url).searchParams.get('next')) ?? undefined
   const enterprise = env.ENTERPRISE_SERVICE
   if (!enterprise) throw redirect('/login?sso=unavailable')
 
@@ -40,7 +41,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   return redirect(authorizeUrl, {
     headers: {
       'Set-Cookie': setSsoCookie(
-        { orgId: resolvedOrgId ?? orgId, state, nonce, codeVerifier },
+        { orgId: resolvedOrgId ?? orgId, state, nonce, codeVerifier, next },
         request,
       ),
     },

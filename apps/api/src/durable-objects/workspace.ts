@@ -309,6 +309,12 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       .map(toEnvironment)
   }
 
+  /** Cheap environment count for workspace listings (avoids shipping every row). */
+  countEnvironments(): number {
+    const row = this.sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM environments`).toArray()[0]
+    return Number(row?.n ?? 0)
+  }
+
   getEnvironment(id: string): Environment | null {
     const row = this.sql.exec<EnvRow>(`SELECT * FROM environments WHERE id = ?`, id).toArray()[0]
     return row ? toEnvironment(row) : null

@@ -104,7 +104,18 @@ export const organizationRoutes = new Hono<AppEnv>()
       return c.json({ error: 'forbidden' }, 403)
     }
     const workspaces = await listWorkspaces(c.var.database, orgId)
-    return c.json({ workspaces })
+    // Fold in environment counts here (parallel DO RPC, no client round-trips) so
+    // the console renders informative rows from one request instead of N+1.
+    const withCounts = await Promise.all(
+      workspaces.map(async (ws) => {
+        const stub = c.env.WORKSPACE.get(
+          c.env.WORKSPACE.idFromName(ws.id),
+        ) as DurableObjectStub<WorkspaceDurableObject>
+        const environments = await stub.countEnvironments().catch(() => 0)
+        return { ...ws, environments }
+      }),
+    )
+    return c.json({ workspaces: withCounts })
   })
   // SCIM token status (owner/admin only). Returns booleans only — never the
   // token or its hash: `entitled` (org's plan includes SCIM) and `configured`

@@ -62,5 +62,5 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const headers = new Headers()
   headers.append('Set-Cookie', setTokenCookie(token, request))
   headers.append('Set-Cookie', clearSsoCookie(request))
-  return redirect('/', { headers })
+  return redirect(tx.next ?? '/', { headers })
 }

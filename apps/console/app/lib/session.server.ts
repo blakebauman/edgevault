@@ -42,6 +42,8 @@ export interface SsoTransaction {
   state: string
   nonce: string
   codeVerifier: string
+  /** Post-sign-in destination (relative path), carried from ?next=. */
+  next?: string
 }
 
 export function setSsoCookie(tx: SsoTransaction, request: Request): string {
@@ -54,7 +56,9 @@ export function getSsoTransaction(request: Request): SsoTransaction | null {
   if (!match?.[1]) return null
   try {
     const tx = JSON.parse(decodeURIComponent(match[1])) as Partial<SsoTransaction>
-    if (tx.orgId && tx.state && tx.nonce && tx.codeVerifier) return tx as SsoTransaction
+    if (tx.orgId && tx.state && tx.nonce && tx.codeVerifier) {
+      return { ...tx, next: safeRelativePath(tx.next) ?? undefined } as SsoTransaction
+    }
   } catch {
     // malformed cookie — treat as no transaction
   }
@@ -145,6 +149,8 @@ export interface OAuthTransaction {
   provider: string
   state: string
   codeVerifier?: string
+  /** Post-sign-in destination (relative path), carried from ?next=. */
+  next?: string
 }
 
 export function setOAuthCookie(tx: OAuthTransaction, request: Request): string {
@@ -157,7 +163,9 @@ export function getOAuthTransaction(request: Request): OAuthTransaction | null {
   if (!match?.[1]) return null
   try {
     const tx = JSON.parse(decodeURIComponent(match[1])) as Partial<OAuthTransaction>
-    if (tx.provider && tx.state) return tx as OAuthTransaction
+    if (tx.provider && tx.state) {
+      return { ...tx, next: safeRelativePath(tx.next) ?? undefined } as OAuthTransaction
+    }
   } catch {
     // malformed — ignore
   }

@@ -1,4 +1,4 @@
-import { Button, CardTable, Chip, ErrorNote, Field, Input, Td, Th } from '@edgevault/ui'
+import { Button, CardTable, Chip, ErrorNote, Field, Input, StatusNote, Td, Th } from '@edgevault/ui'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { friendlyError } from '../lib/errors'
@@ -19,48 +19,36 @@ interface Org {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const token = getToken(request)
-  if (!token) return { authed: false as const, orgs: [] as Org[] }
+  if (!token) return { authed: false as const, orgs: [] as Org[], joined: null }
+  // ?joined=<orgId> set by the invitation accept flow — resolved to a name below.
+  const joinedId = new URL(request.url).searchParams.get('joined')
 
   const env = context.cloudflare.env
   const res = await env.API_SERVICE.fetch('https://api/api/v1/organizations', {
     headers: { authorization: `Bearer ${token}` },
   })
-  if (!res.ok) return { authed: false as const, orgs: [] as Org[] }
+  if (!res.ok) return { authed: false as const, orgs: [] as Org[], joined: null }
 
   const { organizations } = (await res.json()) as {
     organizations: Array<{ id: string; name: string; slug: string; role: string }>
   }
   const headers = { authorization: `Bearer ${token}` }
+  // One workspaces request per org — env counts now come folded into that
+  // response (the api hops the DOs server-side), so no per-workspace round-trip.
   const orgs = await Promise.all(
     organizations.map(async (org): Promise<Org> => {
       const wsRes = await env.API_SERVICE.fetch(
         `https://api/api/v1/organizations/${org.id}/workspaces`,
         { headers },
       )
-      const rows = wsRes.ok
-        ? (
-            (await wsRes.json()) as {
-              workspaces: Array<{ id: string; name: string; slug: string }>
-            }
-          ).workspaces
+      const workspaces = wsRes.ok
+        ? ((await wsRes.json()) as { workspaces: Org['workspaces'] }).workspaces
         : []
-      // Environment counts make the rows informative — parallel, one DO hop each.
-      const workspaces = await Promise.all(
-        rows.map(async (ws) => {
-          const envRes = await env.API_SERVICE.fetch(
-            `https://api/api/v1/workspaces/${ws.id}/environments`,
-            { headers },
-          )
-          const environments = envRes.ok
-            ? ((await envRes.json()) as { environments: unknown[] }).environments.length
-            : 0
-          return { ...ws, environments }
-        }),
-      )
       return { ...org, workspaces }
     }),
   )
-  return { authed: true as const, orgs }
+  const joined = joinedId ? (orgs.find((o) => o.id === joinedId)?.name ?? null) : null
+  return { authed: true as const, orgs, joined }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -121,6 +109,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <h1>Your workspaces</h1>
           {loaderData.orgs.length > 0 && <NewOrgAction />}
         </header>
+        {loaderData.joined && <StatusNote>You're in — welcome to {loaderData.joined}.</StatusNote>}
         {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
         {loaderData.orgs.length === 0 && (
           <div className="max-w-xl">

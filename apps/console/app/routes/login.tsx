@@ -14,6 +14,12 @@ const SSO_MESSAGES: Record<string, string> = {
   unavailable: 'Single sign-on is not enabled for this deployment.',
 }
 
+/** Append a validated relative ?next= to an auth-start URL, so every sign-in
+ * path (not just password) lands the user where they were headed. */
+function withNext(path: string, next: string | null): string {
+  return next ? `${path}?next=${encodeURIComponent(next)}` : path
+}
+
 export function loader({ request }: Route.LoaderArgs) {
   const params = new URL(request.url).searchParams
   const reason = params.get('sso')
@@ -101,22 +107,22 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
             <p className="m-0 text-sm text-muted-foreground">Continue with</p>
             <div className="flex flex-wrap gap-3">
               <Button variant="secondary" asChild>
-                <a href="/oauth/github/start">GitHub</a>
+                <a href={withNext('/oauth/github/start', loaderData.next)}>GitHub</a>
               </Button>
               <Button variant="secondary" asChild>
-                <a href="/oauth/google/start">Google</a>
+                <a href={withNext('/oauth/google/start', loaderData.next)}>Google</a>
               </Button>
             </div>
           </div>
-          <PasskeyButton />
-          <SsoForm error={loaderData.ssoError} />
+          <PasskeyButton next={loaderData.next} />
+          <SsoForm error={loaderData.ssoError} next={loaderData.next} />
         </details>
       </section>
     </main>
   )
 }
 
-function PasskeyButton() {
+function PasskeyButton({ next }: { next: string | null }) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -126,7 +132,7 @@ function PasskeyButton() {
     const { loginWithPasskey } = await import('../lib/passkey')
     const result = await loginWithPasskey()
     if (result.ok) {
-      window.location.href = '/'
+      window.location.href = next ?? '/'
     } else {
       setError(result.error ?? 'Passkey sign-in failed.')
       setBusy(false)
@@ -149,14 +155,14 @@ function PasskeyButton() {
   )
 }
 
-function SsoForm({ error }: { error: string | null }) {
+function SsoForm({ error, next }: { error: string | null; next: string | null }) {
   const [org, setOrg] = useState('')
 
   function go(protocol: 'sso' | 'saml') {
     const id = org.trim()
     // Full-page navigation so the browser follows the loader's redirect out to
     // the identity provider.
-    if (id) window.location.href = `/${protocol}/${encodeURIComponent(id)}/start`
+    if (id) window.location.href = withNext(`/${protocol}/${encodeURIComponent(id)}/start`, next)
   }
 
   return (

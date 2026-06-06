@@ -48,7 +48,13 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     `https://api/api/v1/invitations/${params.id}/accept`,
     { method: 'POST', headers: { authorization: `Bearer ${token}` } },
   )
-  if (res.ok) return redirect('/')
+  if (res.ok) {
+    // Land on home with a one-shot welcome; home resolves the id to a name.
+    const body = (await res.json().catch(() => null)) as { organizationId?: string } | null
+    return redirect(
+      body?.organizationId ? `/?joined=${encodeURIComponent(body.organizationId)}` : '/',
+    )
+  }
   const body = (await res.json().catch(() => null)) as { error?: string } | null
   const error =
     body?.error === 'expired'
