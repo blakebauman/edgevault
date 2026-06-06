@@ -208,7 +208,33 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                 </span>
               )}
             </div>
-            {org.workspaces.length > 0 ? (
+            {org.workspaces.length > 0 && org.workspaces.length <= 10 && (
+              /* a handful of workspaces browse better as cards; the table takes
+                 over past ten, where scanning beats browsing */
+              <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(15rem,1fr))]">
+                {org.workspaces.map((ws) => (
+                  <Link
+                    key={ws.id}
+                    to={`/dashboard/${ws.id}`}
+                    className="group rounded-sm border border-border bg-card p-4 no-underline transition-colors hover:border-accent"
+                  >
+                    <div className="font-display text-base font-semibold text-foreground">
+                      {ws.name}
+                    </div>
+                    <div className="mt-0.5 font-mono text-xs text-muted-foreground">/{ws.slug}</div>
+                    <div className="mt-4 flex items-baseline justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {ws.environments} environment{ws.environments === 1 ? '' : 's'}
+                      </span>
+                      <span className="text-xs text-muted-foreground transition-colors group-hover:text-accent">
+                        Open →
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {org.workspaces.length > 10 ? (
               <div className="mt-3">
                 <CardTable label={`${org.name} workspaces`}>
                   <thead>
@@ -240,7 +266,8 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                   </tbody>
                 </CardTable>
               </div>
-            ) : (
+            ) : null}
+            {org.workspaces.length === 0 && (
               <p className="mt-3 max-w-prose text-sm text-muted-foreground">
                 No workspaces yet — step 2: create one below. Environments, configs, and the audit
                 trail all live inside it.
