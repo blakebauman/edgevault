@@ -459,8 +459,13 @@ describe('WorkspaceDurableObject', () => {
     expect(restored.version).toBe(4)
     expect(await ws.listDeletedConfigs(env1.id)).toHaveLength(0)
 
-    // Restoring a live key refuses.
-    await expect(ws.restoreConfig(env1.id, 'checkout-v2', 'u2')).rejects.toThrow('already exists')
+    // Restoring a live key refuses. Asserted inside the instance — a rejection
+    // over the RPC stub double-reports as an unhandled rejection in workerd.
+    await runInDurableObject(ws, async (instance) => {
+      await expect(instance.restoreConfig(env1.id, 'checkout-v2', 'u2')).rejects.toThrow(
+        'already exists',
+      )
+    })
 
     // Encrypted secrets restore as encrypted secrets (ciphertext untouched).
     await ws.setConfig({
