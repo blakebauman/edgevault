@@ -106,3 +106,27 @@ export interface NotifyJob {
   secret?: string
   event: NotificationEvent
 }
+
+/**
+ * Transactional org-invitation email, also carried on NOTIFY_QUEUE (same
+ * consumer, same retry/DLQ semantics). Fully materialized like NotifyJob —
+ * the notify worker never touches Postgres.
+ */
+export interface InvitationEmailJob {
+  kind: 'invitation-email'
+  to: string
+  organizationName: string
+  inviterName: string
+  role: string
+  /** Console accept link: `${CONSOLE_URL}/invite/{invitationId}`. */
+  acceptUrl: string
+  /** Epoch ms — the invitation stops working after this. */
+  expiresAt: number
+}
+
+/** Everything the notify worker consumes. NotifyJob predates `kind`. */
+export type NotifyQueueMessage = NotifyJob | InvitationEmailJob
+
+export function isInvitationEmailJob(job: NotifyQueueMessage): job is InvitationEmailJob {
+  return 'kind' in job && job.kind === 'invitation-email'
+}

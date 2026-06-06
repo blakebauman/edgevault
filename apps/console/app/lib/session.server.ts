@@ -22,6 +22,14 @@ export function getToken(request: Request): string | null {
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
+/**
+ * Validate a post-login redirect target: same-origin relative paths only
+ * (`/...` but not `//host`), so `?next=` can never become an open redirect.
+ */
+export function safeRelativePath(value: string | null | undefined): string | null {
+  return value && /^\/(?!\/)/.test(value) ? value : null
+}
+
 // --- SSO transaction cookie -------------------------------------------------
 // Holds the short-lived OIDC state/nonce/PKCE verifier between the start and
 // callback legs. httpOnly + SameSite=Lax (the IdP redirect is a top-level GET),

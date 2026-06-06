@@ -1,7 +1,7 @@
 import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
 import { type FormEvent, useState } from 'react'
 import { Form, redirect } from 'react-router'
-import { setMfaCookie, setTokenCookie } from '../lib/session.server'
+import { safeRelativePath, setMfaCookie, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/login'
 
 export function meta(_: Route.MetaArgs) {
@@ -15,11 +15,14 @@ const SSO_MESSAGES: Record<string, string> = {
 }
 
 export function loader({ request }: Route.LoaderArgs) {
-  const reason = new URL(request.url).searchParams.get('sso')
+  const params = new URL(request.url).searchParams
+  const reason = params.get('sso')
   const ssoError = reason
     ? (SSO_MESSAGES[reason] ?? 'Single sign-on could not be completed. Please try again.')
     : null
-  return { ssoError }
+  // Where to land after sign-in (e.g. an invitation accept page). Relative
+  // paths only — validated again in the action.
+  return { ssoError, next: safeRelativePath(params.get('next')) }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -27,6 +30,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const email = String(form.get('email') ?? '')
   const password = String(form.get('password') ?? '')
   const intent = String(form.get('intent') ?? 'signin')
+  const next = safeRelativePath(String(form.get('next') ?? '')) ?? '/'
   const env = context.cloudflare.env
 
   const path = intent === 'signup' ? '/sign-up/email' : '/sign-in/email'
@@ -43,7 +47,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   // send the user to the second-factor prompt.
   const result = (await auth.clone().json()) as { mfaRequired?: boolean; mfaToken?: string }
   if (result.mfaRequired && result.mfaToken) {
-    return redirect('/login/mfa', {
+    return redirect(`/login/mfa${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`, {
       headers: { 'Set-Cookie': setMfaCookie(result.mfaToken, request) },
     })
   }
@@ -57,7 +61,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const token = ((await tokenRes.json()) as { accessToken?: string }).accessToken
   if (!token) return { error: 'Could not obtain an access token.' }
 
-  return redirect('/', { headers: { 'Set-Cookie': setTokenCookie(token, request) } })
+  return redirect(next, { headers: { 'Set-Cookie': setTokenCookie(token, request) } })
 }
 
 export default function Login({ actionData, loaderData }: Route.ComponentProps) {
@@ -67,6 +71,7 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
         <p className="eyebrow">EdgeVault Console</p>
         <h1>Sign in</h1>
         <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+          {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
           <Field label="Email">
             <Input name="email" type="email" placeholder="you@example.com" required autoFocus />
           </Field>

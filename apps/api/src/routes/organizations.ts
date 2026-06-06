@@ -1,4 +1,5 @@
 import { generateToken, hashToken } from '@edgevault/auth'
+import type { InvitationEmailJob } from '@edgevault/edge-protocol'
 import { ENTITLEMENTS } from '@edgevault/licensing'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
@@ -17,6 +18,25 @@ import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 /** Organization + workspace management, backed by Neon (via Hyperdrive). */
 
 const nameSlug = z.object({ name: z.string().min(1).max(120), slug: z.string().min(1).max(80) })
+
+/** Enqueue the invitation email — fully materialized, delivered by apps/notify. */
+async function sendInvitationEmail(
+  env: Env,
+  to: string,
+  role: string,
+  invitation: { id: string; expiresAt: Date; organizationName: string; inviterName: string | null },
+): Promise<void> {
+  const job: InvitationEmailJob = {
+    kind: 'invitation-email',
+    to,
+    organizationName: invitation.organizationName,
+    inviterName: invitation.inviterName ?? 'A teammate',
+    role,
+    acceptUrl: `${env.CONSOLE_URL}/invite/${invitation.id}`,
+    expiresAt: +invitation.expiresAt,
+  }
+  await env.NOTIFY_QUEUE.send(job)
+}
 
 /** Postgres unique-violation (23505), as surfaced through drizzle/Hyperdrive. */
 function isDuplicate(error: unknown): boolean {
@@ -168,10 +188,29 @@ export const organizationRoutes = new Hono<AppEnv>()
       const { addOrgMember } = await import('@edgevault/database')
       const result = await addOrgMember(c.var.database, orgId, email, newRole)
       if (!result.ok) {
+        // No account yet → email invitation instead of direct membership. The
+        // invite link is a capability bound to this email; only an account
+        // signed in with it can accept (see acceptInvitation).
         if (result.error === 'user_not_found') {
+          const { createInvitation } = await import('@edgevault/database')
+          const invitation = await createInvitation(c.var.database, {
+            organizationId: orgId,
+            email,
+            role: newRole,
+            inviterId: c.var.userId,
+          })
+          c.executionCtx.waitUntil(sendInvitationEmail(c.env, email, newRole, invitation))
           return c.json(
-            { error: 'user_not_found', detail: 'No EdgeVault account uses that email yet.' },
-            404,
+            {
+              invited: true,
+              invitation: {
+                id: invitation.id,
+                email,
+                role: newRole,
+                expiresAt: invitation.expiresAt,
+              },
+            },
+            201,
           )
         }
         if (result.error === 'already_member') {
@@ -182,6 +221,43 @@ export const organizationRoutes = new Hono<AppEnv>()
       return c.json({ member: result.member }, 201)
     },
   )
+
+  // --- Invitations (the email path for people without an account yet) ---
+  .get('/:orgId/invitations', async (c) => {
+    const orgId = c.req.param('orgId')
+    const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+    if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+    const { listPendingInvitations } = await import('@edgevault/database')
+    const invitations = await listPendingInvitations(c.var.database, orgId)
+    return c.json({ invitations })
+  })
+  .post('/:orgId/invitations/:invitationId/resend', async (c) => {
+    const orgId = c.req.param('orgId')
+    const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+    if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+    const { createInvitation, getInvitation } = await import('@edgevault/database')
+    const existing = await getInvitation(c.var.database, c.req.param('invitationId'))
+    if (!existing || existing.organizationId !== orgId || existing.status !== 'pending') {
+      return c.json({ error: 'not_found' }, 404)
+    }
+    // createInvitation refreshes the pending row in place (new 7-day expiry).
+    const refreshed = await createInvitation(c.var.database, {
+      organizationId: orgId,
+      email: existing.email,
+      role: existing.role,
+      inviterId: c.var.userId,
+    })
+    c.executionCtx.waitUntil(sendInvitationEmail(c.env, existing.email, existing.role, refreshed))
+    return c.json({ ok: true, expiresAt: refreshed.expiresAt })
+  })
+  .delete('/:orgId/invitations/:invitationId', async (c) => {
+    const orgId = c.req.param('orgId')
+    const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+    if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+    const { revokeInvitation } = await import('@edgevault/database')
+    const ok = await revokeInvitation(c.var.database, orgId, c.req.param('invitationId'))
+    return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
+  })
   .patch(
     '/:orgId/members/:userId',
     zValidator('json', z.object({ role: z.enum(['owner', 'admin', 'member']) })),

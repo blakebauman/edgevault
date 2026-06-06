@@ -5,9 +5,10 @@
   "compatibility_date": "2026-06-03",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  // Delivers fully-materialized notification jobs (signed webhooks + Slack).
-  // The api worker resolves channels and decrypts credentials before enqueueing,
-  // so this worker needs no database, no KEK, and no secrets at all.
+  // Delivers fully-materialized notification jobs (signed webhooks + Slack +
+  // invitation emails). The api worker resolves channels and decrypts
+  // credentials before enqueueing, so this worker needs no database, no KEK,
+  // and no secrets at all.
   "queues": {
     "consumers": [
       {
@@ -19,6 +20,9 @@
       }
     ]
   },
+  // Transactional email (org invitations). One-time setup before deploy:
+  // `wrangler email sending enable edgevault.io` (adds SPF/DKIM DNS records).
+  "send_email": [{ "name": "SEND_EMAIL", "allowed_sender_addresses": ["noreply@edgevault.io"] }],
   "env": {
     "staging": {
       "queues": {
@@ -31,7 +35,8 @@
             "dead_letter_queue": "edgevault-notify-dlq-staging"
           }
         ]
-      }
+      },
+      "send_email": [{ "name": "SEND_EMAIL", "allowed_sender_addresses": ["noreply@edgevault.io"] }]
     }
   }
 }

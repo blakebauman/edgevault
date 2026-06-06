@@ -13,7 +13,7 @@ import {
   Th,
   TwoStepConfirm,
 } from '@edgevault/ui'
-import { Form, Link, redirect } from 'react-router'
+import { Form, redirect } from 'react-router'
 import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
 import { friendlyError } from '../lib/errors'
@@ -21,11 +21,10 @@ import { getToken } from '../lib/session.server'
 import type { Route } from './+types/members'
 
 /**
- * Org member management: list the roster, add an existing EdgeVault user by
- * email, change roles, remove. The api enforces RBAC and the last-owner guard;
- * this surfaces it. Email-based invitations (for users without an account yet)
- * wait on transactional email — this is direct membership, the SCIM path's
- * manual equivalent.
+ * Org member management: list the roster, add a member by email, change roles,
+ * remove. Existing accounts join immediately; unknown addresses get an email
+ * invitation (a link bound to that address, delivered via apps/notify). The
+ * api enforces RBAC and the last-owner guard; this surfaces it.
  */
 
 type Role = 'owner' | 'admin' | 'member'
@@ -36,6 +35,14 @@ interface Member {
   name: string | null
   role: Role
   joinedAt: string
+}
+
+interface Invitation {
+  id: string
+  email: string
+  role: Role
+  expiresAt: string
+  createdAt: string
 }
 
 export function meta(_: Route.MetaArgs) {
@@ -72,7 +79,19 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     ? ((await res.json()) as { members: Member[]; role: Role; viewerId: string })
     : { members: [], role: 'member' as Role, viewerId: '' }
 
-  return { org, members: body.members, role: body.role, viewerId: body.viewerId }
+  // Pending invitations are an admin view; members get an empty list (403).
+  let invitations: Invitation[] = []
+  if (body.role === 'owner' || body.role === 'admin') {
+    const invRes = await env.API_SERVICE.fetch(
+      `https://api/api/v1/organizations/${params.orgId}/invitations`,
+      { headers },
+    )
+    if (invRes.ok) {
+      invitations = ((await invRes.json()) as { invitations: Invitation[] }).invitations
+    }
+  }
+
+  return { org, members: body.members, role: body.role, viewerId: body.viewerId, invitations }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -85,17 +104,38 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const intent = String(form.get('intent'))
 
   if (intent === 'add') {
+    const email = String(form.get('email') ?? '').trim()
     const res = await env.API_SERVICE.fetch(base, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        email: String(form.get('email') ?? '').trim(),
-        role: String(form.get('role') ?? 'member'),
-      }),
+      body: JSON.stringify({ email, role: String(form.get('role') ?? 'member') }),
     })
-    if (res.ok) return { added: true as const }
+    if (res.ok) {
+      const body = (await res.json().catch(() => null)) as { invited?: boolean } | null
+      return body?.invited ? { invited: email } : { added: true as const }
+    }
     const detail = ((await res.json().catch(() => null)) as { detail?: string } | null)?.detail
     return { error: detail ?? friendlyError(res.status, 'adding the member') }
+  }
+
+  if (intent === 'resend-invite') {
+    const id = String(form.get('invitationId'))
+    const res = await env.API_SERVICE.fetch(
+      `https://api/api/v1/organizations/${params.orgId}/invitations/${id}/resend`,
+      { method: 'POST', headers },
+    )
+    if (res.ok) return { resent: true as const }
+    return { error: friendlyError(res.status, 'resending the invitation') }
+  }
+
+  if (intent === 'revoke-invite') {
+    const id = String(form.get('invitationId'))
+    const res = await env.API_SERVICE.fetch(
+      `https://api/api/v1/organizations/${params.orgId}/invitations/${id}`,
+      { method: 'DELETE', headers },
+    )
+    if (res.ok) return { revoked: true as const }
+    return { error: friendlyError(res.status, 'revoking the invitation') }
   }
 
   if (intent === 'role') {
@@ -122,7 +162,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function Members({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, members, role, viewerId } = loaderData
+  const { org, members, role, viewerId, invitations } = loaderData
   const isAdmin = role === 'owner' || role === 'admin'
   const isOwner = role === 'owner'
   const ownerCount = members.filter((m) => m.role === 'owner').length
@@ -142,6 +182,15 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
 
         {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
         {actionData && 'added' in actionData && <StatusNote>Member added.</StatusNote>}
+        {actionData && 'invited' in actionData && (
+          <StatusNote>
+            Invitation sent to {actionData.invited} — they'll get an email link, good for 7 days.
+          </StatusNote>
+        )}
+        {actionData && 'resent' in actionData && (
+          <StatusNote>Invitation re-sent with a fresh 7-day expiry.</StatusNote>
+        )}
+        {actionData && 'revoked' in actionData && <StatusNote>Invitation revoked.</StatusNote>}
         {actionData && 'roleChanged' in actionData && <StatusNote>Role updated.</StatusNote>}
         {actionData && 'removed' in actionData && <StatusNote>Member removed.</StatusNote>}
 
@@ -215,12 +264,69 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
           </tbody>
         </CardTable>
 
+        {isAdmin && invitations.length > 0 && (
+          <>
+            <h2>Pending invitations</h2>
+            <CardTable label="Pending invitations">
+              <thead>
+                <tr>
+                  <Th>Email</Th>
+                  <Th>Role</Th>
+                  <Th>Expires</Th>
+                  <Th />
+                </tr>
+              </thead>
+              <tbody>
+                {invitations.map((inv) => {
+                  const expired = Date.parse(inv.expiresAt) < Date.now()
+                  return (
+                    <tr key={inv.id}>
+                      <Td>
+                        <span className="font-mono text-xs">{inv.email}</span>
+                      </Td>
+                      <Td label="Role">
+                        <Chip variant={ROLE_CHIP[inv.role]}>{inv.role}</Chip>
+                      </Td>
+                      <Td label="Expires" className="text-muted-foreground">
+                        <LocalTime epoch={Date.parse(inv.expiresAt)} />
+                        {expired && <span className="text-xs"> · expired</span>}
+                      </Td>
+                      <Td>
+                        <ActionGroup>
+                          <Form method="post" className="inline">
+                            <input type="hidden" name="intent" value="resend-invite" />
+                            <input type="hidden" name="invitationId" value={inv.id} />
+                            <Button type="submit" variant="secondary" size="compact">
+                              Resend
+                            </Button>
+                          </Form>
+                          <TwoStepConfirm trigger="Revoke" note={`Revoke ${inv.email}'s invite?`}>
+                            {(close) => (
+                              <Form method="post" onSubmit={close}>
+                                <input type="hidden" name="intent" value="revoke-invite" />
+                                <input type="hidden" name="invitationId" value={inv.id} />
+                                <Button type="submit" variant="danger" size="compact">
+                                  Confirm revoke
+                                </Button>
+                              </Form>
+                            )}
+                          </TwoStepConfirm>
+                        </ActionGroup>
+                      </Td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </CardTable>
+          </>
+        )}
+
         {isAdmin && (
           <>
             <h2>Add a member</h2>
             <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-              Add an existing EdgeVault account by email. They join immediately — no invitation to
-              accept. (Email invitations for people without an account yet are coming.)
+              Existing EdgeVault accounts join immediately. Anyone else gets an email invitation — a
+              link bound to their address, good for 7 days.
             </p>
             <Form method="post" className="mt-4 flex max-w-md flex-wrap items-end gap-3">
               <input type="hidden" name="intent" value="add" />

@@ -126,7 +126,7 @@ describe('queue handler', () => {
         retry: vi.fn(),
       }
       const batch = { messages: [good, bad] } as unknown as MessageBatch<NotifyJob>
-      await worker.queue(batch)
+      await worker.queue(batch, {} as Env)
 
       expect(good.ack).toHaveBeenCalled()
       expect(good.retry).not.toHaveBeenCalled()
@@ -135,5 +135,30 @@ describe('queue handler', () => {
     } finally {
       vi.unstubAllGlobals()
     }
+  })
+
+  it('routes invitation emails through SEND_EMAIL, dead-letters without it', async () => {
+    const emailJob = {
+      kind: 'invitation-email' as const,
+      to: 'newcomer@example.com',
+      organizationName: 'Acme',
+      inviterName: 'Ada',
+      role: 'member',
+      acceptUrl: 'https://app.edgevault.io/invite/x',
+      expiresAt: Date.now() + 1000,
+    }
+    const send = vi.fn(async () => ({ messageId: 'm1' }))
+    const sent = { body: emailJob, ack: vi.fn(), retry: vi.fn() }
+    const batch = { messages: [sent] } as unknown as MessageBatch<NotifyJob>
+    await worker.queue(batch, { SEND_EMAIL: { send } } as unknown as Env)
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ to: 'newcomer@example.com' }))
+    expect(sent.ack).toHaveBeenCalled()
+
+    // Missing binding = config error → retry (→ DLQ), never a silent drop.
+    const dropped = { body: emailJob, ack: vi.fn(), retry: vi.fn() }
+    const batch2 = { messages: [dropped] } as unknown as MessageBatch<NotifyJob>
+    await worker.queue(batch2, {} as Env)
+    expect(dropped.retry).toHaveBeenCalled()
+    expect(dropped.ack).not.toHaveBeenCalled()
   })
 })

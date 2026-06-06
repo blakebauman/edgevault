@@ -22,6 +22,6 @@
     "@edgevault/typescript-config": "workspace:*",
     "typescript": "^5.9.2",
     "vitest": "^4.1.8",
-    "wrangler": "^4.97.0"
+    "wrangler": "^4.98.0"
   }
 }

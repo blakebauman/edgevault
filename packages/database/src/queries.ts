@@ -3,7 +3,7 @@ import type { Database } from './client'
 import { accounts, sessions, users } from './schema/auth'
 import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
-import { members, organizations } from './schema/organization'
+import { invitations, members, organizations } from './schema/organization'
 import { samlAssertionReplay, samlConnections } from './schema/saml'
 import { ssoConnections } from './schema/sso'
 import { stripeCustomers, stripeMeterWatermarks } from './schema/stripe'
@@ -599,4 +599,230 @@ export async function removeOrgMember(
       .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
     return { ok: true as const }
   })
+}
+
+// --- Org invitations (email-based membership for people without an account yet) ---
+
+const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+
+export interface InvitationRow {
+  id: string
+  organizationId: string
+  organizationName: string
+  email: string
+  role: MemberRole
+  status: 'pending' | 'accepted' | 'revoked' | 'expired'
+  inviterName: string | null
+  expiresAt: Date
+  createdAt: Date
+}
+
+export type InvitationError =
+  | 'not_found'
+  | 'revoked'
+  | 'already_accepted'
+  | 'expired'
+  | 'email_mismatch'
+
+/**
+ * Create (or refresh) an invitation. A pending invite for the same org+email is
+ * refreshed in place — re-inviting and "resend" both extend the expiry rather
+ * than minting a second live capability link.
+ */
+export async function createInvitation(
+  database: Database,
+  args: { organizationId: string; email: string; role: MemberRole; inviterId: string },
+): Promise<{ id: string; expiresAt: Date; organizationName: string; inviterName: string | null }> {
+  const email = args.email.toLowerCase()
+  const expiresAt = new Date(Date.now() + INVITATION_TTL_MS)
+  return database.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: invitations.id })
+      .from(invitations)
+      .where(
+        and(
+          eq(invitations.organizationId, args.organizationId),
+          eq(invitations.email, email),
+          eq(invitations.status, 'pending'),
+        ),
+      )
+      .limit(1)
+    let id: string
+    if (existing) {
+      await tx
+        .update(invitations)
+        .set({ role: args.role, inviterId: args.inviterId, expiresAt })
+        .where(eq(invitations.id, existing.id))
+      id = existing.id
+    } else {
+      const [created] = await tx
+        .insert(invitations)
+        .values({
+          organizationId: args.organizationId,
+          email,
+          role: args.role,
+          inviterId: args.inviterId,
+          expiresAt,
+        })
+        .returning({ id: invitations.id })
+      if (!created) throw new Error('invitation insert returned no row')
+      id = created.id
+    }
+    // Names for the email job — joined here so the api needs no second query.
+    const [org] = await tx
+      .select({ name: organizations.name })
+      .from(organizations)
+      .where(eq(organizations.id, args.organizationId))
+      .limit(1)
+    const [inviter] = await tx
+      .select({ name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, args.inviterId))
+      .limit(1)
+    return {
+      id,
+      expiresAt,
+      organizationName: org?.name ?? 'an organization',
+      inviterName: inviter?.name ?? inviter?.email ?? null,
+    }
+  })
+}
+
+/** One invitation with org + inviter names (the accept page's view). */
+export async function getInvitation(database: Database, id: string): Promise<InvitationRow | null> {
+  const [row] = await database.transaction(async (tx) =>
+    tx
+      .select({
+        id: invitations.id,
+        organizationId: invitations.organizationId,
+        organizationName: organizations.name,
+        email: invitations.email,
+        role: invitations.role,
+        status: invitations.status,
+        inviterName: users.name,
+        inviterEmail: users.email,
+        expiresAt: invitations.expiresAt,
+        createdAt: invitations.createdAt,
+      })
+      .from(invitations)
+      .innerJoin(organizations, eq(invitations.organizationId, organizations.id))
+      .innerJoin(users, eq(invitations.inviterId, users.id))
+      .where(eq(invitations.id, id))
+      .limit(1),
+  )
+  if (!row) return null
+  const { inviterEmail, ...rest } = row
+  return {
+    ...rest,
+    role: row.role as MemberRole,
+    status: row.status as InvitationRow['status'],
+    inviterName: row.inviterName ?? inviterEmail,
+  }
+}
+
+/** Pending invitations for an org, newest first (expiry shown by the console). */
+export async function listPendingInvitations(
+  database: Database,
+  organizationId: string,
+): Promise<Array<Pick<InvitationRow, 'id' | 'email' | 'role' | 'expiresAt' | 'createdAt'>>> {
+  // Transactional read: the console lists invitations right after sending one
+  // (the Hyperdrive read-after-write cache gotcha, again).
+  const rows = await database.transaction(async (tx) =>
+    tx
+      .select({
+        id: invitations.id,
+        email: invitations.email,
+        role: invitations.role,
+        expiresAt: invitations.expiresAt,
+        createdAt: invitations.createdAt,
+      })
+      .from(invitations)
+      .where(and(eq(invitations.organizationId, organizationId), eq(invitations.status, 'pending')))
+      .orderBy(invitations.createdAt),
+  )
+  return rows.map((r) => ({ ...r, role: r.role as MemberRole })).reverse()
+}
+
+/**
+ * Accept an invitation as the signed-in user. The invitation is bound to an
+ * email address — the link id alone is never enough — so a leaked URL cannot
+ * be redeemed by anyone but the invited account.
+ */
+export async function acceptInvitation(
+  database: Database,
+  args: { id: string; userId: string; userEmail: string },
+): Promise<
+  | { ok: true; organizationId: string; role: MemberRole; alreadyMember: boolean }
+  | { ok: false; error: InvitationError }
+> {
+  return database.transaction(async (tx) => {
+    const [inv] = await tx
+      .select({
+        organizationId: invitations.organizationId,
+        email: invitations.email,
+        role: invitations.role,
+        status: invitations.status,
+        expiresAt: invitations.expiresAt,
+      })
+      .from(invitations)
+      .where(eq(invitations.id, args.id))
+      .limit(1)
+    if (!inv) return { ok: false as const, error: 'not_found' as const }
+    if (inv.status === 'revoked') return { ok: false as const, error: 'revoked' as const }
+    if (inv.status === 'accepted') return { ok: false as const, error: 'already_accepted' as const }
+    if (inv.status === 'expired' || +inv.expiresAt < Date.now()) {
+      return { ok: false as const, error: 'expired' as const }
+    }
+    if (inv.email !== args.userEmail.toLowerCase()) {
+      return { ok: false as const, error: 'email_mismatch' as const }
+    }
+
+    const [existing] = await tx
+      .select({ userId: members.userId })
+      .from(members)
+      .where(and(eq(members.organizationId, inv.organizationId), eq(members.userId, args.userId)))
+      .limit(1)
+    if (!existing) {
+      await tx
+        .insert(members)
+        .values({ organizationId: inv.organizationId, userId: args.userId, role: inv.role })
+    }
+    await tx.update(invitations).set({ status: 'accepted' }).where(eq(invitations.id, args.id))
+    return {
+      ok: true as const,
+      organizationId: inv.organizationId,
+      role: inv.role as MemberRole,
+      alreadyMember: !!existing,
+    }
+  })
+}
+
+/** Revoke a pending invitation (idempotent from the console's point of view). */
+export async function revokeInvitation(
+  database: Database,
+  organizationId: string,
+  id: string,
+): Promise<boolean> {
+  const rows = await database
+    .update(invitations)
+    .set({ status: 'revoked' })
+    .where(
+      and(
+        eq(invitations.id, id),
+        eq(invitations.organizationId, organizationId),
+        eq(invitations.status, 'pending'),
+      ),
+    )
+    .returning({ id: invitations.id })
+  return rows.length > 0
+}
+
+/** The signed-in user's email — the accept flow matches it against the invite. */
+export async function getUserEmail(database: Database, userId: string): Promise<string | null> {
+  const [row] = await database
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  return row?.email ?? null
 }

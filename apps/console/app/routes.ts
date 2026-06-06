@@ -21,6 +21,7 @@ export default [
   route('dashboard/:workspaceId/notifications', 'routes/dashboard.notifications.tsx'),
   route('share', 'routes/share.tsx'),
   route('s/:id', 'routes/share.view.tsx'),
+  route('invite/:id', 'routes/invite.tsx'),
   route('orgs/:orgId/members', 'routes/members.tsx'),
   route('orgs/:orgId/billing', 'routes/billing.tsx'),
   route('orgs/:orgId/scim', 'routes/scim.tsx'),

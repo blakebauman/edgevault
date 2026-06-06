@@ -1,6 +1,11 @@
 import { Button, ErrorNote, Input } from '@edgevault/ui'
 import { Form, redirect } from 'react-router'
-import { clearMfaCookie, getMfaToken, setTokenCookie } from '../lib/session.server'
+import {
+  clearMfaCookie,
+  getMfaToken,
+  safeRelativePath,
+  setTokenCookie,
+} from '../lib/session.server'
 import type { Route } from './+types/login.mfa'
 
 export function meta(_: Route.MetaArgs) {
@@ -10,14 +15,17 @@ export function meta(_: Route.MetaArgs) {
 export function loader({ request }: Route.LoaderArgs) {
   // No challenge in flight → back to sign-in.
   if (!getMfaToken(request)) throw redirect('/login')
-  return null
+  // Post-sign-in destination, carried through from the password leg.
+  return { next: safeRelativePath(new URL(request.url).searchParams.get('next')) }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
   const mfaToken = getMfaToken(request)
   if (!mfaToken) throw redirect('/login')
   const env = context.cloudflare.env
-  const code = String((await request.formData()).get('code') ?? '').trim()
+  const form = await request.formData()
+  const code = String(form.get('code') ?? '').trim()
+  const next = safeRelativePath(String(form.get('next') ?? '')) ?? '/'
   if (!code) return { error: 'Enter the 6-digit code from your authenticator.' }
 
   const res = await env.AUTH_SERVICE.fetch('https://auth/mfa/totp/authenticate', {
@@ -39,10 +47,10 @@ export async function action({ request, context }: Route.ActionArgs) {
   const headers = new Headers()
   headers.append('Set-Cookie', setTokenCookie(token, request))
   headers.append('Set-Cookie', clearMfaCookie(request))
-  return redirect('/', { headers })
+  return redirect(next, { headers })
 }
 
-export default function LoginMfa({ actionData }: Route.ComponentProps) {
+export default function LoginMfa({ actionData, loaderData }: Route.ComponentProps) {
   return (
     <main className="shell">
       <section className="hero">
@@ -50,6 +58,7 @@ export default function LoginMfa({ actionData }: Route.ComponentProps) {
         <h1>Two-factor authentication</h1>
         <p className="lede">Enter the 6-digit code from your authenticator app.</p>
         <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+          {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
           <Input
             name="code"
             inputMode="numeric"

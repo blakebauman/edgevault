@@ -15,6 +15,8 @@
     "ENVIRONMENT": "production",
     "SERVICE_NAME": "edgevault-api",
     "AUTH_ISSUER": "https://auth.edgevault.io",
+    // Base URL for links the api mints into emails (invitation accept links).
+    "CONSOLE_URL": "https://app.edgevault.io",
     "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
     "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
     // Empty = intentional sentinel: AI binding is called directly, no AI Gateway
@@ -83,6 +85,7 @@
         "ENVIRONMENT": "staging",
         "SERVICE_NAME": "edgevault-api-staging",
         "AUTH_ISSUER": "https://auth-staging.edgevault.io",
+        "CONSOLE_URL": "https://app-staging.edgevault.io",
         "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
         "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
         // Empty = intentional sentinel: no AI Gateway (see production vars).

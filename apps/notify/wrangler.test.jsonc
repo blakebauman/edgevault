@@ -1,0 +1,21 @@
+{
+  // Test-only config for vitest-pool-workers (same pattern as apps/api): omits
+  // the send_email binding, which has no local emulation — email tests inject a
+  // fake EmailSender instead. Production bindings live in wrangler.jsonc.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "edgevault-notify",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-03",
+  "compatibility_flags": ["nodejs_compat"],
+  "queues": {
+    "consumers": [
+      {
+        "queue": "edgevault-notify",
+        "max_batch_size": 25,
+        "max_batch_timeout": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "edgevault-notify-dlq"
+      }
+    ]
+  }
+}

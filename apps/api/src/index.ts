@@ -4,6 +4,7 @@ import { mcpRoutes } from './mcp'
 import { requireAuth } from './middleware/auth'
 import { withDatabase } from './middleware/database'
 import { requireWorkspaceMember } from './middleware/workspace'
+import { invitationRoutes } from './routes/invitations'
 import { machineRoutes } from './routes/machine'
 import { organizationRoutes } from './routes/organizations'
 import { internalShareRoutes, shareRoutes } from './routes/shares'
@@ -75,6 +76,8 @@ app.use('/api/v1/workspaces/:workspaceId/*', requireWorkspaceMember)
 
 app.route('/api/v1/organizations', organizationRoutes)
 app.route('/api/v1/workspaces', workspaceRoutes)
+// Invitation accept surface — authenticated but pre-membership by definition.
+app.route('/api/v1/invitations', invitationRoutes)
 // Zero-knowledge share links: authenticated create…
 app.route('/api/v1/shares', shareRoutes)
 // …and recipient consume, reachable only by the console BFF (INTERNAL_TOKEN).
