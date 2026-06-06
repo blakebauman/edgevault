@@ -4,20 +4,18 @@ The marketing site (edgevault.io) — a fully static Astro build served by an
 assets-only Worker. Ships **0 KB of client JS** on purpose; revisit only if a
 page ever needs an interactive island.
 
-## Relationship to `stardust/`
+## Design decision-of-record
 
-The design pipeline under `stardust/` is the **decision-of-record**:
+The original stardust design pipeline (brand profile, briefings, prototypes) was
+retired 2026-06-06 after its decisions were carried into the repo:
 
-- `stardust/brand-profile.json` — palette, type, motifs, voice (tokens mirrored
-  in `src/styles/global.css`)
-- `stardust/briefings/*.md` — **owns all page copy**; edit words there first,
-  then port the change here
-- `stardust/prototypes/*.html` — the approved visual designs these pages
-  implement
+- `/DESIGN.md` + `/.impeccable/design.json` — palette, type, motifs, voice
+  (tokens mirrored in `src/styles/global.css`)
+- `/PRODUCT.md` — **owns all page copy strategy**, personas, key messages;
+  edit intent there first, then port the words here
 
-This app is the implementation canon. The two evolve together but are synced by
-hand (the old `sync-from-stardust.mjs` generator retired with the Astro
-migration).
+This app is the implementation canon; the rendered pages are now also the only
+copy-of-record for the literal words on each page.
 
 ## Structure
 

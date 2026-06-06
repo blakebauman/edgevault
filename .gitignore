@@ -34,3 +34,9 @@ npm-debug.log*
 
 # Astro generated artifacts
 .astro/
+
+# Impeccable live-iteration session state (design.json + critique/ are committed)
+.impeccable/live/
+
+# Claude Code local session settings
+.claude/settings.local.json

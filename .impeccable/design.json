@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-05T14:00:00-07:00",
+  "title": "Design System: EdgeVault",
+  "extensions": {
+    "colorMeta": {
+      "relay-violet": {
+        "role": "primary",
+        "displayName": "Relay Violet",
+        "canonical": "#7B2CBF",
+        "tonalRamp": [
+          "#1E0B30",
+          "#32104F",
+          "#471A6F",
+          "#5C228F",
+          "#7B2CBF",
+          "#9D5BD4",
+          "#C18FE5",
+          "#E5CCF5"
+        ]
+      },
+      "rollout-orchid": {
+        "role": "secondary",
+        "displayName": "Rollout Orchid",
+        "canonical": "#9D4EDD",
+        "tonalRamp": [
+          "#200A33",
+          "#381253",
+          "#531C7C",
+          "#7129A8",
+          "#9D4EDD",
+          "#B377E6",
+          "#CDA4F0",
+          "#E9D6FA"
+        ]
+      },
+      "plaintext-lilac": {
+        "role": "secondary",
+        "displayName": "Plaintext Lilac",
+        "canonical": "#E0AAFF",
+        "tonalRamp": [
+          "#2E1745",
+          "#4A2570",
+          "#6C3A9E",
+          "#9059C9",
+          "#B57FE8",
+          "#E0AAFF",
+          "#EFCFFF",
+          "#F8EAFF"
+        ]
+      },
+      "artifact-glow": {
+        "role": "secondary",
+        "displayName": "Artifact Glow",
+        "canonical": "#C77DFF",
+        "tonalRamp": [
+          "#2A1140",
+          "#441C66",
+          "#642C92",
+          "#8A44C4",
+          "#C77DFF",
+          "#D69EFF",
+          "#E5BFFF",
+          "#F3E0FF"
+        ]
+      },
+      "vault-depth": {
+        "role": "tertiary",
+        "displayName": "Vault Depth",
+        "canonical": "#240046",
+        "tonalRamp": [
+          "#0E001C",
+          "#18002F",
+          "#240046",
+          "#3C096C",
+          "#5A189A",
+          "#7B2CBF",
+          "#A663DC",
+          "#D9BCF2"
+        ]
+      },
+      "ledger-ink": {
+        "role": "neutral",
+        "displayName": "Ledger Ink",
+        "canonical": "#0F172A",
+        "tonalRamp": [
+          "#05080F",
+          "#0F172A",
+          "#1E2A45",
+          "#324061",
+          "#4D5C80",
+          "#7686A3",
+          "#A5B1C5",
+          "#D7DDE7"
+        ]
+      },
+      "drafting-gray": {
+        "role": "neutral",
+        "displayName": "Drafting Gray",
+        "canonical": "#F3F4F6",
+        "tonalRamp": [
+          "#14161A",
+          "#2B2F36",
+          "#4A505A",
+          "#717885",
+          "#9AA1AC",
+          "#C2C7CE",
+          "#E2E4E8",
+          "#F3F4F6"
+        ]
+      },
+      "reading-white": {
+        "role": "neutral",
+        "displayName": "Reading White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#1A1A1A",
+          "#333333",
+          "#4D4D4D",
+          "#737373",
+          "#999999",
+          "#BFBFBF",
+          "#E6E6E6",
+          "#FFFFFF"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Page heroes only; weight 500 keeps scale from shouting."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card and FAQ headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Roboto Slab at 78% ink — the deliberate anti-Inter move."
+      },
+      "label": {
+        "displayName": "Scorecard Label",
+        "purpose": "Martian Mono uppercase — the named kicker/label system (eyebrows, table headers, footnotes)."
+      }
+    },
+    "shadows": [],
+    "motion": [],
+    "breakpoints": [
+      {
+        "name": "stack",
+        "value": "640px"
+      },
+      {
+        "name": "single-column",
+        "value": "900px"
+      },
+      {
+        "name": "tickets-2col",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Ledger fill button",
+      "kind": "button",
+      "refersTo": "button-ledger",
+      "description": "Primary CTA — always rendered beside its open-core twin (dual-CTA system).",
+      "html": "<a class=\"ds-btn-ledger\" href=\"#\">Start free</a>",
+      "css": ".ds-btn-ledger { display: inline-block; font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 15px; background: #0F172A; color: #FFFFFF; border-radius: 2px; padding: 12px 24px; text-decoration: none; transition: background 0.15s ease-out; } .ds-btn-ledger:hover { background: #1E2A45; } .ds-btn-ledger:focus-visible { outline: 2px solid #7B2CBF; outline-offset: 2px; }"
+    },
+    {
+      "name": "Drafting line button",
+      "kind": "button",
+      "refersTo": "button-drafting-line",
+      "description": "Secondary CTA — the self-host door.",
+      "html": "<a class=\"ds-btn-line\" href=\"#\">Self-host it</a>",
+      "css": ".ds-btn-line { display: inline-block; font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 15px; background: transparent; color: #0F172A; border: 1px solid #0F172A; border-radius: 2px; padding: 12px 24px; text-decoration: none; transition: color 0.15s ease-out, border-color 0.15s ease-out; } .ds-btn-line:hover { color: #7B2CBF; border-color: #7B2CBF; } .ds-btn-line:focus-visible { outline: 2px solid #7B2CBF; outline-offset: 2px; }"
+    },
+    {
+      "name": "Relay text link",
+      "kind": "button",
+      "refersTo": "link-relay",
+      "description": "Tertiary CTA — mono uppercase underlined link.",
+      "html": "<a class=\"ds-link-relay\" href=\"#\">Read the docs →</a>",
+      "css": ".ds-link-relay { font-family: 'Martian Mono', ui-monospace, monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: #7B2CBF; text-decoration: underline; text-underline-offset: 4px; } .ds-link-relay:hover { color: #9D4EDD; } .ds-link-relay:focus-visible { outline: 2px solid #7B2CBF; outline-offset: 2px; }"
+    },
+    {
+      "name": "Box-score table",
+      "kind": "custom",
+      "description": "The claims register: labeled rows, tabular numerals, Relay values. Never floating big numbers.",
+      "html": "<table class=\"ds-score\"><tr><th>stat</th><th>value</th><th>where</th></tr><tr><td>p99 edge read</td><td class=\"v\">&lt;10 ms</td><td>in-memory L1 over KV</td></tr><tr><td>cities serving reads</td><td class=\"v\">300+</td><td>Cloudflare network</td></tr></table>",
+      "css": ".ds-score { border-collapse: collapse; width: 100%; font-family: 'Martian Mono', ui-monospace, monospace; font-size: 12.5px; font-variant-numeric: tabular-nums; } .ds-score th { text-align: left; font-weight: 400; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: #7B2CBF; padding: 10px 16px 10px 0; border-bottom: 1px solid rgba(15,23,42,0.35); } .ds-score td { padding: 13px 16px 13px 0; border-bottom: 1px solid rgba(15,23,42,0.14); color: rgba(15,23,42,0.78); } .ds-score tr td:first-child { color: #0F172A; } .ds-score td.v { color: #7B2CBF; font-weight: 500; }"
+    },
+    {
+      "name": "Artifact panel (dog-eared)",
+      "kind": "custom",
+      "refersTo": "artifact-panel",
+      "description": "The Vault set into the drafting room — real product output only; the clipped corner means 'unsealed'.",
+      "html": "<div class=\"ds-artifact\"><pre>$ edgevault flags set checkout-v2 --rollout 25\n<span class=\"ok\">✓ revision 89</span> by blake@ · <span class=\"hl\">\"canary: EU first\"</span></pre></div>",
+      "css": ".ds-artifact { position: relative; background: #240046; color: #F3F4F6; border: 1px solid rgba(15,23,42,0.14); border-radius: 2px; padding: 24px; font-family: 'Martian Mono', ui-monospace, monospace; font-size: 12.5px; line-height: 1.9; clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 0 100%); } .ds-artifact::after { content: ''; position: absolute; top: 0; right: 0; width: 26px; height: 26px; background: #9D4EDD; clip-path: polygon(0 0, 100% 100%, 0 100%); } .ds-artifact pre { margin: 0; font: inherit; white-space: pre-wrap; } .ds-artifact .ok { color: #C77DFF; } .ds-artifact .hl { color: #E0AAFF; }"
+    },
+    {
+      "name": "White card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The standard container on the gray ground; hairline border, no shadow ever.",
+      "html": "<div class=\"ds-card\"><h3>Semantic search</h3><p>Find config by meaning, not key name.</p></div>",
+      "css": ".ds-card { border: 1px solid rgba(15,23,42,0.14); border-radius: 2px; padding: 24px; background: #FFFFFF; } .ds-card h3 { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 20px; margin: 0 0 8px; color: #0F172A; } .ds-card p { font-family: 'Roboto Slab', Georgia, serif; font-size: 13.5px; color: rgba(15,23,42,0.78); margin: 0; }"
+    },
+    {
+      "name": "Scorecard label (eyebrow)",
+      "kind": "chip",
+      "description": "The named kicker system — one labeling grammar across eyebrows, table headers, metadata.",
+      "html": "<span class=\"ds-eyebrow\">Envelope encryption</span>",
+      "css": ".ds-eyebrow { font-family: 'Martian Mono', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: #7B2CBF; }"
+    },
+    {
+      "name": "Crop-mark frame",
+      "kind": "custom",
+      "description": "Registration corners marking a 'measured' region (box scores, threat-model tables).",
+      "html": "<div class=\"ds-cropframe\"><span class=\"t tl\"></span><span class=\"t tr\"></span><span class=\"t bl\"></span><span class=\"t br\"></span><div style=\"padding:12px;font-family:'Martian Mono',monospace;font-size:11px;color:rgba(15,23,42,0.78)\">measured region</div></div>",
+      "css": ".ds-cropframe { position: relative; padding: 20px; } .ds-cropframe .t { position: absolute; width: 14px; height: 14px; border: 0 solid rgba(15,23,42,0.35); } .ds-cropframe .tl { top: 0; left: 0; border-top-width: 1px; border-left-width: 1px; } .ds-cropframe .tr { top: 0; right: 0; border-top-width: 1px; border-right-width: 1px; } .ds-cropframe .bl { bottom: 0; left: 0; border-bottom-width: 1px; border-left-width: 1px; } .ds-cropframe .br { bottom: 0; right: 0; border-bottom-width: 1px; border-right-width: 1px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Drafting Room",
+    "overview": "EdgeVault's surface is a drafting room: a cool light table (Drafting Gray, never cream), ink lines, graph-paper grids, registration crop marks, and one working pen of violet. Set into that room are dark Vault Depth panels, the only dark surfaces on the page, reserved for the product's real artifacts. The light room is where the system is drawn; the dark panels are where the sealed thing shows itself. The sports-scorecard register supplies the information design; folded-paper craft supplies the physical gestures.",
+    "keyCharacteristics": [
+      "Light technical ground with dark artifact panels; meaning carried by surface, not decoration",
+      "One working accent (Relay Violet); louder siblings appear only in micro-doses",
+      "Box-score information design: claims as labeled table rows, tabular numerals everywhere",
+      "Physical gestures that mean something: dog-ears, perforations, crop marks",
+      "Zero client JS, zero shadows, zero photography — real artifacts are the imagery"
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "Relay Violet is the only color that works on the light ground. If a second hue appears outside a Vault panel, the screen is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Plaintext Rule",
+        "body": "The louder the value (Orchid → Lilac), the smaller its dose. Lilac at full-bleed is prohibited; its rarity is the meaning.",
+        "section": "colors"
+      },
+      {
+        "name": "The Vault Rule",
+        "body": "Dark surfaces are panels, never pages. Each one must contain a real artifact; a dark panel holding marketing copy is a violation.",
+        "section": "colors"
+      },
+      {
+        "name": "The Scorecard Label System",
+        "body": "The Martian Mono uppercase kicker is a named brand system: the box-score's row-label voice, also running table headers, footnotes, and metadata. Change it nowhere, or everywhere.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "font-variant-numeric: tabular-nums wherever a number appears. Numbers are data; they align.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Inter Rule",
+        "body": "Inter is banned as an identity face.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Light-Source Rule",
+        "body": "No box-shadow, ever, on the brand surface. If an element needs separation, it gets a border, a surface change, or crop marks — in that order.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do lead every page's visual weight with a real artifact (CLI output, code, NDJSON) in a Vault panel — artifact-as-hero is law, not preference.",
+      "Do express claims as box-score rows with a number, a place, or a mechanism and tabular numerals.",
+      "Do keep Relay Violet (#7B2CBF) the only hue on light ground; check body text holds ≥4.5:1.",
+      "Do declare placeholders visibly (mono footnotes, stub notices) — honesty is a feature.",
+      "Do use the dog-ear only where something is genuinely revealed/unsealed."
+    ],
+    "donts": [
+      "Don't use gradient-blob heroes, mesh gradients, or floating 3D shapes.",
+      "Don't write marketing fluff — no \"supercharge your workflow\"; every claim checkable.",
+      "Don't use Inter anywhere in the identity.",
+      "Don't ship fake or blurred dashboards — any UI shown is a real, verifiable artifact.",
+      "Don't split the wordmark into two colors, and don't reach for full-saturation neon — tried and rejected as \"way too bright\".",
+      "Don't add box-shadows, pill radii, side-stripe borders, or gradient text.",
+      "Don't put marketing copy in a Vault panel or use dark surfaces as page grounds."
+    ]
+  }
+}

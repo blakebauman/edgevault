@@ -59,7 +59,7 @@ Six core Workers plus two Durable Object classes. The browser only talks to the 
 | `apps/console` (app.edgevault.io) | React Router 7 UI + BFF on Workers (via `@cloudflare/vite-plugin`). |
 | `apps/audit` | Queue consumer → R2 NDJSON audit warehouse. |
 | `apps/notify` | Queue consumer → notification delivery (Slack Block Kit + HMAC-signed webhooks). Jobs arrive fully materialized from `api`; no DB, no KEK. |
-| `apps/www` (edgevault.io) | Marketing site: static Astro build (0 KB client JS) served by an assets-only worker. Design source of record is the `stardust/` pipeline (brand profile, briefings own the copy, prototypes); this app is the implementation. |
+| `apps/www` (edgevault.io) | Marketing site: static Astro build (0 KB client JS) served by an assets-only worker. Brand/design source of record is `DESIGN.md` + `.impeccable/`; copy, personas, and content strategy live in `PRODUCT.md`; this app is the implementation. |
 | `ee/enterprise`, `edge/control-plane` | EE SSO/SCIM and proprietary billing — internal, reached via service bindings. |
 
 Durable Objects (in `apps/api`):
