@@ -56,11 +56,24 @@ const requireInternalToken: MiddlewareHandler<{ Bindings: Env; Variables: Vars }
 app.use('/orgs/:orgId/sso/*', requireInternalToken)
 app.use('/orgs/:orgId/saml/*', requireInternalToken)
 
-// Resolve the org and load its license for every org-scoped route.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+// Resolve the org and load its license for every org-scoped route. The param
+// may be the org's id or its slug — SSO users type the slug they know.
 app.use('/orgs/:orgId/*', async (c, next) => {
-  const orgId = c.req.param('orgId')
-  const { createDatabase, getEntitlements } = await import('@edgevault/database')
+  let orgId = c.req.param('orgId')
+  const { createDatabase, getEntitlements, getOrganizationIdBySlug } = await import(
+    '@edgevault/database'
+  )
   const conn = createDatabase(c.env.HYPERDRIVE.connectionString)
+  if (!UUID_RE.test(orgId)) {
+    const resolved = await getOrganizationIdBySlug(conn.database, orgId)
+    if (!resolved) {
+      c.executionCtx.waitUntil(conn.close())
+      return c.json({ error: 'unknown_org' }, 404)
+    }
+    orgId = resolved
+  }
   const row = await getEntitlements(conn.database, orgId)
   c.set('database', conn.database)
   c.set('orgId', orgId)
@@ -215,7 +228,7 @@ app.post('/orgs/:orgId/sso/start', async (c) => {
     nonce,
     codeChallenge: pkce.challenge,
   })
-  return c.json({ authorizeUrl, state, nonce, codeVerifier: pkce.verifier })
+  return c.json({ authorizeUrl, state, nonce, codeVerifier: pkce.verifier, orgId: c.var.orgId })
 })
 
 // Complete the flow: verify the returned state, exchange the code, verify the
@@ -311,7 +324,7 @@ app.post('/orgs/:orgId/saml/start', async (c) => {
     acsUrl: row.acsUrl,
     idpSsoUrl: row.idpSsoUrl,
   })
-  return c.json({ authnId: id, redirectUrl })
+  return c.json({ authnId: id, redirectUrl, orgId: c.var.orgId })
 })
 
 // Complete SAML SSO: verify the IdP's SAMLResponse (signature + conditions) and

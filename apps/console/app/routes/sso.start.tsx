@@ -21,14 +21,28 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   })
   if (!res.ok) throw redirect('/login?sso=error')
 
-  const { authorizeUrl, state, nonce, codeVerifier } = (await res.json()) as {
+  const {
+    authorizeUrl,
+    state,
+    nonce,
+    codeVerifier,
+    orgId: resolvedOrgId,
+  } = (await res.json()) as {
     authorizeUrl: string
     state: string
     nonce: string
     codeVerifier: string
+    orgId?: string
   }
 
+  // The user may have typed the org slug; the cookie must carry the real id —
+  // the callback provisions membership against it.
   return redirect(authorizeUrl, {
-    headers: { 'Set-Cookie': setSsoCookie({ orgId, state, nonce, codeVerifier }, request) },
+    headers: {
+      'Set-Cookie': setSsoCookie(
+        { orgId: resolvedOrgId ?? orgId, state, nonce, codeVerifier },
+        request,
+      ),
+    },
   })
 }

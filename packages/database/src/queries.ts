@@ -3,7 +3,7 @@ import type { Database } from './client'
 import { accounts, sessions } from './schema/auth'
 import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
-import { members } from './schema/organization'
+import { members, organizations } from './schema/organization'
 import { samlAssertionReplay, samlConnections } from './schema/saml'
 import { ssoConnections } from './schema/sso'
 import { stripeCustomers, stripeMeterWatermarks } from './schema/stripe'
@@ -34,6 +34,19 @@ export async function getEntitlements(
  * SCIM isn't configured. Used by the enterprise worker to authenticate the SCIM
  * surface before serving any directory data.
  */
+/** Resolve an organization's id from its slug (SSO sign-in types the slug). */
+export async function getOrganizationIdBySlug(
+  database: Database,
+  slug: string,
+): Promise<string | null> {
+  const [row] = await database
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.slug, slug))
+    .limit(1)
+  return row?.id ?? null
+}
+
 export async function getScimTokenHash(
   database: Database,
   organizationId: string,

@@ -12,6 +12,7 @@ export {
   getAuthenticatorsByUser,
   getEntitlements,
   getMeterWatermark,
+  getOrganizationIdBySlug,
   getSamlConnection,
   getScimTokenHash,
   getSsoConnection,

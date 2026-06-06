@@ -20,8 +20,13 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   })
   if (!res.ok) throw redirect('/login?sso=error')
 
-  const { authnId, redirectUrl } = (await res.json()) as { authnId: string; redirectUrl: string }
+  const {
+    authnId,
+    redirectUrl,
+    orgId: resolvedOrgId,
+  } = (await res.json()) as { authnId: string; redirectUrl: string; orgId?: string }
+  // The user may have typed the org slug; the cookie must carry the real id.
   return redirect(redirectUrl, {
-    headers: { 'Set-Cookie': setSamlCookie(orgId, authnId, request) },
+    headers: { 'Set-Cookie': setSamlCookie(resolvedOrgId ?? orgId, authnId, request) },
   })
 }

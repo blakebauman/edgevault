@@ -163,11 +163,11 @@ function SsoForm({ error }: { error: string | null }) {
       <Input
         value={org}
         onChange={(e) => setOrg(e.target.value)}
-        placeholder="organization id"
-        aria-label="Organization ID"
+        placeholder="your-org-slug"
+        aria-label="Organization slug"
       />
       <p className="m-0 text-xs text-muted-foreground">
-        Your admin can share this from the organization's SSO page.
+        The short name your org signs in with — your admin can share it from the SSO page.
       </p>
       {error && <ErrorNote>{error}</ErrorNote>}
       <div className="flex flex-wrap gap-3">
