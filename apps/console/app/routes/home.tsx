@@ -1,4 +1,5 @@
 import { Button, CardTable, Chip, ErrorNote, Field, Input, Td, Th } from '@edgevault/ui'
+import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
@@ -118,24 +119,8 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
       <section className="panel">
         <header className="panel-head">
           <h1>Your workspaces</h1>
+          {loaderData.orgs.length > 0 && <NewOrgAction />}
         </header>
-        {loaderData.orgs.length > 0 && (
-          <details className="create-inline">
-            <summary>New organization</summary>
-            <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
-              <input type="hidden" name="intent" value="create-org" />
-              <Field label="Name">
-                <Input type="text" name="name" required placeholder="Acme Inc" />
-              </Field>
-              <Field label="Slug">
-                <Input type="text" name="slug" required placeholder="acme" />
-              </Field>
-              <Button type="submit" className="self-start">
-                Create organization
-              </Button>
-            </Form>
-          </details>
-        )}
         {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
         {loaderData.orgs.length === 0 && (
           <div className="max-w-xl">
@@ -168,130 +153,173 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
             </Form>
           </div>
         )}
-        {loaderData.orgs.map((org) => (
-          <section key={org.id} className="org mt-8">
-            <div className="flex flex-wrap items-baseline gap-3">
-              <h2 className="m-0 text-lg">{org.name}</h2>
-              <Chip variant="neutral">{org.role}</Chip>
-              {/* Admin doors only for those who can open them — members see
-                  no affordances that 403. */}
-              {(org.role === 'owner' || org.role === 'admin') && (
-                <span className="font-mono text-xs text-muted-foreground">
-                  settings:{' '}
-                  <Link
-                    to={`/orgs/${org.id}/billing`}
-                    className="text-muted-foreground hover:text-accent"
-                  >
-                    billing
-                  </Link>
-                  {' · '}
-                  <Link
-                    to={`/orgs/${org.id}/sso`}
-                    className="text-muted-foreground hover:text-accent"
-                  >
-                    oidc
-                  </Link>
-                  {' · '}
-                  <Link
-                    to={`/orgs/${org.id}/saml`}
-                    className="text-muted-foreground hover:text-accent"
-                  >
-                    saml
-                  </Link>
-                  {' · '}
-                  <Link
-                    to={`/orgs/${org.id}/scim`}
-                    className="text-muted-foreground hover:text-accent"
-                  >
-                    scim
-                  </Link>
-                </span>
-              )}
-            </div>
-            {org.workspaces.length > 0 && org.workspaces.length <= 10 && (
-              /* a handful of workspaces browse better as cards; the table takes
-                 over past ten, where scanning beats browsing */
-              <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(15rem,1fr))]">
-                {org.workspaces.map((ws) => (
-                  <Link
-                    key={ws.id}
-                    to={`/dashboard/${ws.id}`}
-                    className="group rounded-sm border border-border bg-card p-4 no-underline transition-colors hover:border-accent"
-                  >
-                    <div className="font-display text-base font-semibold text-foreground">
-                      {ws.name}
-                    </div>
-                    <div className="mt-0.5 font-mono text-xs text-muted-foreground">/{ws.slug}</div>
-                    <div className="mt-4 flex items-baseline justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {ws.environments} environment{ws.environments === 1 ? '' : 's'}
-                      </span>
-                      <span className="text-xs text-muted-foreground transition-colors group-hover:text-accent">
-                        Open →
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-            {org.workspaces.length > 10 ? (
-              <div className="mt-3">
-                <CardTable label={`${org.name} workspaces`}>
-                  <thead>
-                    <tr>
-                      <Th>Workspace</Th>
-                      <Th>Environments</Th>
-                      <Th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {org.workspaces.map((ws) => (
-                      <tr key={ws.id}>
-                        <Td>
-                          <Link to={`/dashboard/${ws.id}`}>{ws.name}</Link>{' '}
-                          <span className="font-mono text-sm text-muted-foreground">
-                            /{ws.slug}
-                          </span>
-                        </Td>
-                        <Td label="Environments" className="text-muted-foreground">
-                          {ws.environments}
-                        </Td>
-                        <Td>
-                          <Button variant="secondary" size="compact" asChild>
-                            <Link to={`/dashboard/${ws.id}`}>Open →</Link>
-                          </Button>
-                        </Td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </CardTable>
-              </div>
-            ) : null}
-            {org.workspaces.length === 0 && (
-              <p className="mt-3 max-w-prose text-sm text-muted-foreground">
-                No workspaces yet — step 2: create one below. Environments, configs, and the audit
-                trail all live inside it.
-              </p>
-            )}
-            <details className="create-inline" open={org.workspaces.length === 0}>
-              <summary>New workspace</summary>
-              <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
-                <input type="hidden" name="intent" value="create-workspace" />
-                <input type="hidden" name="orgId" value={org.id} />
-                <Field label="Name">
-                  <Input type="text" name="name" required placeholder="Storefront" />
-                </Field>
-                <Field label="Slug">
-                  <Input type="text" name="slug" required placeholder="storefront" />
-                </Field>
-                <Button type="submit" className="self-start">
-                  Create workspace
-                </Button>
-              </Form>
-            </details>
-          </section>
+        {loaderData.orgs.map((org, i) => (
+          <OrgSection key={org.id} org={org} first={i === 0} />
         ))}
       </section>
     </main>
+  )
+}
+
+/** "New organization" lives on the page header — it's a page-level act, not an
+ * org-level one. The form unfolds in a bordered drawer below the header. */
+function NewOrgAction() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Button type="button" variant="secondary" onClick={() => setOpen((v) => !v)}>
+        {open ? 'Close' : 'New organization'}
+      </Button>
+      {open && (
+        <Form
+          method="post"
+          className="flex w-full max-w-sm flex-col gap-3 rounded-sm border border-border bg-card p-4"
+        >
+          <input type="hidden" name="intent" value="create-org" />
+          <Field label="Name">
+            <Input type="text" name="name" required placeholder="Acme Inc" autoFocus />
+          </Field>
+          <Field label="Slug">
+            <Input type="text" name="slug" required placeholder="acme" />
+          </Field>
+          <Button type="submit" className="self-start">
+            Create organization
+          </Button>
+        </Form>
+      )}
+    </>
+  )
+}
+
+function OrgSection({ org, first }: { org: Org; first: boolean }) {
+  const isAdmin = org.role === 'owner' || org.role === 'admin'
+  const [creating, setCreating] = useState(org.workspaces.length === 0)
+
+  const ghostCard = (
+    <button
+      type="button"
+      onClick={() => setCreating((v) => !v)}
+      aria-expanded={creating}
+      className="grid min-h-[7rem] cursor-pointer place-items-center rounded-sm border border-dashed border-input bg-transparent p-4 text-sm text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+    >
+      + New workspace
+    </button>
+  )
+
+  return (
+    <section className={first ? 'mt-2' : 'mt-10 border-t border-border pt-8'}>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <span className="flex items-baseline gap-3">
+          <h2 className="m-0 text-lg">{org.name}</h2>
+          <Chip variant="neutral">{org.role}</Chip>
+        </span>
+        {/* Admin doors only for those who can open them — members see none. */}
+        {isAdmin && (
+          <span className="font-mono text-xs text-muted-foreground">
+            <Link
+              to={`/orgs/${org.id}/billing`}
+              className="text-muted-foreground hover:text-accent"
+            >
+              billing
+            </Link>
+            {' · '}
+            <Link to={`/orgs/${org.id}/sso`} className="text-muted-foreground hover:text-accent">
+              oidc
+            </Link>
+            {' · '}
+            <Link to={`/orgs/${org.id}/saml`} className="text-muted-foreground hover:text-accent">
+              saml
+            </Link>
+            {' · '}
+            <Link to={`/orgs/${org.id}/scim`} className="text-muted-foreground hover:text-accent">
+              scim
+            </Link>
+          </span>
+        )}
+      </div>
+
+      {org.workspaces.length === 0 && (
+        <p className="mt-3 max-w-prose text-sm text-muted-foreground">
+          No workspaces yet — step 2: create one. Environments, configs, and the audit trail all
+          live inside it.
+        </p>
+      )}
+
+      {org.workspaces.length <= 10 ? (
+        /* a handful of workspaces browse better as cards; the table takes
+           over past ten, where scanning beats browsing */
+        <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(15rem,1fr))]">
+          {org.workspaces.map((ws) => (
+            <Link
+              key={ws.id}
+              to={`/dashboard/${ws.id}`}
+              className="group rounded-sm border border-border bg-card p-4 no-underline transition-colors hover:border-accent"
+            >
+              <div className="font-display text-base font-semibold text-foreground">{ws.name}</div>
+              <div className="mt-0.5 font-mono text-xs text-muted-foreground">/{ws.slug}</div>
+              <div className="mt-4 flex items-baseline justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {ws.environments} environment{ws.environments === 1 ? '' : 's'}
+                </span>
+                <span className="text-xs text-muted-foreground transition-colors group-hover:text-accent">
+                  Open →
+                </span>
+              </div>
+            </Link>
+          ))}
+          {ghostCard}
+        </div>
+      ) : (
+        <div className="mt-3">
+          <CardTable label={`${org.name} workspaces`}>
+            <thead>
+              <tr>
+                <Th>Workspace</Th>
+                <Th>Environments</Th>
+                <Th />
+              </tr>
+            </thead>
+            <tbody>
+              {org.workspaces.map((ws) => (
+                <tr key={ws.id}>
+                  <Td>
+                    <Link to={`/dashboard/${ws.id}`}>{ws.name}</Link>{' '}
+                    <span className="font-mono text-sm text-muted-foreground">/{ws.slug}</span>
+                  </Td>
+                  <Td label="Environments" className="text-muted-foreground">
+                    {ws.environments}
+                  </Td>
+                  <Td>
+                    <Button variant="secondary" size="compact" asChild>
+                      <Link to={`/dashboard/${ws.id}`}>Open →</Link>
+                    </Button>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </CardTable>
+          <div className="mt-3">{ghostCard}</div>
+        </div>
+      )}
+
+      {creating && (
+        <Form
+          method="post"
+          className="mt-4 flex max-w-sm flex-col gap-3 rounded-sm border border-border bg-card p-4"
+        >
+          <input type="hidden" name="intent" value="create-workspace" />
+          <input type="hidden" name="orgId" value={org.id} />
+          <Field label="Name">
+            <Input type="text" name="name" required placeholder="Storefront" />
+          </Field>
+          <Field label="Slug">
+            <Input type="text" name="slug" required placeholder="storefront" />
+          </Field>
+          <Button type="submit" className="self-start">
+            Create workspace
+          </Button>
+        </Form>
+      )}
+    </section>
   )
 }
