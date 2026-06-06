@@ -14,7 +14,7 @@ function TokenBox({
   return (
     <div
       className={cn(
-        'dog-ear rounded-sm border border-rollout bg-surface-2 p-4 [--fold-color:var(--rollout)]',
+        'dog-ear rounded-sm border border-rollout bg-vault p-4 [--fold-color:var(--rollout)]',
         className,
       )}
       {...props}

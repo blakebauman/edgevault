@@ -51,13 +51,15 @@
   --font-body: "Roboto Slab", Georgia, serif;
 }
 
-/* vault register — the console */
+/* vault register — the console. Near-black neutral ground (the room is dark;
+ * the vault glows): violet appears as meaning — the Vault Depth reveal panel,
+ * the eyebrow, the primary action — never as wash. */
 .dark {
-  --background: #10002b; /* vault night */
+  --background: #121114;
   --foreground: var(--ground); /* Drafting Gray as text — the inversion */
-  --card: #18002f;
+  --card: #19181c;
   --card-foreground: var(--ground);
-  --surface-2: var(--vault);
+  --surface-2: #201e24;
   --primary: var(--relay);
   --primary-foreground: #ffffff;
   --secondary: transparent;

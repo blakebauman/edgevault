@@ -334,7 +334,7 @@
     padding: 1rem;
     border-radius: var(--radius);
     border: 1px solid var(--rollout);
-    background: var(--surface-2);
+    background: var(--vault);
     font-family: var(--font-mono);
     font-size: 0.9rem;
     white-space: pre-wrap;
