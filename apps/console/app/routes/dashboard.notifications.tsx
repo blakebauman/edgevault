@@ -17,6 +17,7 @@ import {
 } from '@edgevault/ui'
 import { Form, Link, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
+import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.notifications'
@@ -101,7 +102,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     })
     if (!res.ok) {
       const detail = ((await res.json().catch(() => null)) as { detail?: string } | null)?.detail
-      return { error: detail ?? `Create failed (${res.status})` }
+      return { error: detail ?? friendlyError(res.status, 'creating the channel') }
     }
     const created = (await res.json()) as { signingSecret?: string }
     return { created: true, signingSecret: created.signingSecret }
@@ -112,13 +113,15 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     const res = await api(env, token, `/${params.workspaceId}/channels/${channelId}`, {
       method: 'DELETE',
     })
-    return res.ok ? { deleted: true } : { error: `Delete failed (${res.status})` }
+    return res.ok ? { deleted: true } : { error: friendlyError(res.status, 'deleting the channel') }
   }
   if (intent === 'test') {
     const res = await api(env, token, `/${params.workspaceId}/channels/${channelId}/test`, {
       method: 'POST',
     })
-    return res.ok ? { tested: true } : { error: `Test failed (${res.status})` }
+    return res.ok
+      ? { tested: true }
+      : { error: friendlyError(res.status, 'sending the test event') }
   }
   return { error: 'Unknown action' }
 }

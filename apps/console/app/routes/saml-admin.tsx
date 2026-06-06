@@ -1,5 +1,6 @@
 import { Button, ErrorNote, Field, Input, Textarea, TokenBox, TokenValue } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
+import { Forbidden } from '../components/forbidden'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/saml-admin'
 
@@ -123,7 +124,7 @@ export default function SamlAdmin({ loaderData, actionData, params }: Route.Comp
           </Button>
         </header>
 
-        {!isAdmin && <ErrorNote>Only organization owners or admins can configure SSO.</ErrorNote>}
+        {!isAdmin && <Forbidden subject="configure SSO" />}
         {isAdmin && !ssoAvailable && (
           <ErrorNote>Enterprise SSO is not enabled for this deployment.</ErrorNote>
         )}

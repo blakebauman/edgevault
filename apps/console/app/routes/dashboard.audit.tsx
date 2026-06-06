@@ -1,6 +1,7 @@
 import { Button, CardTable, Chip, ErrorNote, Field, Input, Select, Td, Th } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { LocalTime } from '../components/local-time'
+import { humanizeAction } from '../lib/format'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.audit'
@@ -61,6 +62,10 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   if (auditRes.ok) events = ((await auditRes.json()) as { events: AuditEventRow[] }).events
   else auditError = `The audit warehouse is unavailable right now (${auditRes.status}).`
 
+  // Preset ranges, computed server-side (the worker's clock, UTC).
+  const today = new Date().toISOString().slice(0, 10)
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10)
+
   return {
     workspaceId: params.workspaceId,
     workspaceName,
@@ -70,11 +75,15 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     from,
     to,
     envId,
+    presets: [
+      { label: 'Last 7 days', from: daysAgo(6), to: today },
+      { label: 'Last 30 days', from: daysAgo(29), to: today },
+    ],
   }
 }
 
 export default function AuditHistory({ loaderData }: Route.ComponentProps) {
-  const { workspaceId, workspaceName, environments, events, auditError, from, to, envId } =
+  const { workspaceId, workspaceName, environments, events, auditError, from, to, envId, presets } =
     loaderData
   const envSlug = (id?: string) =>
     id ? (environments.find((e) => e.id === id)?.slug ?? id.slice(0, 8)) : null
@@ -115,6 +124,17 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
             </Select>
           </Field>
           <Button type="submit">Query</Button>
+          <span className="flex gap-3 pb-2.5">
+            {presets.map((preset) => (
+              <Link
+                key={preset.label}
+                className="font-mono text-xs text-accent underline underline-offset-4"
+                to={`?from=${preset.from}&to=${preset.to}${envId ? `&env=${envId}` : ''}`}
+              >
+                {preset.label}
+              </Link>
+            ))}
+          </span>
         </Form>
 
         {auditError && <ErrorNote>{auditError}</ErrorNote>}
@@ -143,7 +163,7 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
                       <LocalTime epoch={event.at} />
                     </Td>
                     <Td label="Action">
-                      <Chip variant="neutral">{event.action}</Chip>
+                      <Chip variant="neutral">{humanizeAction(event.action)}</Chip>
                       {event.count && event.count > 1 && (
                         <span className="text-muted-foreground"> ×{event.count}</span>
                       )}

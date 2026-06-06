@@ -1,5 +1,6 @@
 import { Button, ErrorNote, StatusNote, TokenBox } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
+import { Forbidden } from '../components/forbidden'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/billing'
 
@@ -148,7 +149,7 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
           </Button>
         </header>
 
-        {!isAdmin && <ErrorNote>Only organization owners or admins can manage billing.</ErrorNote>}
+        {!isAdmin && <Forbidden subject="manage billing" />}
         {isAdmin && !billingAvailable && (
           <p className="text-muted-foreground">
             This deployment is self-hosted: plans are activated with license keys instead of

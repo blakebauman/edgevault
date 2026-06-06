@@ -115,7 +115,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     )
     if (res.ok) revealed = (await res.json()) as { key: string; content: string }
     else if (res.status === 403) revealError = 'Revealing secrets requires an org owner or admin.'
-    else revealError = `Reveal failed (${res.status}).`
+    else revealError = friendlyError(res.status, 'revealing the secret')
   }
 
   let revisions: Revision[] | null = null

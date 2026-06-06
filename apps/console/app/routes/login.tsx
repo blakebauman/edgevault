@@ -68,7 +68,7 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
         <h1>Sign in</h1>
         <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
           <Field label="Email">
-            <Input name="email" type="email" placeholder="you@example.com" required />
+            <Input name="email" type="email" placeholder="you@example.com" required autoFocus />
           </Field>
           <Field label="Password">
             <Input name="password" type="password" placeholder="••••••••" required minLength={8} />

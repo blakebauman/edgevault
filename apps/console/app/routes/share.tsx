@@ -2,6 +2,7 @@ import { encryptShareText } from '@edgevault/crypto'
 import { Button, ErrorNote, Field, Select, Textarea, TokenBox, TokenValue } from '@edgevault/ui'
 import { useRef, useState } from 'react'
 import { Link, redirect, useFetcher } from 'react-router'
+import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/share'
 
@@ -36,7 +37,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       maxViews: Number(form.get('maxViews')),
     }),
   })
-  if (!res.ok) return { error: `Creating the share failed (${res.status})` }
+  if (!res.ok) return { error: friendlyError(res.status, 'creating the share') }
   const created = (await res.json()) as { id: string; expiresAt: number }
   return { id: created.id, expiresAt: created.expiresAt }
 }

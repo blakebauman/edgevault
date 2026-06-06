@@ -18,9 +18,10 @@ import { Form, Link, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { LocalTime } from '../components/local-time'
 import { friendlyError } from '../lib/errors'
+import { humanizeAction } from '../lib/format'
 import { getToken } from '../lib/session.server'
 import { useAgentChat } from '../lib/use-agent-chat'
-import { getWorkspaceName } from '../lib/workspace.server'
+import { getWorkspaceMeta } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard'
 
 /**
@@ -77,8 +78,8 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const query = new URL(request.url).searchParams.get('q')?.trim() || null
 
-  const [workspaceName, envsRes, activityRes, promotionsRes, searchRes] = await Promise.all([
-    getWorkspaceName(env, token, params.workspaceId),
+  const [meta, envsRes, activityRes, promotionsRes, searchRes] = await Promise.all([
+    getWorkspaceMeta(env, token, params.workspaceId),
     env.API_SERVICE.fetch(`${base}/environments`, { headers }),
     env.API_SERVICE.fetch(`${base}/activity`, { headers }),
     env.API_SERVICE.fetch(`${base}/promotions`, { headers }),
@@ -126,7 +127,8 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   return {
     workspaceId: params.workspaceId,
-    workspaceName,
+    workspaceName: meta.name,
+    role: meta.role,
     scores,
     activity: activity.slice(0, 20),
     promotions: promotions.slice(0, 10),
@@ -197,7 +199,7 @@ function describeActivity(entry: ActivityEntry, envSlug: (id: string) => string)
   // environment rows carry the env's id as resourceId — show the slug, not a UUID
   const resource =
     entry.resourceType === 'environment' ? `/${envSlug(entry.resourceId)}` : entry.resourceId
-  return `${entry.action} · ${resource}`
+  return `${humanizeAction(entry.action)} · ${resource}`
 }
 
 const PROMOTION_CHIP: Record<PromotionRow['status'], ChipVariant> = {
@@ -223,7 +225,9 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
     wsUrl,
     workspaceId,
     workspaceName,
+    role,
   } = loaderData
+  const isAdmin = role === 'owner' || role === 'admin'
   const [events, setEvents] = useState<Array<{ k: string; e: WorkspaceEvent }>>([])
   const status = useWorkspaceEvents(wsUrl, (event) =>
     setEvents((prev) => [{ k: crypto.randomUUID(), e: event }, ...prev].slice(0, 20)),
@@ -461,14 +465,21 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                       <LocalTime epoch={p.createdAt} />
                     </Td>
                     <Td>
-                      {p.status === 'pending' && p.workflowInstanceId && (
-                        <ApprovalControl
-                          instanceId={p.workflowInstanceId}
-                          itemKey={p.key}
-                          targetSlug={envSlug(p.targetEnvironmentId)}
-                          busy={busy}
-                        />
-                      )}
+                      {p.status === 'pending' &&
+                        p.workflowInstanceId &&
+                        (isAdmin ? (
+                          <ApprovalControl
+                            instanceId={p.workflowInstanceId}
+                            itemKey={p.key}
+                            targetSlug={envSlug(p.targetEnvironmentId)}
+                            highRisk={p.riskLevel === 'high'}
+                            busy={busy}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            awaiting an owner or admin
+                          </span>
+                        ))}
                     </Td>
                   </tr>
                 ))}
@@ -490,14 +501,20 @@ function ApprovalControl({
   instanceId,
   itemKey,
   targetSlug,
+  highRisk,
   busy,
 }: {
   instanceId: string
   itemKey: string
   targetSlug: string
+  highRisk: boolean
   busy: boolean
 }) {
   const [arming, setArming] = useState<'approve' | 'reject' | null>(null)
+  const [typed, setTyped] = useState('')
+  // High-risk approvals get ceremony proportional to blast radius: type the
+  // target environment's slug to unlock the confirm.
+  const locked = arming === 'approve' && highRisk && typed.trim() !== targetSlug
 
   if (!arming) {
     return (
@@ -528,9 +545,20 @@ function ApprovalControl({
     <div className="flex min-h-8 flex-nowrap items-center gap-2 max-sm:flex-wrap">
       <p className="m-0 text-xs text-warn">
         {arming === 'approve'
-          ? `Apply "${itemKey}" to /${targetSlug}? There is no undo.`
+          ? highRisk
+            ? `Apply "${itemKey}" to /${targetSlug}? Type the slug to confirm — there is no undo.`
+            : `Apply "${itemKey}" to /${targetSlug}? There is no undo.`
           : `Reject the promotion of "${itemKey}"? Nothing is applied.`}
       </p>
+      {arming === 'approve' && highRisk && (
+        <Input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={targetSlug}
+          aria-label={`Type ${targetSlug} to confirm`}
+          className="w-32 px-2 py-1 font-mono text-xs"
+        />
+      )}
       <Form method="post" onSubmit={() => setArming(null)}>
         <input type="hidden" name="intent" value={arming} />
         <input type="hidden" name="instanceId" value={instanceId} />
@@ -538,7 +566,7 @@ function ApprovalControl({
           type="submit"
           variant={arming === 'approve' ? 'danger' : 'secondary'}
           size="compact"
-          disabled={busy}
+          disabled={busy || locked}
         >
           {arming === 'approve' ? `Confirm → /${targetSlug}` : 'Confirm reject'}
         </Button>

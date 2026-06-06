@@ -12,6 +12,7 @@ interface Org {
   id: string
   name: string
   slug: string
+  role: string
   workspaces: Array<{ id: string; name: string; slug: string }>
 }
 
@@ -26,7 +27,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   if (!res.ok) return { authed: false as const, orgs: [] as Org[] }
 
   const { organizations } = (await res.json()) as {
-    organizations: Array<{ id: string; name: string; slug: string }>
+    organizations: Array<{ id: string; name: string; slug: string; role: string }>
   }
   const orgs = await Promise.all(
     organizations.map(async (org): Promise<Org> => {
@@ -136,20 +137,24 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <div key={org.id} className="org">
             <div className="panel-head">
               <h2>{org.name}</h2>
-              <span className="org-links">
-                <Link to={`/orgs/${org.id}/billing`} className="text-muted-foreground">
-                  Billing →
-                </Link>
-                <Link to={`/orgs/${org.id}/sso`} className="text-muted-foreground">
-                  OIDC →
-                </Link>
-                <Link to={`/orgs/${org.id}/saml`} className="text-muted-foreground">
-                  SAML →
-                </Link>
-                <Link to={`/orgs/${org.id}/scim`} className="text-muted-foreground">
-                  SCIM →
-                </Link>
-              </span>
+              {/* Admin doors only for those who can open them — members see
+                  no affordances that 403. */}
+              {(org.role === 'owner' || org.role === 'admin') && (
+                <span className="org-links">
+                  <Link to={`/orgs/${org.id}/billing`} className="text-muted-foreground">
+                    Billing →
+                  </Link>
+                  <Link to={`/orgs/${org.id}/sso`} className="text-muted-foreground">
+                    OIDC →
+                  </Link>
+                  <Link to={`/orgs/${org.id}/saml`} className="text-muted-foreground">
+                    SAML →
+                  </Link>
+                  <Link to={`/orgs/${org.id}/scim`} className="text-muted-foreground">
+                    SCIM →
+                  </Link>
+                </span>
+              )}
             </div>
             <ul className="ws-list">
               {org.workspaces.map((ws) => (

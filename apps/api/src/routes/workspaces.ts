@@ -108,7 +108,9 @@ export const workspaceRoutes = new Hono<AppEnv>()
   .get('/:workspaceId', async (c) => {
     const workspace = await getWorkspaceWithOrg(c.var.database, c.req.param('workspaceId'))
     if (!workspace) return c.json({ error: 'workspace_not_found' }, 404)
-    return c.json({ workspace })
+    // The caller's org role rides along so the console can gate admin
+    // affordances instead of offering doors that 403.
+    return c.json({ workspace: { ...workspace, role: c.var.role } })
   })
   // --- Environments ---
   .post(

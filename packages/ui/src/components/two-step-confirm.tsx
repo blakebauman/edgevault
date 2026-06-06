@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { cn } from '../lib/cn'
 import { Button } from './button'
 
@@ -28,6 +28,13 @@ function TwoStepConfirm({
   children: (close: () => void) => ReactNode
 }) {
   const [arming, setArming] = useState(false)
+  const armedRef = useRef<HTMLDivElement>(null)
+
+  // Keyboard/SR users armed this — move focus to the confirm control so the
+  // warning (an alert region) is announced and the next Tab isn't a mystery.
+  useEffect(() => {
+    if (arming) armedRef.current?.querySelector('button')?.focus()
+  }, [arming])
 
   if (!arming) {
     return (
@@ -44,8 +51,13 @@ function TwoStepConfirm({
   }
 
   return (
-    <div className={cn('flex min-h-8 flex-nowrap items-center gap-2 max-sm:flex-wrap', className)}>
-      <p className="m-0 text-xs text-warn">{note}</p>
+    <div
+      ref={armedRef}
+      className={cn('flex min-h-8 flex-nowrap items-center gap-2 max-sm:flex-wrap', className)}
+    >
+      <p className="m-0 text-xs text-warn" role="alert">
+        {note}
+      </p>
       {children(() => setArming(false))}
       <Button type="button" variant="secondary" size="compact" onClick={() => setArming(false)}>
         Cancel
