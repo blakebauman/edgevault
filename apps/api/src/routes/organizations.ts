@@ -137,3 +137,95 @@ export const organizationRoutes = new Hono<AppEnv>()
     await setScimTokenHash(c.var.database, orgId, null)
     return c.json({ ok: true })
   })
+
+  // --- Members ---
+  // Any member may see the roster; only owners/admins mutate it. Membership
+  // changes go through Neon directly (the SCIM path in ee/ is the automated
+  // equivalent for IdP-provisioned orgs).
+  .get('/:orgId/members', async (c) => {
+    const orgId = c.req.param('orgId')
+    const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+    if (!role) return c.json({ error: 'forbidden' }, 403)
+    const { listOrgMembers } = await import('@edgevault/database')
+    const members = await listOrgMembers(c.var.database, orgId)
+    return c.json({ members, role, viewerId: c.var.userId })
+  })
+  .post(
+    '/:orgId/members',
+    zValidator(
+      'json',
+      z.object({ email: z.email(), role: z.enum(['owner', 'admin', 'member']).default('member') }),
+    ),
+    async (c) => {
+      const orgId = c.req.param('orgId')
+      const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+      if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+      const { email, role: newRole } = c.req.valid('json')
+      // Only owners may mint other owners — admins can't escalate past themselves.
+      if (newRole === 'owner' && role !== 'owner') {
+        return c.json({ error: 'forbidden', detail: 'only an owner can add another owner' }, 403)
+      }
+      const { addOrgMember } = await import('@edgevault/database')
+      const result = await addOrgMember(c.var.database, orgId, email, newRole)
+      if (!result.ok) {
+        if (result.error === 'user_not_found') {
+          return c.json(
+            { error: 'user_not_found', detail: 'No EdgeVault account uses that email yet.' },
+            404,
+          )
+        }
+        if (result.error === 'already_member') {
+          return c.json({ error: 'already_member', detail: 'They are already a member.' }, 409)
+        }
+        return c.json({ error: result.error }, 400)
+      }
+      return c.json({ member: result.member }, 201)
+    },
+  )
+  .patch(
+    '/:orgId/members/:userId',
+    zValidator('json', z.object({ role: z.enum(['owner', 'admin', 'member']) })),
+    async (c) => {
+      const orgId = c.req.param('orgId')
+      const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+      if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+      const { role: newRole } = c.req.valid('json')
+      if (newRole === 'owner' && role !== 'owner') {
+        return c.json({ error: 'forbidden', detail: 'only an owner can grant owner' }, 403)
+      }
+      const { updateOrgMemberRole } = await import('@edgevault/database')
+      const result = await updateOrgMemberRole(
+        c.var.database,
+        orgId,
+        c.req.param('userId'),
+        newRole,
+      )
+      if (!result.ok) {
+        if (result.error === 'last_owner') {
+          return c.json(
+            { error: 'last_owner', detail: 'An organization must keep at least one owner.' },
+            409,
+          )
+        }
+        return c.json({ error: result.error }, result.error === 'not_a_member' ? 404 : 400)
+      }
+      return c.json({ ok: true })
+    },
+  )
+  .delete('/:orgId/members/:userId', async (c) => {
+    const orgId = c.req.param('orgId')
+    const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+    if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+    const { removeOrgMember } = await import('@edgevault/database')
+    const result = await removeOrgMember(c.var.database, orgId, c.req.param('userId'))
+    if (!result.ok) {
+      if (result.error === 'last_owner') {
+        return c.json(
+          { error: 'last_owner', detail: 'An organization must keep at least one owner.' },
+          409,
+        )
+      }
+      return c.json({ error: result.error }, result.error === 'not_a_member' ? 404 : 400)
+    }
+    return c.json({ ok: true })
+  })

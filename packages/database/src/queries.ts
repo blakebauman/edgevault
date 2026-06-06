@@ -1,6 +1,6 @@
 import { and, countDistinct, eq, gte, inArray, lt } from 'drizzle-orm'
 import type { Database } from './client'
-import { accounts, sessions } from './schema/auth'
+import { accounts, sessions, users } from './schema/auth'
 import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
 import { members, organizations } from './schema/organization'
@@ -456,4 +456,147 @@ export async function getAccountByProvider(
     .where(and(eq(accounts.providerId, providerId), eq(accounts.accountId, accountId)))
     .limit(1)
   return row ?? null
+}
+
+/** Org membership roles, lowest to highest privilege. */
+export type MemberRole = 'member' | 'admin' | 'owner'
+
+export interface OrgMember {
+  userId: string
+  email: string
+  name: string | null
+  role: MemberRole
+  joinedAt: Date
+}
+
+/** All members of an org, owners first, then by join order. */
+export async function listOrgMembers(
+  database: Database,
+  organizationId: string,
+): Promise<OrgMember[]> {
+  // Transactional read: the console lists members right after a role change or
+  // add, so Hyperdrive's ~60s query cache must not serve the pre-write roster
+  // (same gotcha as listWorkspaces / the TOTP reads).
+  const rows = await database.transaction(async (tx) =>
+    tx
+      .select({
+        userId: members.userId,
+        email: users.email,
+        name: users.name,
+        role: members.role,
+        joinedAt: members.createdAt,
+      })
+      .from(members)
+      .innerJoin(users, eq(members.userId, users.id))
+      .where(eq(members.organizationId, organizationId)),
+  )
+  const rank: Record<MemberRole, number> = { owner: 0, admin: 1, member: 2 }
+  return rows
+    .map((r) => ({ ...r, role: r.role as MemberRole }))
+    .sort((a, b) => rank[a.role] - rank[b.role] || +a.joinedAt - +b.joinedAt)
+}
+
+/** Count owners — the guard rail for demote/remove (an org must keep one). */
+async function countOwners(database: Database, organizationId: string): Promise<number> {
+  const [row] = await database
+    .select({ n: countDistinct(members.userId) })
+    .from(members)
+    .where(and(eq(members.organizationId, organizationId), eq(members.role, 'owner')))
+  return Number(row?.n ?? 0)
+}
+
+export type MemberMutationError =
+  | 'user_not_found'
+  | 'already_member'
+  | 'not_a_member'
+  | 'last_owner'
+
+/** Add an existing EdgeVault user (by email) to an org. The user must already
+ * have an account — this is direct membership, not an email invitation. */
+export async function addOrgMember(
+  database: Database,
+  organizationId: string,
+  email: string,
+  role: MemberRole,
+): Promise<{ ok: true; member: OrgMember } | { ok: false; error: MemberMutationError }> {
+  return database.transaction(async (tx) => {
+    const [user] = await tx
+      .select({ id: users.id, email: users.email, name: users.name })
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1)
+    if (!user) return { ok: false as const, error: 'user_not_found' as const }
+
+    const [existing] = await tx
+      .select({ userId: members.userId })
+      .from(members)
+      .where(and(eq(members.organizationId, organizationId), eq(members.userId, user.id)))
+      .limit(1)
+    if (existing) return { ok: false as const, error: 'already_member' as const }
+
+    const [created] = await tx
+      .insert(members)
+      .values({ organizationId, userId: user.id, role })
+      .returning({ joinedAt: members.createdAt })
+    return {
+      ok: true as const,
+      member: {
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        role,
+        joinedAt: created?.joinedAt ?? new Date(),
+      },
+    }
+  })
+}
+
+/** Change a member's role. Refuses to demote the org's last owner. */
+export async function updateOrgMemberRole(
+  database: Database,
+  organizationId: string,
+  userId: string,
+  role: MemberRole,
+): Promise<{ ok: true } | { ok: false; error: MemberMutationError }> {
+  return database.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ role: members.role })
+      .from(members)
+      .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
+      .limit(1)
+    if (!current) return { ok: false as const, error: 'not_a_member' as const }
+    if (current.role === 'owner' && role !== 'owner') {
+      const owners = await countOwners(tx as unknown as Database, organizationId)
+      if (owners <= 1) return { ok: false as const, error: 'last_owner' as const }
+    }
+    await tx
+      .update(members)
+      .set({ role })
+      .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
+    return { ok: true as const }
+  })
+}
+
+/** Remove a member. Refuses to remove the org's last owner. */
+export async function removeOrgMember(
+  database: Database,
+  organizationId: string,
+  userId: string,
+): Promise<{ ok: true } | { ok: false; error: MemberMutationError }> {
+  return database.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ role: members.role })
+      .from(members)
+      .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
+      .limit(1)
+    if (!current) return { ok: false as const, error: 'not_a_member' as const }
+    if (current.role === 'owner') {
+      const owners = await countOwners(tx as unknown as Database, organizationId)
+      if (owners <= 1) return { ok: false as const, error: 'last_owner' as const }
+    }
+    await tx
+      .delete(members)
+      .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
+    return { ok: true as const }
+  })
 }

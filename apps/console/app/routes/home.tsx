@@ -217,6 +217,13 @@ function OrgSection({ org, first }: { org: Org; first: boolean }) {
         {isAdmin && (
           <span className="font-mono text-xs text-muted-foreground">
             <Link
+              to={`/orgs/${org.id}/members`}
+              className="text-muted-foreground hover:text-accent"
+            >
+              members
+            </Link>
+            {' · '}
+            <Link
               to={`/orgs/${org.id}/billing`}
               className="text-muted-foreground hover:text-accent"
             >
