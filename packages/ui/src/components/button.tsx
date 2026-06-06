@@ -18,7 +18,7 @@ const buttonVariants = cva(
         default:
           'border-primary bg-primary text-primary-foreground hover:bg-rollout hover:border-rollout disabled:hover:bg-primary disabled:hover:border-primary',
         secondary:
-          'border-primary bg-transparent text-accent hover:bg-relay/18 hover:text-plaintext',
+          'border-input bg-transparent text-foreground/85 hover:border-accent hover:bg-transparent hover:text-accent',
         danger: 'border-destructive bg-transparent text-destructive hover:bg-destructive/16',
         linklike:
           'm-0 border-none bg-transparent p-0 font-sans font-normal text-muted-foreground hover:text-accent',

@@ -20,7 +20,7 @@ export function Crumbs({ items }: { items: Crumb[] }) {
                 {item.label}
               </Link>
             ) : (
-              <span aria-current="page" className="text-accent">
+              <span aria-current="page" className="text-foreground">
                 {item.label}
               </span>
             )}

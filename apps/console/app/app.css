@@ -214,12 +214,12 @@
 
   .create-inline summary {
     cursor: pointer;
-    color: var(--accent);
+    color: var(--muted-foreground);
     font-size: 0.85rem;
   }
 
   .create-inline summary:hover {
-    color: var(--plaintext);
+    color: var(--accent);
   }
 
   .more-auth {
