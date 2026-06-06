@@ -424,6 +424,60 @@ describe('WorkspaceDurableObject', () => {
     })
   })
 
+  it('restores a deleted key from its revisions, faithfully and in sequence', async () => {
+    const ws = workspace('ws-restore')
+    const env1 = await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })
+
+    // A flag with two versions, then deleted.
+    await ws.setConfig({
+      environmentId: env1.id,
+      key: 'checkout-v2',
+      kind: 'flag',
+      content: '{"enabled":false}',
+      userId: 'u1',
+    })
+    await ws.setConfig({
+      environmentId: env1.id,
+      key: 'checkout-v2',
+      kind: 'flag',
+      content: '{"enabled":true}',
+      userId: 'u1',
+    })
+    await ws.deleteConfig(env1.id, 'checkout-v2', 'u1')
+    expect(await ws.getConfig(env1.id, 'checkout-v2')).toBeNull()
+
+    // It shows up as restorable…
+    const deleted = await ws.listDeletedConfigs(env1.id)
+    expect(deleted.map((d) => d.key)).toContain('checkout-v2')
+    expect(deleted.find((d) => d.key === 'checkout-v2')?.kind).toBe('flag')
+
+    // …and comes back as a flag with the final content, continuing the
+    // version sequence (v1, v2, delete-snapshot v3 → restored v4).
+    const restored = await ws.restoreConfig(env1.id, 'checkout-v2', 'u2')
+    expect(restored.kind).toBe('flag')
+    expect(restored.content).toBe('{"enabled":true}')
+    expect(restored.version).toBe(4)
+    expect(await ws.listDeletedConfigs(env1.id)).toHaveLength(0)
+
+    // Restoring a live key refuses.
+    await expect(ws.restoreConfig(env1.id, 'checkout-v2', 'u2')).rejects.toThrow('already exists')
+
+    // Encrypted secrets restore as encrypted secrets (ciphertext untouched).
+    await ws.setConfig({
+      environmentId: env1.id,
+      key: 'api-token',
+      kind: 'secret',
+      content: 'ciphertext-blob',
+      isEncrypted: true,
+      userId: 'u1',
+    })
+    await ws.deleteConfig(env1.id, 'api-token', 'u1')
+    const secret = await ws.restoreConfig(env1.id, 'api-token', 'u1')
+    expect(secret.kind).toBe('secret')
+    expect(secret.isEncrypted).toBe(true)
+    expect(secret.content).toBe('ciphertext-blob')
+  })
+
   it('can inspect internal SQLite state directly', async () => {
     const ws = workspace('ws-internal')
     await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })

@@ -44,6 +44,8 @@ type ConfigRow = {
   updatedBy: string
 }
 
+type DeletedRow = { key: string; kind: string | null; deletedAt: number }
+
 type Revision = {
   id: string
   key: string
@@ -84,10 +86,11 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const revealKey = url.searchParams.get('reveal')
   const historyKey = url.searchParams.get('history')
 
-  const [workspaceName, envsRes, configsRes] = await Promise.all([
+  const [workspaceName, envsRes, configsRes, deletedRes] = await Promise.all([
     getWorkspaceName(env, token, params.workspaceId),
     api(env, token, `${base}/environments`),
     api(env, token, `${base}/environments/${params.envId}/configs`),
+    api(env, token, `${base}/environments/${params.envId}/deleted-configs`),
   ])
   if (envsRes.status === 401 || configsRes.status === 401) throw redirect('/login')
 
@@ -101,6 +104,9 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const environment = environments.find((e) => e.id === params.envId)
   const configs = configsRes.ok
     ? ((await configsRes.json()) as { configs: ConfigRow[] }).configs
+    : []
+  const deletedConfigs = deletedRes.ok
+    ? ((await deletedRes.json()) as { deleted: DeletedRow[] }).deleted
     : []
 
   // Audited, admin-gated secret reveal — proxied here so the browser never
@@ -134,6 +140,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     workspaceName,
     envName: environment ? `${environment.name} /${environment.slug}` : params.envId,
     configs,
+    deletedConfigs,
     revealed,
     revealError,
     historyKey,
@@ -202,6 +209,22 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return { mintedKey: apiKey }
   }
 
+  if (intent === 'restore') {
+    const key = String(form.get('key'))
+    const res = await api(
+      env,
+      token,
+      `${base}/environments/${params.envId}/configs/${encodeURIComponent(key)}/restore`,
+      { method: 'POST', body: JSON.stringify({}) },
+    )
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { detail?: string } | null
+      return { error: body?.detail ?? friendlyError(res.status, 'restoring') }
+    }
+    const { config } = (await res.json()) as { config: { key: string; version: number } }
+    return { restored: { key: config.key, version: config.version } }
+  }
+
   if (intent === 'revert') {
     const res = await api(
       env,
@@ -232,6 +255,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
     workspaceName,
     envName,
     configs,
+    deletedConfigs,
     revealed,
     revealError,
     historyKey,
@@ -245,6 +269,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
   const error = actionData && 'error' in actionData ? actionData.error : null
   const saved = actionData && 'saved' in actionData ? actionData.saved : null
   const deleted = actionData && 'deleted' in actionData ? actionData.deleted : null
+  const restored = actionData && 'restored' in actionData ? actionData.restored : null
   const mintedKey = actionData && 'mintedKey' in actionData ? actionData.mintedKey : null
   const reverted = actionData && 'reverted' in actionData ? actionData.reverted : false
 
@@ -284,7 +309,23 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
             Saved "{saved.key}" — now v{saved.version}, live at the edge in seconds.
           </StatusNote>
         )}
-        {deleted && <StatusNote>Deleted "{deleted}".</StatusNote>}
+        {deleted && (
+          <div className="flex min-h-8 flex-wrap items-center gap-2">
+            <StatusNote>Deleted "{deleted}".</StatusNote>
+            <Form method="post">
+              <input type="hidden" name="intent" value="restore" />
+              <input type="hidden" name="key" value={deleted} />
+              <Button type="submit" variant="linklike" size="compact" disabled={busy}>
+                Undo — restore it
+              </Button>
+            </Form>
+          </div>
+        )}
+        {restored && (
+          <StatusNote>
+            Restored "{restored.key}" — now v{restored.version}, live at the edge in seconds.
+          </StatusNote>
+        )}
         {reverted && (
           <StatusNote>Reverted — a new revision now carries the old content.</StatusNote>
         )}
@@ -360,6 +401,37 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
             )}
           </tbody>
         </CardTable>
+
+        {deletedConfigs.length > 0 && (
+          <details className="create-inline">
+            <summary>
+              Recently deleted ({deletedConfigs.length}) — restorable from revision history
+            </summary>
+            <ul className="feed mt-3" aria-label="Recently deleted keys">
+              {deletedConfigs.map((d) => (
+                <li key={d.key} className="flex flex-wrap items-center gap-3">
+                  <span className="font-mono text-sm">{d.key}</span>
+                  {d.kind && (
+                    <Chip variant={`kind-${d.kind as 'config' | 'flag' | 'secret'}`}>{d.kind}</Chip>
+                  )}
+                  <span className="text-xs text-muted-foreground">
+                    deleted <LocalTime epoch={d.deletedAt} />
+                  </span>
+                  <Form method="post">
+                    <input type="hidden" name="intent" value="restore" />
+                    <input type="hidden" name="key" value={d.key} />
+                    <Button type="submit" variant="secondary" size="compact" disabled={busy}>
+                      Restore
+                    </Button>
+                  </Form>
+                  <Button variant="linklike" size="compact" asChild>
+                    <Link to={baseSearch({ history: d.key })}>History</Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
 
         {historyKey && revisions && (
           <>

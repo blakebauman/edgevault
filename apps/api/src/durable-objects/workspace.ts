@@ -10,6 +10,7 @@ import type {
   ComparisonDiffEntry,
   ConfigItem,
   ConfigKind,
+  DeletedConfig,
   EnvComparison,
   EnvComparisonEntry,
   EnvComparisonSide,
@@ -180,6 +181,22 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       completed_at INTEGER,
       created_by TEXT NOT NULL
     )`)
+
+    // Additive migration: revisions gained item metadata (kind/content type/
+    // encryption) so deleted keys can be restored faithfully. PRAGMA-guarded.
+    const revisionColumns = this.sql
+      .exec<{ name: string }>(`PRAGMA table_info(config_revisions)`)
+      .toArray()
+      .map((column) => column.name)
+    if (!revisionColumns.includes('kind')) {
+      this.sql.exec(`ALTER TABLE config_revisions ADD COLUMN kind TEXT`)
+    }
+    if (!revisionColumns.includes('content_type')) {
+      this.sql.exec(`ALTER TABLE config_revisions ADD COLUMN content_type TEXT`)
+    }
+    if (!revisionColumns.includes('is_encrypted')) {
+      this.sql.exec(`ALTER TABLE config_revisions ADD COLUMN is_encrypted INTEGER`)
+    }
 
     // Additive migration for pre-existing workspaces: the workflow handle and
     // risk verdict arrived after the table did. PRAGMA-guarded, idempotent.
@@ -544,7 +561,7 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       )
       .toArray()[0]
 
-    const version = existing ? existing.version + 1 : 1
+    const version = existing ? existing.version + 1 : Math.max(1, input.minVersion ?? 1)
     const changeType = existing ? 'updated' : 'created'
 
     const revision = await this.revisions.create({
@@ -554,6 +571,9 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       version,
       changeType,
       createdBy: input.userId,
+      kind: kind as ConfigKind,
+      contentType,
+      isEncrypted: isEncrypted === 1,
     })
 
     if (existing) {
@@ -658,6 +678,9 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       version: existing.version + 1,
       changeType: 'deleted',
       createdBy: userId,
+      kind: existing.kind,
+      contentType: existing.contentType,
+      isEncrypted: existing.isEncrypted,
     })
     this.sql.exec(
       `DELETE FROM config_items WHERE environment_id = ? AND config_key = ?`,
@@ -696,6 +719,59 @@ export class WorkspaceDurableObject extends DurableObject<Env> {
       content: revision.content,
       userId,
     })
+  }
+
+  /**
+   * Bring a deleted key back from its surviving revisions: the newest revision
+   * carries the final content AND the item metadata (kind/content type/
+   * encryption) recorded at write time, so secrets come back as secrets with
+   * their ciphertext intact. Version numbering continues the old sequence.
+   */
+  async restoreConfig(environmentId: string, key: string, userId: string): Promise<ConfigItem> {
+    if (this.getConfig(environmentId, key)) {
+      throw new Error('Restore error: the key already exists')
+    }
+    const latest = this.revisions.latestForKey(environmentId, key)
+    if (!latest) throw new Error('Restore error: no revisions survive for this key')
+    if (latest.kind === null || latest.contentType === null || latest.isEncrypted === null) {
+      // Pre-metadata revision: restoring would guess at kind/encryption — refuse
+      // rather than resurrect a secret as a plaintext config.
+      throw new Error('Restore error: this key predates restore support; recreate it manually')
+    }
+    return this.setConfig({
+      environmentId,
+      key,
+      kind: latest.kind,
+      content: latest.content,
+      contentType: latest.contentType,
+      isEncrypted: latest.isEncrypted,
+      userId,
+      minVersion: latest.version + 1,
+    })
+  }
+
+  /** Keys with surviving revisions but no live item — the restorable set. */
+  listDeletedConfigs(environmentId: string): DeletedConfig[] {
+    return this.sql
+      .exec<{ key: string; kind: string | null; deleted_at: number }>(
+        `SELECT r.config_key AS key, r.kind AS kind, MAX(r.created_at) AS deleted_at
+         FROM config_revisions r
+         WHERE r.environment_id = ? AND r.change_type = 'deleted'
+           AND r.config_key NOT IN (
+             SELECT config_key FROM config_items WHERE environment_id = ?
+           )
+         GROUP BY r.config_key
+         ORDER BY deleted_at DESC
+         LIMIT 50`,
+        environmentId,
+        environmentId,
+      )
+      .toArray()
+      .map((row) => ({
+        key: row.key,
+        kind: (row.kind as ConfigKind | null) ?? null,
+        deletedAt: row.deleted_at,
+      }))
   }
 
   // --- Promotions ---------------------------------------------------------

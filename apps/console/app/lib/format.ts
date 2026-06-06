@@ -10,6 +10,7 @@ const ACTION_LABELS: Record<string, string> = {
   'config.updated': 'updated',
   'config.deleted': 'deleted',
   'config.promoted': 'promoted',
+  'config.restored': 'restored',
   'secret.revealed': 'revealed (audited)',
   'environment.created': 'environment created',
   'promotion.awaiting_approval': 'awaiting approval',

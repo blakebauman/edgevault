@@ -47,6 +47,17 @@ export interface Revision {
   summary: string | null
   createdAt: number
   createdBy: string
+  /** Item metadata at write time — null on revisions older than restore support. */
+  kind: ConfigKind | null
+  contentType: string | null
+  isEncrypted: boolean | null
+}
+
+/** A key with surviving revisions but no live item — restorable. */
+export interface DeletedConfig {
+  key: string
+  kind: ConfigKind | null
+  deletedAt: number
 }
 
 export type PromotionStatus = 'pending' | 'completed' | 'failed'
@@ -168,4 +179,6 @@ export interface SetConfigInput {
   contentType?: string
   isEncrypted?: boolean
   userId: string
+  /** Restores continue the key's old version sequence instead of resetting to 1. */
+  minVersion?: number
 }

@@ -273,6 +273,46 @@ export const workspaceRoutes = new Hono<AppEnv>()
     }
     return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
   })
+  // The restorable set: keys whose revisions survive deletion.
+  .get('/:workspaceId/environments/:envId/deleted-configs', async (c) => {
+    const deleted = await stubFor(c, c.req.param('workspaceId')).listDeletedConfigs(
+      c.req.param('envId'),
+    )
+    return c.json({ deleted })
+  })
+  // Undo for deletes: re-create a key from its newest surviving revision (the
+  // delete snapshot), with kind/encryption restored faithfully.
+  .post('/:workspaceId/environments/:envId/configs/:key/restore', async (c) => {
+    const workspaceId = c.req.param('workspaceId')
+    const envId = c.req.param('envId')
+    const key = c.req.param('key')
+    let config: ConfigItem
+    try {
+      config = await stubFor(c, workspaceId).restoreConfig(envId, key, c.var.userId)
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Restore error:')) {
+        return c.json({ error: 'unrestorable', detail: error.message.slice(15) }, 422)
+      }
+      if (isRefError(error))
+        return c.json({ error: 'invalid_reference', detail: error.message }, 400)
+      throw error
+    }
+    c.executionCtx.waitUntil(publishWithDependents(c, workspaceId, config))
+    if (config.kind !== 'secret') {
+      c.executionCtx.waitUntil(indexConfig(c.env, workspaceId, config))
+    }
+    c.executionCtx.waitUntil(
+      emitAudit(c.env, {
+        workspaceId,
+        environmentId: envId,
+        action: 'config.restored',
+        resourceType: config.kind,
+        key,
+        userId: c.var.userId,
+      }),
+    )
+    return c.json({ config: redact(config) })
+  })
   // Reveal a decrypted secret value — restricted to org owners/admins.
   .get('/:workspaceId/environments/:envId/configs/:key/reveal', async (c) => {
     if (c.var.role !== 'owner' && c.var.role !== 'admin') {
