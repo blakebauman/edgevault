@@ -1,3 +1,4 @@
+import { Button, ErrorNote, Field, Input, TokenBox, TokenValue } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/sso-admin'
@@ -117,23 +118,21 @@ export default function SsoAdmin({ loaderData, actionData, params }: Route.Compo
             <p className="eyebrow">Enterprise SSO (OIDC)</p>
             <h1>{org.name}</h1>
           </div>
-          <Link to="/" className="secondary button">
-            ← All workspaces
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link to="/">← All workspaces</Link>
+          </Button>
         </header>
 
-        {!isAdmin && (
-          <p className="error-text">Only organization owners or admins can configure SSO.</p>
-        )}
+        {!isAdmin && <ErrorNote>Only organization owners or admins can configure SSO.</ErrorNote>}
         {isAdmin && !ssoAvailable && (
-          <p className="error-text">Enterprise SSO is not enabled for this deployment.</p>
+          <ErrorNote>Enterprise SSO is not enabled for this deployment.</ErrorNote>
         )}
         {isAdmin && ssoAvailable && !entitled && (
-          <p className="error-text" role="alert">
+          <ErrorNote>
             This organization’s plan does not include enterprise SSO.{' '}
             <Link to={`/orgs/${params.orgId}/billing`}>Upgrade on the billing page</Link> to enable
             it.
-          </p>
+          </ErrorNote>
         )}
 
         {isAdmin && ssoAvailable && entitled && (
@@ -142,60 +141,58 @@ export default function SsoAdmin({ loaderData, actionData, params }: Route.Compo
               Connect your identity provider (Okta, Entra ID, Google Workspace). Set your IdP’s
               redirect / callback URL to the value below, then save the connection here.
             </p>
-            {saved && <p className="muted">Connection saved. Members can now sign in via SSO.</p>}
-            {error && <p className="error-text">{error}</p>}
+            {saved && (
+              <p className="text-muted-foreground">
+                Connection saved. Members can now sign in via SSO.
+              </p>
+            )}
+            {error && <ErrorNote>{error}</ErrorNote>}
             {connection.configured && (
-              <p className="muted">
+              <p className="text-muted-foreground">
                 A connection is configured for <code>{connection.issuer}</code>. Re-saving rotates
                 the stored client secret.
               </p>
             )}
 
-            <div className="token-box">
-              <p className="token-note">Redirect URI (set this in your IdP):</p>
-              <code className="token-value">{suggestedRedirectUri}</code>
-            </div>
+            <TokenBox note="Redirect URI (set this in your IdP):">
+              <TokenValue>{suggestedRedirectUri}</TokenValue>
+            </TokenBox>
 
-            <Form method="post" className="form stack-gap">
-              <label>
-                Issuer URL
-                <input
+            <Form method="post" className="mt-6 flex max-w-md flex-col gap-3 stack-gap">
+              <Field label="Issuer URL">
+                <Input
                   name="issuer"
                   type="url"
                   placeholder="https://example.okta.com"
                   defaultValue={connection.issuer ?? ''}
                   required
                 />
-              </label>
-              <label>
-                Client ID
-                <input name="clientId" defaultValue={connection.clientId ?? ''} required />
-              </label>
-              <label>
-                Client secret {connection.configured && '(re-enter to save changes)'}
-                <input name="clientSecret" type="password" required />
-              </label>
-              <label>
-                Redirect URI
-                <input
+              </Field>
+              <Field label="Client ID">
+                <Input name="clientId" defaultValue={connection.clientId ?? ''} required />
+              </Field>
+              <Field
+                label={<>Client secret {connection.configured && '(re-enter to save changes)'}</>}
+              >
+                <Input name="clientSecret" type="password" required />
+              </Field>
+              <Field label="Redirect URI">
+                <Input
                   name="redirectUri"
                   type="url"
                   defaultValue={connection.redirectUri ?? suggestedRedirectUri}
                   required
                 />
-              </label>
-              <label>
-                Scopes (space-separated)
-                <input
+              </Field>
+              <Field label="Scopes (space-separated)">
+                <Input
                   name="scopes"
                   defaultValue={(connection.scopes ?? ['openid', 'email', 'profile']).join(' ')}
                 />
-              </label>
-              <div className="row">
-                <button type="submit">
-                  {connection.configured ? 'Update connection' : 'Save connection'}
-                </button>
-              </div>
+              </Field>
+              <Button type="submit" className="self-start">
+                {connection.configured ? 'Update connection' : 'Save connection'}
+              </Button>
             </Form>
           </>
         )}

@@ -1,3 +1,4 @@
+import { Button, ErrorNote, StatusNote, TokenBox } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/billing'
@@ -142,18 +143,14 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
             <p className="eyebrow">Billing &amp; plan</p>
             <h1>{org.name}</h1>
           </div>
-          <Link to="/" className="secondary button">
-            ← All workspaces
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link to="/">← All workspaces</Link>
+          </Button>
         </header>
 
-        {!isAdmin && (
-          <p className="error-text" role="alert">
-            Only organization owners or admins can manage billing.
-          </p>
-        )}
+        {!isAdmin && <ErrorNote>Only organization owners or admins can manage billing.</ErrorNote>}
         {isAdmin && !billingAvailable && (
-          <p className="muted">
+          <p className="text-muted-foreground">
             This deployment is self-hosted: plans are activated with license keys instead of
             billing. Contact your EdgeVault vendor for an enterprise license.
           </p>
@@ -162,21 +159,13 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
         {isAdmin && billingAvailable && (
           <>
             {checkoutResult === 'success' && (
-              <p className="muted">
+              <p className="text-muted-foreground">
                 Payment received — thank you! Your plan can take up to a minute to update while we
                 confirm the subscription with Stripe. Refresh this page to see it.
               </p>
             )}
-            {checkoutResult === 'cancelled' && (
-              <p className="status-note" role="status">
-                Checkout cancelled.
-              </p>
-            )}
-            {error && (
-              <p className="error-text" role="alert">
-                {error}
-              </p>
-            )}
+            {checkoutResult === 'cancelled' && <StatusNote>Checkout cancelled.</StatusNote>}
+            {error && <ErrorNote>{error}</ErrorNote>}
 
             <p className="lede">
               Current plan: <strong>{status?.plan ?? 'free'}</strong>
@@ -184,39 +173,43 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
 
             <div className="plan-cards">
               {(['pro', 'team'] as const).map((plan) => (
-                <div className="token-box" key={plan}>
-                  <p className="token-note">{PLAN_COPY[plan]?.title}</p>
-                  <p className="muted">{PLAN_COPY[plan]?.blurb}</p>
-                  {status?.plan === plan ? (
-                    <p className="muted">This is your current plan.</p>
-                  ) : (
-                    <Form method="post">
-                      <input type="hidden" name="intent" value="checkout" />
-                      <input type="hidden" name="plan" value={plan} />
-                      <button type="submit" disabled={!status?.plans[plan]}>
-                        {status?.plans[plan]
-                          ? `Upgrade to ${PLAN_COPY[plan]?.title}`
-                          : 'Coming soon'}
-                      </button>
-                    </Form>
-                  )}
-                </div>
+                <TokenBox note={PLAN_COPY[plan]?.title} key={plan}>
+                  <div className="flex flex-1 flex-col gap-2">
+                    <p className="text-muted-foreground">{PLAN_COPY[plan]?.blurb}</p>
+                    {status?.plan === plan ? (
+                      <p className="text-muted-foreground">This is your current plan.</p>
+                    ) : (
+                      <Form method="post">
+                        <input type="hidden" name="intent" value="checkout" />
+                        <input type="hidden" name="plan" value={plan} />
+                        <Button
+                          type="submit"
+                          className="self-start"
+                          disabled={!status?.plans[plan]}
+                        >
+                          {status?.plans[plan]
+                            ? `Upgrade to ${PLAN_COPY[plan]?.title}`
+                            : 'Coming soon'}
+                        </Button>
+                      </Form>
+                    )}
+                  </div>
+                </TokenBox>
               ))}
-              <div className="token-box">
-                <p className="token-note">Enterprise</p>
-                <p className="muted">
+              <TokenBox note="Enterprise">
+                <p className="text-muted-foreground">
                   SSO/SAML, SCIM, advanced RBAC, audit retention. Sales-led —{' '}
                   <a href="mailto:sales@edgevault.io">contact sales</a>.
                 </p>
-              </div>
+              </TokenBox>
             </div>
 
             {status?.hasCustomer && (
               <Form method="post" className="stack-gap">
                 <input type="hidden" name="intent" value="portal" />
-                <button type="submit" className="secondary">
+                <Button type="submit" variant="secondary">
                   Manage billing (invoices, payment method, cancel)
-                </button>
+                </Button>
               </Form>
             )}
           </>

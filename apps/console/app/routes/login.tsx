@@ -1,3 +1,4 @@
+import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
 import { type FormEvent, useState } from 'react'
 import { Form, redirect } from 'react-router'
 import { setMfaCookie, setTokenCookie } from '../lib/session.server'
@@ -65,41 +66,41 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
       <section className="hero">
         <p className="eyebrow">EdgeVault Console</p>
         <h1>Sign in</h1>
-        <Form method="post" className="form">
-          <label>
-            Email
-            <input name="email" type="email" placeholder="you@example.com" required />
-          </label>
-          <label>
-            Password
-            <input name="password" type="password" placeholder="••••••••" required minLength={8} />
-          </label>
-          {actionData?.error && (
-            <p className="error-text" role="alert">
-              {actionData.error}
-            </p>
-          )}
-          <div className="row">
-            <button type="submit" name="intent" value="signin">
+        <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+          <Field label="Email">
+            <Input name="email" type="email" placeholder="you@example.com" required />
+          </Field>
+          <Field label="Password">
+            <Input name="password" type="password" placeholder="••••••••" required minLength={8} />
+          </Field>
+          {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" name="intent" value="signin">
               Sign in
-            </button>
-            <button type="submit" name="intent" value="signup" className="linklike more-auth-alt">
+            </Button>
+            <Button
+              type="submit"
+              name="intent"
+              value="signup"
+              variant="linklike"
+              className="more-auth-alt"
+            >
               New here? Create an account
-            </button>
+            </Button>
           </div>
         </Form>
 
         <details className="more-auth">
           <summary>More sign-in options</summary>
-          <div className="form">
-            <p className="muted">Continue with</p>
-            <div className="row">
-              <a className="secondary button" href="/oauth/github/start">
-                GitHub
-              </a>
-              <a className="secondary button" href="/oauth/google/start">
-                Google
-              </a>
+          <div className="mt-4 flex flex-col gap-3">
+            <p className="m-0 text-sm text-muted-foreground">Continue with</p>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="secondary" asChild>
+                <a href="/oauth/github/start">GitHub</a>
+              </Button>
+              <Button variant="secondary" asChild>
+                <a href="/oauth/google/start">Google</a>
+              </Button>
             </div>
           </div>
           <PasskeyButton />
@@ -128,15 +129,17 @@ function PasskeyButton() {
   }
 
   return (
-    <div className="form">
-      <button type="button" className="secondary" onClick={onClick} disabled={busy}>
+    <div className="mt-4 flex flex-col gap-3">
+      <Button
+        type="button"
+        variant="secondary"
+        className="self-start"
+        onClick={onClick}
+        disabled={busy}
+      >
         {busy ? 'Waiting for passkey…' : 'Sign in with a passkey'}
-      </button>
-      {error && (
-        <p className="error-text" role="alert">
-          {error}
-        </p>
-      )}
+      </Button>
+      {error && <ErrorNote>{error}</ErrorNote>}
     </div>
   )
 }
@@ -152,37 +155,28 @@ function SsoForm({ error }: { error: string | null }) {
   }
 
   return (
-    <form className="form sso" onSubmit={(e: FormEvent) => e.preventDefault()}>
-      <p className="muted">Enterprise SSO</p>
-      <input
+    <form
+      className="mt-4 flex max-w-sm flex-col gap-3"
+      onSubmit={(e: FormEvent) => e.preventDefault()}
+    >
+      <p className="text-muted-foreground">Enterprise SSO</p>
+      <Input
         value={org}
         onChange={(e) => setOrg(e.target.value)}
         placeholder="organization id"
         aria-label="Organization ID"
       />
-      <p className="field-hint">Your admin can share this from the organization's SSO page.</p>
-      {error && (
-        <p className="error-text" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="row">
-        <button
-          type="button"
-          className="secondary"
-          disabled={!org.trim()}
-          onClick={() => go('sso')}
-        >
+      <p className="m-0 text-xs text-muted-foreground">
+        Your admin can share this from the organization's SSO page.
+      </p>
+      {error && <ErrorNote>{error}</ErrorNote>}
+      <div className="flex flex-wrap gap-3">
+        <Button type="button" variant="secondary" disabled={!org.trim()} onClick={() => go('sso')}>
           Sign in with OIDC
-        </button>
-        <button
-          type="button"
-          className="secondary"
-          disabled={!org.trim()}
-          onClick={() => go('saml')}
-        >
+        </Button>
+        <Button type="button" variant="secondary" disabled={!org.trim()} onClick={() => go('saml')}>
           Sign in with SAML
-        </button>
+        </Button>
       </div>
     </form>
   )

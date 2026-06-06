@@ -1,4 +1,5 @@
 import { decryptShareText } from '@edgevault/crypto'
+import { Button, ErrorNote } from '@edgevault/ui'
 import { useState } from 'react'
 import { useFetcher } from 'react-router'
 import type { Route } from './+types/share.view'
@@ -60,33 +61,31 @@ export default function ShareViewer(_: Route.ComponentProps) {
 
         {plaintext !== null ? (
           <>
-            <p className="muted">
+            <p className="text-muted-foreground">
               Copy it now
               {fetcher.data && !fetcher.data.gone && fetcher.data.remainingViews === 0
                 ? ' — this link is now burned and cannot be opened again.'
                 : '.'}
             </p>
             <pre className="share-plaintext">{plaintext}</pre>
-            <button type="button" onClick={() => navigator.clipboard.writeText(plaintext)}>
+            <Button type="button" onClick={() => navigator.clipboard.writeText(plaintext)}>
               Copy to clipboard
-            </button>
+            </Button>
           </>
         ) : gone ? (
-          <p className="error-text">
-            This link has expired, reached its view limit, or never existed.
-          </p>
+          <ErrorNote>This link has expired, reached its view limit, or never existed.</ErrorNote>
         ) : decryptError ? (
-          <p className="error-text">{decryptError}</p>
+          <ErrorNote>{decryptError}</ErrorNote>
         ) : (
           <>
-            <p className="muted">
+            <p className="text-muted-foreground">
               Revealing consumes one view — for burn-after-reading links, the secret is shown
               exactly once. It decrypts in your browser; the server only stores ciphertext.
             </p>
             <fetcher.Form method="post">
-              <button type="submit" disabled={fetcher.state !== 'idle'}>
+              <Button type="submit" disabled={fetcher.state !== 'idle'}>
                 {fetcher.state !== 'idle' ? 'Revealing…' : 'Reveal secret'}
-              </button>
+              </Button>
             </fetcher.Form>
           </>
         )}

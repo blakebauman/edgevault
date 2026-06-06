@@ -1,4 +1,5 @@
 import { encryptShareText } from '@edgevault/crypto'
+import { Button, ErrorNote, Field, Select, Textarea, TokenBox, TokenValue } from '@edgevault/ui'
 import { useRef, useState } from 'react'
 import { Link, redirect, useFetcher } from 'react-router'
 import { getToken } from '../lib/session.server'
@@ -77,29 +78,24 @@ export default function ShareComposer(_: Route.ComponentProps) {
             <p className="eyebrow">Share a secret</p>
             <h1>Expiring, zero-knowledge link</h1>
           </div>
-          <Link to="/" className="secondary button">
-            ← Home
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link to="/">← Home</Link>
+          </Button>
         </header>
 
-        <p className="muted">
+        <p className="text-muted-foreground">
           Encrypted in your browser before upload — the key lives in the link's #fragment, so
           EdgeVault can never read the value. The link burns after the view limit or expiry.
         </p>
 
         {link ? (
-          <div className="token-box">
-            <p className="token-note">
-              Share this link. It will not be shown again, and the value is unrecoverable without
-              it.
-            </p>
-            <code className="token-value">{link}</code>
-          </div>
+          <TokenBox note="Share this link. It will not be shown again, and the value is unrecoverable without it.">
+            <TokenValue>{link}</TokenValue>
+          </TokenBox>
         ) : (
-          <div className="form share-form">
-            <label>
-              Secret value
-              <textarea
+          <div className="mt-6 flex max-w-xl flex-col gap-3">
+            <Field label="Secret value">
+              <Textarea
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 rows={5}
@@ -107,39 +103,36 @@ export default function ShareComposer(_: Route.ComponentProps) {
                 placeholder="Paste the value to share…"
                 aria-label="Secret value"
               />
-            </label>
-            <div className="row">
-              <label>
-                Expires after
-                <select value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>
+            </Field>
+            <div className="flex flex-wrap gap-3">
+              <Field label="Expires after">
+                <Select value={ttl} onChange={(e) => setTtl(Number(e.target.value))}>
                   {TTL_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label>
-                View limit
-                <select value={views} onChange={(e) => setViews(Number(e.target.value))}>
+                </Select>
+              </Field>
+              <Field label="View limit">
+                <Select value={views} onChange={(e) => setViews(Number(e.target.value))}>
                   {[1, 2, 3, 5, 10].map((n) => (
                     <option key={n} value={n}>
                       {n === 1 ? '1 (burn after reading)' : n}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </Field>
             </div>
-            {fetcher.data && 'error' in fetcher.data && (
-              <p className="error-text">{fetcher.data.error}</p>
-            )}
-            <button
+            {fetcher.data && 'error' in fetcher.data && <ErrorNote>{fetcher.data.error}</ErrorNote>}
+            <Button
               type="button"
               onClick={onShare}
               disabled={!value.trim() || fetcher.state !== 'idle'}
+              className="self-start"
             >
               {fetcher.state !== 'idle' ? 'Encrypting…' : 'Encrypt & create link'}
-            </button>
+            </Button>
           </div>
         )}
       </section>

@@ -1,3 +1,4 @@
+import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
 import { Form, Link } from 'react-router'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/home'
@@ -82,9 +83,9 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           <p className="eyebrow">EdgeVault Console</p>
           <h1>Configuration, secrets &amp; flags at the edge.</h1>
           <p className="lede">Sign in to manage your workspaces with live updates.</p>
-          <Link className="button" to="/login">
-            Sign in →
-          </Link>
+          <Button asChild>
+            <Link to="/login">Sign in →</Link>
+          </Button>
         </section>
       </main>
     )
@@ -96,11 +97,7 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
         <header className="panel-head">
           <h1>Your workspaces</h1>
         </header>
-        {actionData?.error && (
-          <p className="error-text" role="alert">
-            {actionData.error}
-          </p>
-        )}
+        {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
         {loaderData.orgs.length === 0 && (
           <p className="lede">No organizations yet — create one below to get started.</p>
         )}
@@ -109,16 +106,16 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
             <div className="panel-head">
               <h2>{org.name}</h2>
               <span className="org-links">
-                <Link to={`/orgs/${org.id}/billing`} className="muted">
+                <Link to={`/orgs/${org.id}/billing`} className="text-muted-foreground">
                   Billing →
                 </Link>
-                <Link to={`/orgs/${org.id}/sso`} className="muted">
+                <Link to={`/orgs/${org.id}/sso`} className="text-muted-foreground">
                   OIDC →
                 </Link>
-                <Link to={`/orgs/${org.id}/saml`} className="muted">
+                <Link to={`/orgs/${org.id}/saml`} className="text-muted-foreground">
                   SAML →
                 </Link>
-                <Link to={`/orgs/${org.id}/scim`} className="muted">
+                <Link to={`/orgs/${org.id}/scim`} className="text-muted-foreground">
                   SCIM →
                 </Link>
               </span>
@@ -127,42 +124,44 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
               {org.workspaces.map((ws) => (
                 <li key={ws.id}>
                   <Link to={`/dashboard/${ws.id}`}>{ws.name}</Link>
-                  <span className="muted"> /{ws.slug}</span>
+                  <span className="text-muted-foreground"> /{ws.slug}</span>
                 </li>
               ))}
-              {org.workspaces.length === 0 && <li className="muted">No workspaces</li>}
+              {org.workspaces.length === 0 && (
+                <li className="text-muted-foreground">No workspaces</li>
+              )}
             </ul>
             <details className="create-inline">
               <summary>New workspace</summary>
-              <Form method="post" className="form">
+              <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
                 <input type="hidden" name="intent" value="create-workspace" />
                 <input type="hidden" name="orgId" value={org.id} />
-                <label>
-                  Name
-                  <input type="text" name="name" required placeholder="Storefront" />
-                </label>
-                <label>
-                  Slug
-                  <input type="text" name="slug" required placeholder="storefront" />
-                </label>
-                <button type="submit">Create workspace</button>
+                <Field label="Name">
+                  <Input type="text" name="name" required placeholder="Storefront" />
+                </Field>
+                <Field label="Slug">
+                  <Input type="text" name="slug" required placeholder="storefront" />
+                </Field>
+                <Button type="submit" className="self-start">
+                  Create workspace
+                </Button>
               </Form>
             </details>
           </div>
         ))}
         <details className="create-inline">
           <summary>New organization</summary>
-          <Form method="post" className="form">
+          <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
             <input type="hidden" name="intent" value="create-org" />
-            <label>
-              Name
-              <input type="text" name="name" required placeholder="Acme Inc" />
-            </label>
-            <label>
-              Slug
-              <input type="text" name="slug" required placeholder="acme" />
-            </label>
-            <button type="submit">Create organization</button>
+            <Field label="Name">
+              <Input type="text" name="name" required placeholder="Acme Inc" />
+            </Field>
+            <Field label="Slug">
+              <Input type="text" name="slug" required placeholder="acme" />
+            </Field>
+            <Button type="submit" className="self-start">
+              Create organization
+            </Button>
           </Form>
         </details>
       </section>

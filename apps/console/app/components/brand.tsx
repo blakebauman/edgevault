@@ -1,3 +1,4 @@
+import { Button } from '@edgevault/ui'
 import { Form, Link } from 'react-router'
 
 /** The vault mark — square with a folded corner; the keyway slot is the single
@@ -23,19 +24,33 @@ export function VaultMark({ size = 22 }: { size?: number }) {
  * root layout on every page; account links only when a session exists. */
 export function TopBar({ authed }: { authed: boolean }) {
   return (
-    <header className="topbar">
-      <Link to="/" className="topbar-brand" aria-label="EdgeVault — all workspaces">
+    <header className="flex h-13 items-center justify-between gap-4 border-b border-border bg-card px-6">
+      <Link
+        to="/"
+        className="flex items-center gap-2 text-foreground no-underline"
+        aria-label="EdgeVault — all workspaces"
+      >
         <VaultMark />
-        <span className="topbar-wordmark">EdgeVault</span>
+        <span className="font-display text-base font-semibold tracking-tight">EdgeVault</span>
       </Link>
       {authed && (
-        <nav className="topbar-nav" aria-label="Account">
-          <Link to="/share">Share a secret</Link>
-          <Link to="/account/mfa">Security</Link>
+        <nav className="flex items-center gap-5" aria-label="Account">
+          <Link
+            to="/share"
+            className="text-sm text-muted-foreground no-underline hover:text-accent"
+          >
+            Share a secret
+          </Link>
+          <Link
+            to="/account/mfa"
+            className="text-sm text-muted-foreground no-underline hover:text-accent"
+          >
+            Security
+          </Link>
           <Form method="post" action="/logout">
-            <button type="submit" className="linklike">
+            <Button type="submit" variant="linklike" className="text-sm">
               Sign out
-            </button>
+            </Button>
           </Form>
         </nav>
       )}

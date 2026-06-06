@@ -1,7 +1,11 @@
-/* Layer order: legacy sits between Tailwind's base (preflight) and utilities —
- * unmigrated pages keep their styles over the reset; @edgevault/ui components
- * (pure utilities) beat legacy wherever both apply. Prune legacy as routes
- * migrate; new styling goes through @edgevault/ui or utilities, not here. */
+/* EdgeVault console styles.
+ *
+ * Components and controls come from @edgevault/ui (Tailwind utilities + the
+ * shared brand tokens; the console runs the dark "vault" register via .dark
+ * on <html>). What remains here is page furniture — shell, panels, feeds,
+ * chat — kept in a `legacy` cascade layer between Tailwind's base and
+ * utilities. New styling goes through @edgevault/ui or utilities, not here.
+ */
 @layer theme, base, components, legacy, utilities;
 @import "tailwindcss";
 @import "@edgevault/ui/tailwind.css";
@@ -9,46 +13,12 @@
 @source "../../../packages/ui/src";
 
 @layer legacy {
-  /*
- * EdgeVault console — dark product register bridged to the brand
- * ("The Drafting Room" inverted: the console lives inside the vault).
- * Ground + surfaces from the Vivid Nightfall ramp; Relay-family accents;
- * machined 2px radii; Space Grotesk headings. See DESIGN.md at the repo root.
- */
-  :root {
-    color-scheme: dark;
-    --bg: #10002b; /* vault night — deepest step of the brand palette */
-    --surface: #18002f;
-    --surface-2: #240046; /* Vault Depth — panels, code, feeds */
-    --fg: #f3f4f6; /* Drafting Gray as text — the brand inversion */
-    --muted-text: rgba(243, 244, 246, 0.65);
-    --accent: #c77dff; /* Artifact Glow — readable accent on the night ground */
-    --accent-strong: #7b2cbf; /* Relay Violet — fills */
-    --accent-soft: #9d4edd; /* Rollout Orchid — borders, secondary */
-    --lilac: #e0aaff; /* Plaintext Lilac — revealed values, highlights */
-    --rule: rgba(243, 244, 246, 0.14);
-    --rule-strong: rgba(243, 244, 246, 0.3);
-    --ok: #4ade80;
-    --warn: #fbbf24;
-    --danger: #ff6b6b;
-    --radius: 2px; /* machined — pills are banned */
-    --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-    --font-body:
-      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --font-mono:
-      "Martian Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  }
-
-  * {
-    box-sizing: border-box;
-  }
-
   html,
   body {
     margin: 0;
     padding: 0;
-    background: var(--bg);
-    color: var(--fg);
+    background: var(--background);
+    color: var(--foreground);
     font-family: var(--font-body);
   }
 
@@ -66,66 +36,7 @@
     border-radius: var(--radius);
   }
 
-  /* --- App shell -------------------------------------------------------------- */
-  .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    height: 3.25rem;
-    padding: 0 1.5rem;
-    border-bottom: 1px solid var(--rule);
-    background: var(--surface);
-  }
-
-  .topbar-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    color: var(--fg);
-    text-decoration: none;
-  }
-
-  .topbar-wordmark {
-    font-family: var(--font-heading);
-    font-weight: 600;
-    font-size: 1rem;
-    letter-spacing: -0.01em;
-  }
-
-  .topbar-nav {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-  }
-
-  .topbar-nav a {
-    color: var(--muted-text);
-    text-decoration: none;
-    font-size: 0.85rem;
-  }
-
-  .topbar-nav a:hover {
-    color: var(--accent);
-  }
-
-  .linklike {
-    margin: 0;
-    padding: 0;
-    border: none;
-    background: none;
-    color: var(--muted-text);
-    font-size: 0.85rem;
-    font-family: inherit;
-    font-weight: 400;
-    cursor: pointer;
-  }
-
-  .linklike:hover {
-    color: var(--accent);
-  }
-
-  /* Pages are top-aligned columns; only marketing-ish moments center. */
+  /* --- Shell: top-aligned columns; only marketing-ish moments center ------- */
   .shell {
     display: flex;
     justify-content: center;
@@ -139,18 +50,19 @@
     padding-top: 0;
   }
 
-  /* centered moments (login, landing, errors): one true column, optically centered */
   .shell-center .hero {
     width: 100%;
     max-width: 28rem;
   }
 
-  .shell-center .hero .form {
-    max-width: none;
-  }
-
   .hero {
     max-width: 46rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    line-height: 1.1;
+    margin: 0 0 1rem;
   }
 
   .eyebrow {
@@ -162,228 +74,14 @@
     margin: 0 0 0.5rem;
   }
 
-  .hero h1 {
-    font-size: clamp(1.8rem, 4vw, 2.6rem);
-    line-height: 1.1;
-    margin: 0 0 1rem;
-  }
-
   .lede {
-    color: var(--muted-text);
+    color: var(--muted-foreground);
     font-size: 1.05rem;
     line-height: 1.6;
     max-width: 60ch;
   }
 
-  .badge {
-    display: inline-block;
-    margin-top: 1.5rem;
-    padding: 0.35rem 0.75rem;
-    border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-    border-radius: var(--radius);
-    font-size: 0.85rem;
-    color: var(--accent);
-  }
-
-  /* --- Buttons ------------------------------------------------------------------
-   Three voices, mirroring the brand: fill (primary), secondary (line), linklike. */
-  .button,
-  button {
-    display: inline-block;
-    margin-top: 1rem;
-    padding: 0.55rem 1rem;
-    border: 1px solid var(--accent-strong);
-    border-radius: var(--radius);
-    background: var(--accent-strong);
-    color: #ffffff;
-    font-family: var(--font-heading);
-    font-weight: 500;
-    font-size: 0.9rem;
-    text-decoration: none;
-    cursor: pointer;
-    transition:
-      background 0.15s ease-out,
-      border-color 0.15s ease-out,
-      color 0.15s ease-out;
-  }
-
-  .button:hover,
-  button:hover {
-    background: var(--accent-soft);
-    border-color: var(--accent-soft);
-  }
-
-  button:disabled {
-    opacity: 0.55;
-    cursor: default;
-  }
-
-  button:disabled:hover {
-    background: var(--accent-strong);
-    border-color: var(--accent-strong);
-  }
-
-  .secondary {
-    background: transparent;
-    color: var(--accent);
-  }
-
-  .secondary:hover {
-    background: color-mix(in srgb, var(--accent-strong) 18%, transparent);
-    color: var(--lilac);
-  }
-
-  /* covers buttons AND link-buttons (a.button.compact) — element-qualifying
-   this to `button` left links a rem taller and offset, shifting table rows */
-  .compact {
-    margin-top: 0;
-    padding: 0.3rem 0.7rem;
-    font-size: 0.8rem;
-  }
-
-  /* irreversible confirms: the dangerous action is marked, never brand-positive */
-  button.danger {
-    background: transparent;
-    border-color: var(--danger);
-    color: var(--danger);
-  }
-
-  button.danger:hover {
-    background: color-mix(in srgb, var(--danger) 16%, transparent);
-    border-color: var(--danger);
-    color: var(--danger);
-  }
-
-  .linklike,
-  .linklike:hover {
-    background: none;
-    border: none;
-  }
-
-  /* --- Forms ------------------------------------------------------------------ */
-  .form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    max-width: 22rem;
-    margin-top: 1.5rem;
-  }
-
-  .form input,
-  .form select,
-  .form textarea,
-  .compare-pickers select,
-  .channel-form select,
-  .share-form select,
-  .share-form textarea {
-    padding: 0.6rem 0.75rem;
-    border-radius: var(--radius);
-    border: 1px solid var(--rule-strong);
-    background: var(--surface);
-    color: var(--fg);
-    font-size: 0.9rem;
-  }
-
-  .form input::placeholder,
-  .form textarea::placeholder {
-    color: rgba(243, 244, 246, 0.45);
-  }
-
-  /* selects share the input look, with a custom chevron */
-  select {
-    appearance: none;
-    background-image:
-      linear-gradient(45deg, transparent 50%, var(--accent) 50%),
-      linear-gradient(135deg, var(--accent) 50%, transparent 50%);
-    background-position:
-      calc(100% - 16px) calc(50% - 2px),
-      calc(100% - 11px) calc(50% - 2px);
-    background-size:
-      5px 5px,
-      5px 5px;
-    background-repeat: no-repeat;
-    padding-right: 2rem;
-  }
-
-  input[type="checkbox"] {
-    accent-color: var(--accent-strong);
-    width: 0.95rem;
-    height: 0.95rem;
-  }
-
-  .form label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    font-size: 0.85rem;
-    color: var(--muted-text);
-  }
-
-  .row {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-  }
-
-  .error-text {
-    color: var(--danger);
-    font-size: 0.85rem;
-    margin: 0;
-  }
-
-  .status-note {
-    color: var(--muted-text);
-    font-size: 0.85rem;
-    margin: 0;
-  }
-
-  /* secondary auth paths live behind a native disclosure — one primary path */
-  .more-auth {
-    margin-top: 2rem;
-    border-top: 1px solid var(--rule);
-    padding-top: 1rem;
-  }
-
-  .more-auth summary {
-    cursor: pointer;
-    color: var(--muted-text);
-    font-size: 0.85rem;
-  }
-
-  .more-auth summary:hover {
-    color: var(--accent);
-  }
-
-  .more-auth-alt {
-    align-self: center;
-  }
-
-  /* inline creation forms live behind quiet disclosures */
-  .create-inline {
-    margin-top: 0.75rem;
-  }
-
-  .create-inline summary {
-    cursor: pointer;
-    color: var(--accent);
-    font-size: 0.85rem;
-  }
-
-  .create-inline summary:hover {
-    color: var(--lilac);
-  }
-
-  .item-form {
-    max-width: 34rem;
-  }
-
-  .item-form textarea {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    resize: vertical;
-  }
-
-  /* --- Panels ------------------------------------------------------------------ */
+  /* --- Panels --------------------------------------------------------------- */
   .panel {
     width: min(64rem, 100%);
   }
@@ -403,13 +101,22 @@
     overflow-wrap: anywhere;
   }
 
+  .panel h2 {
+    margin: 2.25rem 0 0.75rem;
+    font-size: 1.05rem;
+  }
+
+  .panel-head + h2 {
+    margin-top: 0.5rem;
+  }
+
   .page-id {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     font-family: var(--font-mono);
     font-size: 0.72rem;
-    color: var(--muted-text);
+    color: var(--muted-foreground);
     margin-top: 0.35rem;
     overflow-wrap: anywhere;
   }
@@ -425,79 +132,7 @@
     align-items: center;
   }
 
-  .org-links .muted {
-    text-decoration: none;
-  }
-
-  .org-links .muted:hover {
-    color: var(--accent);
-  }
-
-  /* --- Token / secret reveals ---------------------------------------------------
-   Dog-eared like the brand's "unsealed" mark: revealed value = folded corner. */
-  .token-box {
-    position: relative;
-    margin-top: 1.5rem;
-    padding: 1rem;
-    border: 1px solid var(--accent-soft);
-    border-radius: var(--radius);
-    background: var(--surface-2);
-    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
-  }
-
-  .token-box::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 18px;
-    height: 18px;
-    background: var(--accent-soft);
-    clip-path: polygon(0 0, 100% 100%, 0 100%);
-  }
-
-  .token-note {
-    margin: 0 0 0.6rem;
-    font-size: 0.85rem;
-    color: var(--muted-text);
-  }
-
-  .token-row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: stretch;
-  }
-
-  .token-value {
-    display: block;
-    flex: 1;
-    word-break: break-all;
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    padding: 0.6rem 0.75rem;
-    border-radius: var(--radius);
-    background: rgba(0, 0, 0, 0.35);
-    color: var(--lilac);
-  }
-
-  .copy-btn {
-    margin: 0;
-    align-self: flex-start;
-    padding: 0.45rem 0.7rem;
-    font-size: 0.78rem;
-    background: transparent;
-    border: 1px solid var(--rule-strong);
-    color: var(--muted-text);
-    font-family: var(--font-mono);
-  }
-
-  .copy-btn:hover {
-    background: transparent;
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-
-  /* --- Lists / feeds ------------------------------------------------------------ */
+  /* --- Lists / feeds ---------------------------------------------------------- */
   .ws-list,
   .feed {
     list-style: none;
@@ -514,17 +149,51 @@
   }
 
   .ws-list a:hover {
-    color: var(--lilac);
+    color: var(--plaintext);
   }
 
-  .muted {
-    color: var(--muted-text);
+  .feed li {
+    padding: 0.45rem 0.6rem;
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+  }
+
+  .feed-live {
+    background: color-mix(in srgb, var(--ok) 9%, var(--surface-2));
+  }
+
+  .live-dot {
+    color: var(--ok);
+    font-size: 0.7em;
+  }
+
+  .dot {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+  }
+
+  .dot.open {
+    color: var(--ok);
+  }
+
+  .dot.connecting {
+    color: var(--warn);
+  }
+
+  .dot.closed {
+    color: var(--destructive);
   }
 
   .grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 2rem;
+  }
+
+  .dash-grid {
+    margin-top: 2.25rem;
   }
 
   @media (max-width: 640px) {
@@ -538,84 +207,51 @@
     }
   }
 
-  .feed li {
-    padding: 0.45rem 0.6rem;
-    background: var(--surface-2);
-    border-radius: var(--radius);
-    font-size: 0.9rem;
+  /* --- Disclosures ------------------------------------------------------------ */
+  .create-inline {
+    margin-top: 0.75rem;
   }
 
-  .dot {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    color: var(--muted-text);
+  .create-inline summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 0.85rem;
   }
 
-  .dot.open {
-    color: var(--ok);
+  .create-inline summary:hover {
+    color: var(--plaintext);
   }
 
-  .dot.connecting {
-    color: var(--warn);
+  .more-auth {
+    margin-top: 2rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
   }
 
-  .dot.closed {
-    color: var(--danger);
+  .more-auth summary {
+    cursor: pointer;
+    color: var(--muted-foreground);
+    font-size: 0.85rem;
   }
 
-  /* --- Dashboard -------------------------------------------------------------- */
-  .panel h2 {
-    margin: 2.25rem 0 0.75rem;
-    font-size: 1.05rem;
+  .more-auth summary:hover {
+    color: var(--accent);
   }
 
-  .panel-head + h2 {
-    margin-top: 0.5rem;
+  .more-auth-alt {
+    align-self: center;
   }
 
-  .dash-grid {
-    margin-top: 2.25rem;
-  }
-
-  .search-row {
-    display: flex;
-    gap: 0.5rem;
-    margin: 0.5rem 0 0.75rem;
-  }
-
-  .search-row input {
-    flex: 1;
-    padding: 0.55rem 0.75rem;
-    border-radius: var(--radius);
-    border: 1px solid var(--rule-strong);
-    background: var(--surface);
-    color: var(--fg);
-    font-size: 0.9rem;
-  }
-
-  .search-row button {
-    margin-top: 0;
-  }
-
-  .feed-live {
-    background: color-mix(in srgb, var(--ok) 9%, var(--surface-2));
-  }
-
-  /* the live marker lives in markup (aria-hidden dot + visually-hidden "live")
-   so assistive tech hears what sighted users see */
-  .live-dot {
-    color: var(--ok);
-    font-size: 0.7em;
-  }
-
-  .feed-time {
+  .field-hint {
+    margin: 0.1rem 0 0;
     font-size: 0.75rem;
+    color: var(--muted-foreground);
   }
 
-  /* --- Assistant ------------------------------------------------------------------ */
+  /* --- Assistant ---------------------------------------------------------------- */
   .assistant {
     margin-top: 1.5rem;
-    border-top: 1px solid var(--rule);
+    border-top: 1px solid var(--border);
     padding-top: 1rem;
   }
 
@@ -638,17 +274,13 @@
   }
 
   .chat-msg.user {
-    background: color-mix(in srgb, var(--accent-strong) 24%, var(--surface));
+    background: color-mix(in srgb, var(--relay) 24%, var(--card));
   }
 
   .chat-msg .role {
     font-weight: 600;
     margin-right: 0.4rem;
-    color: var(--muted-text);
-  }
-
-  .chat-msg .tag {
-    font-size: 0.75rem;
+    color: var(--muted-foreground);
   }
 
   .chat-form {
@@ -660,18 +292,14 @@
   .chat-form input {
     flex: 1;
     padding: 0.5rem 0.6rem;
-    background: var(--surface);
-    border: 1px solid var(--rule-strong);
+    background: var(--card);
+    border: 1px solid var(--input);
     border-radius: var(--radius);
     color: inherit;
   }
 
-  .chat-form button {
-    margin-top: 0;
-  }
-
   .error {
-    color: var(--danger);
+    color: var(--destructive);
     font-size: 0.85rem;
   }
 
@@ -681,6 +309,7 @@
     margin-top: 1.5rem;
   }
 
+  /* --- Page one-offs ------------------------------------------------------------ */
   .qr {
     width: 200px;
     height: 200px;
@@ -696,194 +325,24 @@
     display: block;
   }
 
-  /* --- Environment comparison ---------------------------------------------- */
-  .compare-pickers {
-    display: flex;
-    align-items: end;
-    gap: 0.75rem;
-    margin: 1.25rem 0;
-    flex-wrap: wrap;
+  /* multi-line shared-secret reveal (share viewer) */
+  .share-viewer {
+    max-width: 36rem;
   }
 
-  .compare-pickers label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    font-size: 0.85rem;
-    color: var(--muted-text);
-  }
-
-  .compare-pickers button {
-    margin-top: 0;
-  }
-
-  .compare-pickers .muted {
-    padding-bottom: 0.65rem;
-  }
-
-  .compare-summary {
-    font-size: 0.85rem;
-    margin: 0 0 0.75rem;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .table-scroll {
-    overflow-x: auto;
-  }
-
-  .compare-table {
-    width: 100%;
-    border-collapse: collapse;
+  .share-plaintext {
+    padding: 1rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--rollout);
+    background: var(--surface-2);
+    font-family: var(--font-mono);
     font-size: 0.9rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    user-select: all;
+    color: var(--plaintext);
   }
 
-  .compare-table th,
-  .compare-table td {
-    text-align: left;
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .compare-table th {
-    color: var(--accent);
-    font-family: var(--font-mono);
-    font-weight: 400;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-
-  .mono {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-  }
-
-  .status {
-    display: inline-block;
-    padding: 0.15rem 0.55rem;
-    border-radius: var(--radius);
-    font-size: 0.75rem;
-    font-family: var(--font-mono);
-    border: 1px solid transparent;
-  }
-
-  .status-equal {
-    color: var(--ok);
-    border-color: color-mix(in srgb, var(--ok) 40%, transparent);
-  }
-
-  .status-drifted {
-    color: var(--warn);
-    border-color: color-mix(in srgb, var(--warn) 40%, transparent);
-  }
-
-  .status-only-in-source,
-  .status-only-in-target {
-    color: var(--accent);
-    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  }
-
-  .status-not-comparable {
-    color: var(--muted-text);
-    border-color: var(--rule-strong);
-  }
-
-  /* Item kinds are a tinted-fill chip family ("what it is") — deliberately
-   distinct from the outline drift family above ("how it compares"). */
-  .kind-config,
-  .chip-neutral {
-    background: rgba(243, 244, 246, 0.08);
-    color: var(--fg);
-  }
-
-  .kind-flag {
-    background: color-mix(in srgb, var(--accent) 16%, transparent);
-    color: var(--accent);
-  }
-
-  .kind-secret {
-    background: color-mix(in srgb, var(--lilac) 14%, transparent);
-    color: var(--lilac);
-    /* sealed corner — the brand's dog-ear motif, unopened */
-    clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
-  }
-
-  /* Outcome chips (promotions etc.) — plain semantic colors, no drift vocabulary. */
-  .status-ok {
-    color: var(--ok);
-    border-color: color-mix(in srgb, var(--ok) 40%, transparent);
-  }
-
-  .status-warn {
-    color: var(--warn);
-    border-color: color-mix(in srgb, var(--warn) 40%, transparent);
-  }
-
-  .status-danger {
-    color: var(--danger);
-    border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-  }
-
-  /* two-step inline confirm for irreversible actions */
-  .confirm-row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
-  /* In table rows the confirm replaces the whole action group at the same
-   height — nothing shifts at the moment of an irreversible click. */
-  .compare-table td .row,
-  .compare-table td .confirm-row {
-    flex-wrap: nowrap;
-    align-items: center;
-    min-height: 2rem;
-  }
-
-  /* card mode (phones): vertical room is free — wrap into full-width rows */
-  @media (max-width: 640px) {
-    .compare-table td .row,
-    .compare-table td .confirm-row {
-      flex-wrap: wrap;
-    }
-  }
-
-  .confirm-row .confirm-note {
-    font-size: 0.78rem;
-    color: var(--warn);
-    margin: 0;
-  }
-
-  /* --- Notification channels ------------------------------------------------ */
-  .channel-form {
-    max-width: 28rem;
-  }
-
-  .event-filter {
-    border: 1px solid var(--rule-strong);
-    border-radius: var(--radius);
-    display: grid;
-    gap: 0.35rem;
-    padding: 0.75rem;
-  }
-
-  .event-filter .check {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
-  }
-
-  .field-hint {
-    margin: 0.1rem 0 0;
-    font-size: 0.75rem;
-    color: var(--muted-text);
-  }
-
-  /* --- Billing ----------------------------------------------------------------- */
   .plan-cards {
     display: flex;
     gap: 1.5rem;
@@ -899,34 +358,6 @@
 
   .stack-gap {
     margin-top: 1.5rem;
-  }
-
-  /* --- Share links ----------------------------------------------------------- */
-  .share-form {
-    max-width: 32rem;
-  }
-
-  .share-form textarea {
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    resize: vertical;
-  }
-
-  .share-viewer {
-    max-width: 36rem;
-  }
-
-  .share-plaintext {
-    padding: 1rem;
-    border-radius: var(--radius);
-    border: 1px solid var(--accent-soft);
-    background: var(--surface-2);
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    white-space: pre-wrap;
-    word-break: break-all;
-    user-select: all;
-    color: var(--lilac);
   }
 
   @media (prefers-reduced-motion: reduce) {

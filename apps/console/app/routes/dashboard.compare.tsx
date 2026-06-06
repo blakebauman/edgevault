@@ -159,9 +159,9 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
             <p className="eyebrow">Compare environments</p>
             <h1>{workspaceName ?? workspaceId}</h1>
           </div>
-          <Link to={`/dashboard/${workspaceId}`} className="secondary button">
-            ← Workspace
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link to={`/dashboard/${workspaceId}`}>← Workspace</Link>
+          </Button>
         </header>
 
         <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
@@ -200,7 +200,7 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
 
         {comparison && (
           <>
-            <p className="muted compare-summary">
+            <p className="mb-3 text-sm tabular-nums text-muted-foreground">
               {comparison.summary.equal} equal · {comparison.summary.drifted} drifted ·{' '}
               {comparison.summary.onlyInSource} missing in target ·{' '}
               {comparison.summary.onlyInTarget} only in target · {comparison.summary.notComparable}{' '}

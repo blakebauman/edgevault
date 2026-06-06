@@ -1,3 +1,4 @@
+import { Button, ErrorNote, Input } from '@edgevault/ui'
 import { Form, redirect } from 'react-router'
 import { clearMfaCookie, getMfaToken, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/login.mfa'
@@ -48,8 +49,8 @@ export default function LoginMfa({ actionData }: Route.ComponentProps) {
         <p className="eyebrow">EdgeVault Console</p>
         <h1>Two-factor authentication</h1>
         <p className="lede">Enter the 6-digit code from your authenticator app.</p>
-        <Form method="post" className="form">
-          <input
+        <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+          <Input
             name="code"
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -57,8 +58,10 @@ export default function LoginMfa({ actionData }: Route.ComponentProps) {
             aria-label="Authentication code"
             required
           />
-          {actionData?.error && <p className="error-text">{actionData.error}</p>}
-          <button type="submit">Verify</button>
+          {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
+          <Button type="submit" className="self-start">
+            Verify
+          </Button>
         </Form>
       </section>
     </main>

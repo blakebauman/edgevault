@@ -87,12 +87,12 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
             <p className="eyebrow">Audit history</p>
             <h1>{workspaceName ?? workspaceId}</h1>
           </div>
-          <Link to={`/dashboard/${workspaceId}`} className="secondary button">
-            ← Workspace
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link to={`/dashboard/${workspaceId}`}>← Workspace</Link>
+          </Button>
         </header>
 
-        <p className="muted">
+        <p className="mt-2 max-w-prose text-sm text-muted-foreground">
           The cold warehouse: every recorded change, retained indefinitely. Defaults to the last 7
           days; ranges are capped at 31 days per query.
         </p>
@@ -121,7 +121,7 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
 
         {!auditError && (
           <>
-            <p className="muted compare-summary">
+            <p className="mb-3 text-sm tabular-nums text-muted-foreground">
               {events.length} event{events.length === 1 ? '' : 's'}
               {events.length === 200 ? ' (showing the most recent 200 — narrow the range)' : ''}
             </p>

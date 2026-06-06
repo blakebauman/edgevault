@@ -1,3 +1,4 @@
+import { Button, ErrorNote, Field, Input, StatusNote, TokenBox, TokenValue } from '@edgevault/ui'
 import { useState } from 'react'
 import { Form, Link, redirect } from 'react-router'
 import { CopyButton } from '../components/copy-button'
@@ -84,38 +85,31 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
             <p className="eyebrow">Account security</p>
             <h1>Two-factor authentication</h1>
           </div>
-          <Link to="/" className="secondary button">
-            ← All workspaces
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link to="/">← All workspaces</Link>
+          </Button>
         </header>
 
-        {error && (
-          <p className="error-text" role="alert">
-            {error}
-          </p>
-        )}
-        {confirmed && (
-          <p className="status-note" role="status">
-            Two-factor authentication is now enabled.
-          </p>
-        )}
-        {disabled && (
-          <p className="status-note" role="status">
-            Two-factor authentication has been disabled.
-          </p>
-        )}
+        {error && <ErrorNote>{error}</ErrorNote>}
+        {confirmed && <StatusNote>Two-factor authentication is now enabled.</StatusNote>}
+        {disabled && <StatusNote>Two-factor authentication has been disabled.</StatusNote>}
 
         {enabled ? (
           <>
             <p className="lede">Two-factor authentication is active on your account.</p>
-            <Form method="post" className="form">
-              <label>
-                Enter a current code to disable
-                <input name="code" inputMode="numeric" placeholder="123456" required />
-              </label>
-              <button type="submit" name="intent" value="disable" className="secondary">
+            <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+              <Field label="Enter a current code to disable">
+                <Input name="code" inputMode="numeric" placeholder="123456" required />
+              </Field>
+              <Button
+                type="submit"
+                name="intent"
+                value="disable"
+                variant="secondary"
+                className="self-start"
+              >
                 Disable 2FA
-              </button>
+              </Button>
             </Form>
           </>
         ) : secret ? (
@@ -132,36 +126,29 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             )}
-            <div className="token-box">
-              <p className="token-note">Secret (or use the otpauth URI):</p>
-              <div className="token-row">
-                <code className="token-value">{secret}</code>
-                <CopyButton value={secret} label="Copy secret" />
-              </div>
-            </div>
+            <TokenBox note="Secret (or use the otpauth URI):">
+              <TokenValue>{secret}</TokenValue>
+              <CopyButton value={secret} label="Copy secret" />
+            </TokenBox>
             {otpauthUri && (
-              <div className="token-box">
-                <p className="token-note">Full otpauth URI (contains the secret):</p>
-                <div className="token-row">
-                  <code className="token-value">{otpauthUri}</code>
-                  <CopyButton value={otpauthUri} label="Copy URI" />
-                </div>
-              </div>
+              <TokenBox note="Full otpauth URI (contains the secret):">
+                <TokenValue>{otpauthUri}</TokenValue>
+                <CopyButton value={otpauthUri} label="Copy URI" />
+              </TokenBox>
             )}
-            <Form method="post" className="form">
-              <label>
-                Confirmation code
-                <input
+            <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+              <Field label="Confirmation code">
+                <Input
                   name="code"
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   placeholder="123456"
                   required
                 />
-              </label>
-              <button type="submit" name="intent" value="confirm">
+              </Field>
+              <Button type="submit" name="intent" value="confirm" className="self-start">
                 Confirm &amp; enable
-              </button>
+              </Button>
             </Form>
           </>
         ) : (
@@ -170,9 +157,9 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
               Protect your account with a time-based one-time password from an authenticator app.
             </p>
             <Form method="post">
-              <button type="submit" name="intent" value="setup">
+              <Button type="submit" name="intent" value="setup">
                 Set up 2FA
-              </button>
+              </Button>
             </Form>
           </>
         )}
@@ -205,22 +192,14 @@ function PasskeySection() {
   return (
     <div className="assistant">
       <h2>Passkeys</h2>
-      <p className="muted">
+      <p className="text-muted-foreground">
         Add a passkey (Touch ID, Windows Hello, a security key) for phishing-resistant sign-in.
       </p>
-      {status.kind === 'ok' && (
-        <p className="status-note" role="status">
-          {status.message}
-        </p>
-      )}
-      {status.kind === 'error' && (
-        <p className="error-text" role="alert">
-          {status.message}
-        </p>
-      )}
-      <button type="button" onClick={onAdd} disabled={busy}>
+      {status.kind === 'ok' && <StatusNote>{status.message}</StatusNote>}
+      {status.kind === 'error' && <ErrorNote>{status.message}</ErrorNote>}
+      <Button type="button" onClick={onAdd} disabled={busy}>
         {busy ? 'Waiting for passkey…' : 'Add a passkey'}
-      </button>
+      </Button>
     </div>
   )
 }

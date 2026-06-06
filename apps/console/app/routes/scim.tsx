@@ -1,3 +1,4 @@
+import { ActionGroup, Button, ErrorNote, TokenBox, TokenValue } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/scim'
@@ -95,9 +96,9 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
             <p className="eyebrow">SCIM provisioning</p>
             <h1>{org.name}</h1>
           </div>
-          <Link to="/" className="secondary button">
-            ← All workspaces
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link to="/">← All workspaces</Link>
+          </Button>
         </header>
 
         <p className="lede">
@@ -106,49 +107,53 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
           secret token.
         </p>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && <ErrorNote>{error}</ErrorNote>}
 
         {!status.entitled && (
-          <p className="error-text">
+          <ErrorNote>
             This organization’s plan does not include SCIM provisioning. Upgrade to enable it.
-          </p>
+          </ErrorNote>
         )}
 
         {scimToken ? (
-          <div className="token-box">
-            <p className="token-note">
-              Copy this now — it is shown <strong>only once</strong> and cannot be retrieved later.
-            </p>
-            <code className="token-value">{scimToken}</code>
-          </div>
+          <TokenBox
+            note={
+              <>
+                Copy this now — it is shown <strong>only once</strong> and cannot be retrieved
+                later.
+              </>
+            }
+          >
+            <TokenValue>{scimToken}</TokenValue>
+          </TokenBox>
         ) : revoked ? (
-          <p className="muted">
+          <p className="text-muted-foreground">
             The SCIM token has been revoked. Existing IdP syncs will now fail.
           </p>
         ) : status.entitled ? (
-          <p className="muted">
+          <p className="text-muted-foreground">
             {status.configured
               ? 'A SCIM token is configured for this organization. Rotate it to issue a new one.'
               : 'No SCIM token has been generated yet.'}
           </p>
         ) : null}
 
-        <div className="row" style={{ marginTop: '1.5rem' }}>
+        <ActionGroup className="mt-6">
           <Form method="post">
-            <button type="submit" name="intent" value="generate" disabled={!status.entitled}>
+            <Button type="submit" name="intent" value="generate" disabled={!status.entitled}>
               {status.configured ? 'Rotate token' : 'Generate token'}
-            </button>
+            </Button>
           </Form>
           {status.configured && (
             <Form method="post">
-              <button type="submit" name="intent" value="revoke" className="secondary">
+              <Button type="submit" name="intent" value="revoke" variant="secondary">
                 Revoke token
-              </button>
+              </Button>
             </Form>
           )}
-        </div>
+        </ActionGroup>
 
-        <p className="muted" style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
+        <p className="mt-4 text-sm text-muted-foreground">
           Generating a new token immediately invalidates the previous one.
         </p>
       </section>

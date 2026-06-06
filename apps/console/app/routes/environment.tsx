@@ -263,16 +263,17 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
           <div>
             <p className="eyebrow">Environment</p>
             <h1>
-              {workspaceName ?? workspaceId} <span className="muted">{envName}</span>
+              {workspaceName ?? workspaceId}{' '}
+              <span className="text-muted-foreground">{envName}</span>
             </h1>
             <span className="page-id">
               <CopyButton value={envId} label="Copy environment id" />
             </span>
           </div>
           <div className="org-links">
-            <Link to={`/dashboard/${workspaceId}`} className="secondary button">
-              ← Workspace
-            </Link>
+            <Button variant="secondary" asChild>
+              <Link to={`/dashboard/${workspaceId}`}>← Workspace</Link>
+            </Button>
           </div>
         </header>
 
@@ -360,8 +361,8 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
         {historyKey && revisions && (
           <>
             <h2>
-              History · <span className="mono">{historyKey}</span>{' '}
-              <Link to={baseSearch({})} className="muted">
+              History · <span className="font-mono">{historyKey}</span>{' '}
+              <Link to={baseSearch({})} className="text-muted-foreground">
                 (close)
               </Link>
             </h2>
@@ -420,10 +421,10 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
         />
 
         <h2>Environment API keys</h2>
-        <p className="muted">
-          Keys are environment-scoped and shown once. <code className="mono">read</code> serves
-          configs and flags; <code className="mono">secrets:read</code> additionally lets{' '}
-          <code className="mono">edgevault run</code> inject secrets (admin-only to mint).
+        <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+          Keys are environment-scoped and shown once. <code className="font-mono">read</code> serves
+          configs and flags; <code className="font-mono">secrets:read</code> additionally lets{' '}
+          <code className="font-mono">edgevault run</code> inject secrets (admin-only to mint).
         </p>
         <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
           <input type="hidden" name="intent" value="mint-key" />

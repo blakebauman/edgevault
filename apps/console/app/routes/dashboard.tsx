@@ -239,18 +239,18 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
             </span>
           </div>
           <div className="org-links">
-            <Link to={`/dashboard/${workspaceId}/compare`} className="secondary button">
-              Compare environments
-            </Link>
-            <Link to={`/dashboard/${workspaceId}/audit`} className="secondary button">
-              Audit history
-            </Link>
-            <Link to={`/dashboard/${workspaceId}/notifications`} className="secondary button">
-              Notifications
-            </Link>
-            <Link to="/" className="secondary button">
-              ← All workspaces
-            </Link>
+            <Button variant="secondary" asChild>
+              <Link to={`/dashboard/${workspaceId}/compare`}>Compare environments</Link>
+            </Button>
+            <Button variant="secondary" asChild>
+              <Link to={`/dashboard/${workspaceId}/audit`}>Audit history</Link>
+            </Button>
+            <Button variant="secondary" asChild>
+              <Link to={`/dashboard/${workspaceId}/notifications`}>Notifications</Link>
+            </Button>
+            <Button variant="secondary" asChild>
+              <Link to="/">← All workspaces</Link>
+            </Button>
           </div>
         </header>
 
@@ -331,7 +331,9 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
         <div className="grid dash-grid">
           <div>
             <h2>Search</h2>
-            <p className="muted">Semantic — find config by meaning, not key name.</p>
+            <p className="mb-2 text-sm text-muted-foreground">
+              Semantic — find config by meaning, not key name.
+            </p>
             <Form method="get" className="my-2 flex gap-2">
               <Input
                 type="search"
@@ -349,14 +351,16 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                 {hits.map((hit) => (
                   <li key={`${hit.environmentId}:${hit.key}`}>
                     <Link to={`/dashboard/${workspaceId}/env/${hit.environmentId}`}>
-                      <span className="mono">{hit.key}</span>
+                      <span className="font-mono text-sm">{hit.key}</span>
                     </Link>{' '}
-                    <span className="muted mono">
+                    <span className="font-mono text-sm text-muted-foreground">
                       /{envSlug(hit.environmentId)} · {hit.kind} · {hit.score.toFixed(2)}
                     </span>
                   </li>
                 ))}
-                {hits.length === 0 && <li className="muted">No matches for "{query}".</li>}
+                {hits.length === 0 && (
+                  <li className="text-muted-foreground">No matches for "{query}".</li>
+                )}
               </ul>
             )}
           </div>
@@ -383,16 +387,19 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                 <li key={entry.id}>
                   {describeActivity(entry, envSlug)}
                   {entry.environmentId && (
-                    <span className="muted mono"> /{envSlug(entry.environmentId)}</span>
+                    <span className="font-mono text-sm text-muted-foreground">
+                      {' '}
+                      /{envSlug(entry.environmentId)}
+                    </span>
                   )}{' '}
-                  <span className="muted feed-time">
+                  <span className="text-xs text-muted-foreground">
                     {entry.actor ? `${entry.actor} · ` : ''}
                     {formatTime(entry.createdAt)}
                   </span>
                 </li>
               ))}
               {events.length === 0 && activity.length === 0 && (
-                <li className="muted">No changes recorded yet.</li>
+                <li className="text-muted-foreground">No changes recorded yet.</li>
               )}
             </ul>
           </div>
@@ -402,7 +409,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
           <>
             <h2>Promotions</h2>
             {promotions.some((p) => p.status === 'pending' && p.workflowInstanceId) && (
-              <p className="muted">
+              <p className="mb-2 text-sm text-muted-foreground">
                 Pending rows are parked at the approval gate — the risk scan flagged the target.
                 Approving applies the value snapshotted at request time.
               </p>
@@ -546,24 +553,22 @@ function Assistant({ workspaceId }: { workspaceId: string }) {
   return (
     <div className="assistant">
       <h2>Assistant</h2>
-      <p className="muted">Ask what changed in this workspace and why.</p>
+      <p className="m-0 text-sm text-muted-foreground">
+        Ask what changed in this workspace and why.
+      </p>
       <ul className="chat">
         {messages.map((m) => (
           <li key={m.id} className={`chat-msg ${m.role}`}>
             <span className="role">{m.role === 'user' ? 'You' : 'Agent'}</span>
             <span className="content">{m.content}</span>
             {m.role === 'assistant' && m.source === 'fallback' && (
-              <span className="muted tag"> (offline summary)</span>
+              <span className="text-xs text-muted-foreground"> (offline summary)</span>
             )}
           </li>
         ))}
-        {messages.length === 0 && <li className="muted">No questions yet.</li>}
+        {messages.length === 0 && <li className="text-muted-foreground">No questions yet.</li>}
       </ul>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <ErrorNote>{error}</ErrorNote>}
       <form className="chat-form" onSubmit={onSubmit}>
         <input
           type="text"

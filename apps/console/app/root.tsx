@@ -1,3 +1,4 @@
+import { Button } from '@edgevault/ui'
 import {
   isRouteErrorResponse,
   Link,
@@ -74,9 +75,9 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
         <p className="eyebrow">EdgeVault Console</p>
         <h1>{message}</h1>
         <p className="lede">{details}</p>
-        <Link className="button" to="/">
-          ← Back to workspaces
-        </Link>
+        <Button asChild className="mt-4 self-start">
+          <Link to="/">← Back to workspaces</Link>
+        </Button>
         {stack && (
           <pre className="error">
             <code>{stack}</code>

@@ -1,3 +1,4 @@
+import { Button } from '@edgevault/ui'
 import { useEffect, useRef, useState } from 'react'
 
 /** Copy-to-clipboard with visible + screen-reader-announced confirmation.
@@ -29,8 +30,15 @@ export function CopyButton({ value, label = 'Copy' }: { value: string; label?: s
   }
 
   return (
-    <button type="button" className="copy-btn" onClick={onCopy} aria-live="polite">
+    <Button
+      type="button"
+      variant="secondary"
+      size="compact"
+      className="self-start border-input font-mono text-muted-foreground hover:border-accent hover:bg-transparent hover:text-accent"
+      onClick={onCopy}
+      aria-live="polite"
+    >
       {copied ? 'Copied ✓' : label}
-    </button>
+    </Button>
   )
 }
