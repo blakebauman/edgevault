@@ -11,6 +11,7 @@
     "lint": "biome check src"
   },
   "devDependencies": {
+    "@edgevault/ui": "workspace:*",
     "astro": "^5.17.0",
     "wrangler": "^4.97.0"
   }

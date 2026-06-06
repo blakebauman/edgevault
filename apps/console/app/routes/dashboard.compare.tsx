@@ -1,4 +1,16 @@
-import { useState } from 'react'
+import {
+  Button,
+  CardTable,
+  Chip,
+  type ChipVariant,
+  ErrorNote,
+  Field,
+  Select,
+  StatusNote,
+  Td,
+  Th,
+  TwoStepConfirm,
+} from '@edgevault/ui'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
@@ -113,6 +125,14 @@ const STATUS_LABEL: Record<ComparisonEntry['status'], string> = {
   'not-comparable': 'secret (not compared)',
 }
 
+const DRIFT_CHIP: Record<ComparisonEntry['status'], ChipVariant> = {
+  equal: 'drift-equal',
+  drifted: 'drift-drifted',
+  'only-in-source': 'drift-only',
+  'only-in-target': 'drift-only',
+  'not-comparable': 'drift-not-comparable',
+}
+
 /** One-sided secrets fall through the DO's not-comparable branch (it only fires
  * when the key exists in both environments) — label them honestly here. */
 function entryLabel(entry: ComparisonEntry): string {
@@ -144,48 +164,38 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
           </Link>
         </header>
 
-        <Form method="get" className="compare-pickers">
-          <label>
-            Source
-            <select name="source" defaultValue={source}>
+        <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
+          <Field label="Source">
+            <Select name="source" defaultValue={source}>
               <option value="">Choose…</option>
               {environments.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name} /{e.slug}
                 </option>
               ))}
-            </select>
-          </label>
-          <span className="muted">→</span>
-          <label>
-            Target
-            <select name="target" defaultValue={target}>
+            </Select>
+          </Field>
+          <span className="pb-2.5 text-muted-foreground">→</span>
+          <Field label="Target">
+            <Select name="target" defaultValue={target}>
               <option value="">Choose…</option>
               {environments.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name} /{e.slug}
                 </option>
               ))}
-            </select>
-          </label>
-          <button type="submit">Compare</button>
+            </Select>
+          </Field>
+          <Button type="submit">Compare</Button>
         </Form>
 
-        {compareError && (
-          <p className="error-text" role="alert">
-            {compareError}
-          </p>
-        )}
-        {actionData && 'error' in actionData && (
-          <p className="error-text" role="alert">
-            {actionData.error}
-          </p>
-        )}
+        {compareError && <ErrorNote>{compareError}</ErrorNote>}
+        {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
         {actionData && 'started' in actionData && (
-          <p className="status-note" role="status">
+          <StatusNote>
             Promotion of "{actionData.started}" started — it applies in seconds, or parks for
             approval if the risk scan flags it. Track it on the workspace dashboard.
-          </p>
+          </StatusNote>
         )}
 
         {comparison && (
@@ -196,73 +206,70 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
               {comparison.summary.onlyInTarget} only in target · {comparison.summary.notComparable}{' '}
               secrets not compared
             </p>
-            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
-            <section className="table-scroll" aria-label="Comparison" tabIndex={0}>
-              <table className="compare-table cards-sm">
-                <thead>
-                  <tr>
-                    <th>Key</th>
-                    <th>Status</th>
-                    <th>{envName(comparison.sourceEnvironmentId)}</th>
-                    <th>{envName(comparison.targetEnvironmentId)}</th>
-                    <th>Changes</th>
-                    <th />
+            <CardTable label="Comparison">
+              <thead>
+                <tr>
+                  <Th>Key</Th>
+                  <Th>Status</Th>
+                  <Th>{envName(comparison.sourceEnvironmentId)}</Th>
+                  <Th>{envName(comparison.targetEnvironmentId)}</Th>
+                  <Th>Changes</Th>
+                  <Th />
+                </tr>
+              </thead>
+              <tbody>
+                {comparison.entries.map((entry) => (
+                  <tr key={entry.key}>
+                    <Td className="font-mono text-sm">{entry.key}</Td>
+                    <Td label="Status">
+                      <Chip
+                        variant={
+                          (entry.source ?? entry.target)?.kind === 'secret'
+                            ? 'drift-not-comparable'
+                            : DRIFT_CHIP[entry.status]
+                        }
+                      >
+                        {entryLabel(entry)}
+                      </Chip>
+                    </Td>
+                    <Td
+                      className="text-muted-foreground"
+                      label={`/${envName(comparison.sourceEnvironmentId)}`}
+                    >
+                      {entry.source ? `v${entry.source.version}` : '—'}
+                    </Td>
+                    <Td
+                      className="text-muted-foreground"
+                      label={`/${envName(comparison.targetEnvironmentId)}`}
+                    >
+                      {entry.target ? `v${entry.target.version}` : '—'}
+                    </Td>
+                    <Td className="text-muted-foreground" label="Changes">
+                      {entry.diffSummary ?? ''}
+                    </Td>
+                    <Td>
+                      {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
+                        <PromoteControl
+                          entryKey={entry.key}
+                          sourceEnvironmentId={comparison.sourceEnvironmentId}
+                          targetEnvironmentId={comparison.targetEnvironmentId}
+                          targetName={envName(comparison.targetEnvironmentId)}
+                          isSecret={(entry.source ?? entry.target)?.kind === 'secret'}
+                          busy={navigation.state !== 'idle'}
+                        />
+                      )}
+                    </Td>
                   </tr>
-                </thead>
-                <tbody>
-                  {comparison.entries.map((entry) => (
-                    <tr key={entry.key} className={`row-${entry.status}`}>
-                      <td className="mono">{entry.key}</td>
-                      <td data-label="Status">
-                        <span
-                          className={`status ${
-                            (entry.source ?? entry.target)?.kind === 'secret'
-                              ? 'status-not-comparable'
-                              : `status-${entry.status}`
-                          }`}
-                        >
-                          {entryLabel(entry)}
-                        </span>
-                      </td>
-                      <td
-                        className="muted"
-                        data-label={`/${envName(comparison.sourceEnvironmentId)}`}
-                      >
-                        {entry.source ? `v${entry.source.version}` : '—'}
-                      </td>
-                      <td
-                        className="muted"
-                        data-label={`/${envName(comparison.targetEnvironmentId)}`}
-                      >
-                        {entry.target ? `v${entry.target.version}` : '—'}
-                      </td>
-                      <td className="muted" data-label="Changes">
-                        {entry.diffSummary ?? ''}
-                      </td>
-                      <td>
-                        {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
-                          <PromoteControl
-                            entryKey={entry.key}
-                            sourceEnvironmentId={comparison.sourceEnvironmentId}
-                            targetEnvironmentId={comparison.targetEnvironmentId}
-                            targetName={envName(comparison.targetEnvironmentId)}
-                            isSecret={(entry.source ?? entry.target)?.kind === 'secret'}
-                            busy={navigation.state !== 'idle'}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {comparison.entries.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="muted">
-                        Both environments are empty.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </section>
+                ))}
+                {comparison.entries.length === 0 && (
+                  <tr>
+                    <Td colSpan={6} className="text-muted-foreground">
+                      Both environments are empty.
+                    </Td>
+                  </tr>
+                )}
+              </tbody>
+            </CardTable>
           </>
         )}
       </section>
@@ -288,39 +295,26 @@ function PromoteControl({
   isSecret: boolean
   busy: boolean
 }) {
-  const [arming, setArming] = useState(false)
-
-  if (!arming) {
-    return (
-      <button
-        type="button"
-        className="secondary compact"
-        disabled={busy}
-        onClick={() => setArming(true)}
-      >
-        {isSecret ? 'Promote secret →' : 'Promote →'}
-      </button>
-    )
-  }
-
   return (
-    <div className="confirm-row">
-      <p className="confirm-note">
-        {isSecret
+    <TwoStepConfirm
+      trigger={isSecret ? 'Promote secret →' : 'Promote →'}
+      disabled={busy}
+      note={
+        isSecret
           ? `Copy this secret's sealed value to /${targetName}? The value is never displayed.`
-          : `Overwrites /${targetName}; there is no undo.`}
-      </p>
-      <Form method="post" onSubmit={() => setArming(false)}>
-        <input type="hidden" name="key" value={entryKey} />
-        <input type="hidden" name="sourceEnvironmentId" value={sourceEnvironmentId} />
-        <input type="hidden" name="targetEnvironmentId" value={targetEnvironmentId} />
-        <button type="submit" className="danger compact" disabled={busy}>
-          Confirm → /{targetName}
-        </button>
-      </Form>
-      <button type="button" className="secondary compact" onClick={() => setArming(false)}>
-        Cancel
-      </button>
-    </div>
+          : `Overwrites /${targetName}; there is no undo.`
+      }
+    >
+      {(close) => (
+        <Form method="post" onSubmit={close}>
+          <input type="hidden" name="key" value={entryKey} />
+          <input type="hidden" name="sourceEnvironmentId" value={sourceEnvironmentId} />
+          <input type="hidden" name="targetEnvironmentId" value={targetEnvironmentId} />
+          <Button type="submit" variant="danger" size="compact" disabled={busy}>
+            Confirm → /{targetName}
+          </Button>
+        </Form>
+      )}
+    </TwoStepConfirm>
   )
 }

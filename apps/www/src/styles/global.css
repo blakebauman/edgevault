@@ -1,14 +1,16 @@
 /*
- * EdgeVault design tokens + shared components.
- * Extracted verbatim from the stardust prototypes (the design decision-of-record):
- * round-3 palette "Infisical ground × Vivid Nightfall purples" — light Drafting
- * ground, Ledger ink, Relay violet accent, artifacts in Vault Depth panels.
- * Page-specific overrides (type scale, section rhythm) live in each page.
+ * EdgeVault marketing styles. Brand values come from the shared design system
+ * (@edgevault/ui tokens.css — the light "Drafting Room" register); the local
+ * names below are aliases so page CSS keeps reading naturally. Change brand
+ * values in packages/ui, not here. Page-specific overrides (type scale,
+ * section rhythm) live in each page.
  */
+@import "@edgevault/ui/tokens.css";
+
 :root {
-  --heading-font-family: "Space Grotesk", sans-serif;
-  --body-font-family: "Roboto Slab", Georgia, serif;
-  --mono-font-family: "Martian Mono", ui-monospace, monospace;
+  --heading-font-family: var(--font-heading);
+  --body-font-family: var(--font-body);
+  --mono-font-family: var(--font-mono);
 
   --heading-xxl: clamp(40px, 3rem + 2.5vw, 72px);
   --heading-xl: clamp(29px, 1.6rem + 1.2vw, 44px);
@@ -23,16 +25,16 @@
   --line-height-body: 1.65;
   --letter-spacing-heading: -0.02em;
 
-  --color-vault: #240046;
-  --color-ground: #f3f4f6;
-  --color-ink: #0f172a;
+  --color-vault: var(--vault);
+  --color-ground: var(--ground);
+  --color-ink: var(--ink);
   --color-envelope: rgba(15, 23, 42, 0.35);
-  --color-relay: #7b2cbf;
-  --color-rollout: #9d4edd;
-  --color-plaintext: #e0aaff;
+  --color-relay: var(--relay);
+  --color-rollout: var(--rollout);
+  --color-plaintext: var(--plaintext);
   --color-white: #ffffff;
-  --color-body-ink: rgba(15, 23, 42, 0.78);
-  --color-rule: rgba(15, 23, 42, 0.14);
+  --color-body-ink: var(--body-ink);
+  --color-rule: var(--border);
 
   --spacing-xs: 8px;
   --spacing-sm: 16px;
@@ -45,8 +47,6 @@
   --max-width: 1200px;
   --page-padding: clamp(20px, 1rem + 2vw, 32px);
   --navbar-height: 64px;
-  --radius: 2px;
-  --fold: 26px;
 }
 
 * {

@@ -1,0 +1,101 @@
+/*
+ * Structural primitives that can't be expressed as utilities — shared by the
+ * console (with Tailwind) and the Astro site (plain CSS, zero JS).
+ */
+
+/* screen-reader-only text (Tailwind's sr-only equivalent, for non-Tailwind pages) */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Phones: tables marked .cards-sm become stacked cards — every action stays
+   reachable without horizontal scroll. Cells with data-label grow their own
+   mono header. */
+@media (max-width: 640px) {
+  .cards-sm,
+  .cards-sm tbody,
+  .cards-sm tr,
+  .cards-sm td {
+    display: block;
+  }
+
+  .cards-sm thead {
+    display: none;
+  }
+
+  .cards-sm tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.2rem;
+    margin: 0 0 0.65rem;
+  }
+
+  .cards-sm td {
+    border-bottom: none;
+    padding: 0.3rem 0.55rem;
+  }
+
+  .cards-sm td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    margin-bottom: 0.15rem;
+  }
+}
+
+/* The dog-ear: a clipped corner marks an unsealed artifact (revealed secret,
+   minted key). Set --fold-size to scale; pairs with an ::after fold triangle. */
+.dog-ear {
+  position: relative;
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--fold-size, 18px)) 0,
+    100% var(--fold-size, 18px),
+    100% 100%,
+    0 100%
+  );
+}
+
+.dog-ear::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--fold-size, 18px);
+  height: var(--fold-size, 18px);
+  background: var(--fold-color, var(--rollout));
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+
+/* Sealed corner for secret chips — the dog-ear motif at chip scale, unopened. */
+.sealed-corner {
+  clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+}
+
+/* Native selects share the input look with a machined chevron. */
+.chevron-select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--accent) 50%),
+    linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) calc(50% - 2px),
+    calc(100% - 11px) calc(50% - 2px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 2rem;
+}

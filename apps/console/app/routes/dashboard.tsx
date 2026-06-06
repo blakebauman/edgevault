@@ -1,5 +1,18 @@
 import type { WorkspaceEvent } from '@edgevault/realtime'
 import { useWorkspaceEvents } from '@edgevault/realtime/react'
+import {
+  ActionGroup,
+  Button,
+  CardTable,
+  Chip,
+  type ChipVariant,
+  ErrorNote,
+  Field,
+  Input,
+  StatusNote,
+  Td,
+  Th,
+} from '@edgevault/ui'
 import { type FormEvent, useState } from 'react'
 import { Form, Link, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
@@ -183,16 +196,16 @@ function describeActivity(entry: ActivityEntry, envSlug: (id: string) => string)
   return `${entry.action} · ${resource}`
 }
 
-const PROMOTION_CHIP: Record<PromotionRow['status'], string> = {
-  completed: 'status-ok',
-  pending: 'status-warn',
-  failed: 'status-danger',
+const PROMOTION_CHIP: Record<PromotionRow['status'], ChipVariant> = {
+  completed: 'ok',
+  pending: 'warn',
+  failed: 'danger',
 }
 
-const RISK_CHIP: Record<string, string> = {
-  low: 'chip-neutral',
-  medium: 'status-warn',
-  high: 'status-danger',
+const RISK_CHIP: Record<string, ChipVariant> = {
+  low: 'neutral',
+  medium: 'warn',
+  high: 'danger',
 }
 
 export default function Dashboard({ loaderData, actionData }: Route.ComponentProps) {
@@ -241,89 +254,77 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
           </div>
         </header>
 
-        {actionData && 'error' in actionData && (
-          <p className="error-text" role="alert">
-            {actionData.error}
-          </p>
-        )}
+        {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
         {actionData && 'approved' in actionData && (
-          <p className="status-note" role="status">
+          <StatusNote>
             Approved — the workflow is applying the snapshotted value and verifying the edge
             read-back now.
-          </p>
+          </StatusNote>
         )}
         {actionData && 'rejected' in actionData && (
-          <p className="status-note" role="status">
-            Rejected — the promotion is closed; nothing was applied.
-          </p>
+          <StatusNote>Rejected — the promotion is closed; nothing was applied.</StatusNote>
         )}
 
         <h2>Environments</h2>
-        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
-        <section className="table-scroll" aria-label="Environments" tabIndex={0}>
-          <table className="compare-table cards-sm">
-            <thead>
-              <tr>
-                <th>Environment</th>
-                <th>Configs</th>
-                <th>Flags</th>
-                <th>Secrets</th>
-                <th>Last change</th>
-                <th />
+        <CardTable label="Environments">
+          <thead>
+            <tr>
+              <Th>Environment</Th>
+              <Th>Configs</Th>
+              <Th>Flags</Th>
+              <Th>Secrets</Th>
+              <Th>Last change</Th>
+              <Th />
+            </tr>
+          </thead>
+          <tbody>
+            {scores.map((s) => (
+              <tr key={s.id}>
+                <Td>
+                  <Link to={`/dashboard/${workspaceId}/env/${s.id}`}>{s.name}</Link>{' '}
+                  <span className="font-mono text-sm text-muted-foreground">/{s.slug}</span>
+                </Td>
+                <Td label="Configs" className="text-muted-foreground">
+                  {s.configs}
+                </Td>
+                <Td label="Flags" className="text-muted-foreground">
+                  {s.flags}
+                </Td>
+                <Td label="Secrets" className="text-muted-foreground">
+                  {s.secrets}
+                </Td>
+                <Td label="Last change" className="text-muted-foreground">
+                  {s.lastChange ? formatTime(s.lastChange) : '—'}
+                </Td>
+                <Td>
+                  <Button variant="secondary" size="compact" asChild>
+                    <Link to={`/dashboard/${workspaceId}/env/${s.id}`}>Open →</Link>
+                  </Button>
+                </Td>
               </tr>
-            </thead>
-            <tbody>
-              {scores.map((s) => (
-                <tr key={s.id}>
-                  <td>
-                    <Link to={`/dashboard/${workspaceId}/env/${s.id}`}>{s.name}</Link>{' '}
-                    <span className="muted mono">/{s.slug}</span>
-                  </td>
-                  <td className="muted" data-label="Configs">
-                    {s.configs}
-                  </td>
-                  <td className="muted" data-label="Flags">
-                    {s.flags}
-                  </td>
-                  <td className="muted" data-label="Secrets">
-                    {s.secrets}
-                  </td>
-                  <td className="muted" data-label="Last change">
-                    {s.lastChange ? formatTime(s.lastChange) : '—'}
-                  </td>
-                  <td>
-                    <Link
-                      className="secondary button compact"
-                      to={`/dashboard/${workspaceId}/env/${s.id}`}
-                    >
-                      Open →
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {scores.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="muted">
-                    No environments yet — create one below.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </section>
+            ))}
+            {scores.length === 0 && (
+              <tr>
+                <Td colSpan={6} className="text-muted-foreground">
+                  No environments yet — create one below.
+                </Td>
+              </tr>
+            )}
+          </tbody>
+        </CardTable>
         <details className="create-inline">
           <summary>New environment</summary>
-          <Form method="post" className="form">
+          <Form method="post" className="mt-6 flex max-w-xs flex-col gap-3">
             <input type="hidden" name="intent" value="create-env" />
-            <label>
-              Name
-              <input type="text" name="name" required placeholder="Production" />
-            </label>
-            <label>
-              Slug
-              <input type="text" name="slug" required placeholder="production" />
-            </label>
-            <button type="submit">Create environment</button>
+            <Field label="Name">
+              <Input type="text" name="name" required placeholder="Production" />
+            </Field>
+            <Field label="Slug">
+              <Input type="text" name="slug" required placeholder="production" />
+            </Field>
+            <Button type="submit" className="self-start">
+              Create environment
+            </Button>
           </Form>
         </details>
 
@@ -331,21 +332,18 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
           <div>
             <h2>Search</h2>
             <p className="muted">Semantic — find config by meaning, not key name.</p>
-            <Form method="get" className="search-row">
-              <input
+            <Form method="get" className="my-2 flex gap-2">
+              <Input
                 type="search"
                 name="q"
+                className="flex-1"
                 defaultValue={query ?? ''}
                 placeholder='e.g. "the timeout we raised during the incident"'
                 aria-label="Search configs"
               />
-              <button type="submit">Search</button>
+              <Button type="submit">Search</Button>
             </Form>
-            {searchError && (
-              <p className="error-text" role="alert">
-                {searchError}
-              </p>
-            )}
+            {searchError && <ErrorNote>{searchError}</ErrorNote>}
             {hits && (
               <ul className="feed" aria-label="Search results">
                 {hits.map((hit) => (
@@ -409,60 +407,55 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                 Approving applies the value snapshotted at request time.
               </p>
             )}
-            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
-            <section className="table-scroll" aria-label="Promotions" tabIndex={0}>
-              <table className="compare-table cards-sm">
-                <thead>
-                  <tr>
-                    <th>Key</th>
-                    <th>From → To</th>
-                    <th>Status</th>
-                    <th>Risk</th>
-                    <th>By</th>
-                    <th>At</th>
-                    <th />
+            <CardTable label="Promotions">
+              <thead>
+                <tr>
+                  <Th>Key</Th>
+                  <Th>From → To</Th>
+                  <Th>Status</Th>
+                  <Th>Risk</Th>
+                  <Th>By</Th>
+                  <Th>At</Th>
+                  <Th />
+                </tr>
+              </thead>
+              <tbody>
+                {promotions.map((p) => (
+                  <tr key={p.id}>
+                    <Td className="font-mono text-sm">{p.key}</Td>
+                    <Td label="From → To" className="font-mono text-sm text-muted-foreground">
+                      /{envSlug(p.sourceEnvironmentId)} → /{envSlug(p.targetEnvironmentId)}
+                    </Td>
+                    <Td label="Status">
+                      <Chip variant={PROMOTION_CHIP[p.status]}>{p.status}</Chip>
+                    </Td>
+                    <Td label="Risk">
+                      {p.riskLevel ? (
+                        <Chip variant={RISK_CHIP[p.riskLevel] ?? 'neutral'}>{p.riskLevel}</Chip>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </Td>
+                    <Td label="By" className="text-muted-foreground">
+                      {p.actor ?? '—'}
+                    </Td>
+                    <Td label="At" className="text-muted-foreground">
+                      {formatTime(p.createdAt)}
+                    </Td>
+                    <Td>
+                      {p.status === 'pending' && p.workflowInstanceId && (
+                        <ApprovalControl
+                          instanceId={p.workflowInstanceId}
+                          itemKey={p.key}
+                          targetSlug={envSlug(p.targetEnvironmentId)}
+                          busy={busy}
+                        />
+                      )}
+                    </Td>
                   </tr>
-                </thead>
-                <tbody>
-                  {promotions.map((p) => (
-                    <tr key={p.id}>
-                      <td className="mono">{p.key}</td>
-                      <td className="muted mono" data-label="From → To">
-                        /{envSlug(p.sourceEnvironmentId)} → /{envSlug(p.targetEnvironmentId)}
-                      </td>
-                      <td data-label="Status">
-                        <span className={`status ${PROMOTION_CHIP[p.status]}`}>{p.status}</span>
-                      </td>
-                      <td data-label="Risk">
-                        {p.riskLevel ? (
-                          <span className={`status ${RISK_CHIP[p.riskLevel] ?? 'chip-neutral'}`}>
-                            {p.riskLevel}
-                          </span>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                      <td className="muted" data-label="By">
-                        {p.actor ?? '—'}
-                      </td>
-                      <td className="muted" data-label="At">
-                        {formatTime(p.createdAt)}
-                      </td>
-                      <td>
-                        {p.status === 'pending' && p.workflowInstanceId && (
-                          <ApprovalControl
-                            instanceId={p.workflowInstanceId}
-                            itemKey={p.key}
-                            targetSlug={envSlug(p.targetEnvironmentId)}
-                            busy={busy}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+                ))}
+              </tbody>
+            </CardTable>
           </>
         )}
 
@@ -490,30 +483,32 @@ function ApprovalControl({
 
   if (!arming) {
     return (
-      <div className="row">
-        <button
+      <ActionGroup>
+        <Button
           type="button"
-          className="secondary compact"
+          variant="secondary"
+          size="compact"
           disabled={busy}
           onClick={() => setArming('approve')}
         >
           Approve
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="secondary compact"
+          variant="secondary"
+          size="compact"
           disabled={busy}
           onClick={() => setArming('reject')}
         >
           Reject
-        </button>
-      </div>
+        </Button>
+      </ActionGroup>
     )
   }
 
   return (
-    <div className="confirm-row">
-      <p className="confirm-note">
+    <div className="flex min-h-8 flex-nowrap items-center gap-2 max-sm:flex-wrap">
+      <p className="m-0 text-xs text-warn">
         {arming === 'approve'
           ? `Apply "${itemKey}" to /${targetSlug}? There is no undo.`
           : `Reject the promotion of "${itemKey}"? Nothing is applied.`}
@@ -521,17 +516,18 @@ function ApprovalControl({
       <Form method="post" onSubmit={() => setArming(null)}>
         <input type="hidden" name="intent" value={arming} />
         <input type="hidden" name="instanceId" value={instanceId} />
-        <button
+        <Button
           type="submit"
-          className={`${arming === 'approve' ? 'danger' : 'secondary'} compact`}
+          variant={arming === 'approve' ? 'danger' : 'secondary'}
+          size="compact"
           disabled={busy}
         >
           {arming === 'approve' ? `Confirm → /${targetSlug}` : 'Confirm reject'}
-        </button>
+        </Button>
       </Form>
-      <button type="button" className="secondary compact" onClick={() => setArming(null)}>
+      <Button type="button" variant="secondary" size="compact" onClick={() => setArming(null)}>
         Cancel
-      </button>
+      </Button>
     </div>
   )
 }

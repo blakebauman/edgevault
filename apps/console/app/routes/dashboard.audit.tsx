@@ -1,3 +1,4 @@
+import { Button, CardTable, Chip, ErrorNote, Field, Input, Select, Td, Th } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { formatTime } from '../lib/format'
 import { getToken } from '../lib/session.server'
@@ -96,34 +97,27 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
           days; ranges are capped at 31 days per query.
         </p>
 
-        <Form method="get" className="compare-pickers">
-          <label>
-            From
-            <input type="date" name="from" defaultValue={from} />
-          </label>
-          <label>
-            To
-            <input type="date" name="to" defaultValue={to} />
-          </label>
-          <label>
-            Environment
-            <select name="env" defaultValue={envId}>
+        <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
+          <Field label="From">
+            <Input type="date" name="from" defaultValue={from} />
+          </Field>
+          <Field label="To">
+            <Input type="date" name="to" defaultValue={to} />
+          </Field>
+          <Field label="Environment">
+            <Select name="env" defaultValue={envId}>
               <option value="">All environments</option>
               {environments.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.name} /{e.slug}
                 </option>
               ))}
-            </select>
-          </label>
-          <button type="submit">Query</button>
+            </Select>
+          </Field>
+          <Button type="submit">Query</Button>
         </Form>
 
-        {auditError && (
-          <p className="error-text" role="alert">
-            {auditError}
-          </p>
-        )}
+        {auditError && <ErrorNote>{auditError}</ErrorNote>}
 
         {!auditError && (
           <>
@@ -131,53 +125,50 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
               {events.length} event{events.length === 1 ? '' : 's'}
               {events.length === 200 ? ' (showing the most recent 200 — narrow the range)' : ''}
             </p>
-            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
-            <section className="table-scroll" aria-label="Audit events" tabIndex={0}>
-              <table className="compare-table cards-sm">
-                <thead>
-                  <tr>
-                    <th>At</th>
-                    <th>Action</th>
-                    <th>Key</th>
-                    <th>Environment</th>
-                    <th>By</th>
+            <CardTable label="Audit events">
+              <thead>
+                <tr>
+                  <Th>At</Th>
+                  <Th>Action</Th>
+                  <Th>Key</Th>
+                  <Th>Environment</Th>
+                  <Th>By</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: warehouse events carry no id; the list is read-only and replaced wholesale per query
+                  <tr key={`${event.at}-${event.action}-${event.key ?? ''}-${i}`}>
+                    <Td label="At" className="text-muted-foreground">
+                      {formatTime(event.at)}
+                    </Td>
+                    <Td label="Action">
+                      <Chip variant="neutral">{event.action}</Chip>
+                      {event.count && event.count > 1 && (
+                        <span className="text-muted-foreground"> ×{event.count}</span>
+                      )}
+                    </Td>
+                    <Td label="Key" className="font-mono text-sm">
+                      {event.key ?? '—'}
+                    </Td>
+                    <Td label="Environment" className="font-mono text-sm text-muted-foreground">
+                      {envSlug(event.environmentId) ? `/${envSlug(event.environmentId)}` : '—'}
+                    </Td>
+                    <Td label="By" className="text-muted-foreground">
+                      {event.actor ?? event.userId.slice(0, 8)}
+                    </Td>
                   </tr>
-                </thead>
-                <tbody>
-                  {events.map((event, i) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: warehouse events carry no id; the list is read-only and replaced wholesale per query
-                    <tr key={`${event.at}-${event.action}-${event.key ?? ''}-${i}`}>
-                      <td className="muted" data-label="At">
-                        {formatTime(event.at)}
-                      </td>
-                      <td data-label="Action">
-                        <span className="status chip-neutral">{event.action}</span>
-                        {event.count && event.count > 1 && (
-                          <span className="muted"> ×{event.count}</span>
-                        )}
-                      </td>
-                      <td className="mono" data-label="Key">
-                        {event.key ?? '—'}
-                      </td>
-                      <td className="muted mono" data-label="Environment">
-                        {envSlug(event.environmentId) ? `/${envSlug(event.environmentId)}` : '—'}
-                      </td>
-                      <td className="muted" data-label="By">
-                        {event.actor ?? event.userId.slice(0, 8)}
-                      </td>
-                    </tr>
-                  ))}
-                  {events.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="muted">
-                        No events in this range. Widen the dates, or make a change and check back —
-                        the warehouse fills from the audit queue within seconds.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </section>
+                ))}
+                {events.length === 0 && (
+                  <tr>
+                    <Td colSpan={5} className="text-muted-foreground">
+                      No events in this range. Widen the dates, or make a change and check back —
+                      the warehouse fills from the audit queue within seconds.
+                    </Td>
+                  </tr>
+                )}
+              </tbody>
+            </CardTable>
           </>
         )}
       </section>

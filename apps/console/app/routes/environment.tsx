@@ -1,3 +1,21 @@
+import {
+  ActionGroup,
+  Button,
+  CardTable,
+  Checkbox,
+  Chip,
+  ErrorNote,
+  Field,
+  Input,
+  Select,
+  StatusNote,
+  Td,
+  Textarea,
+  Th,
+  TokenBox,
+  TokenValue,
+  TwoStepConfirm,
+} from '@edgevault/ui'
 import { useEffect, useRef, useState } from 'react'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
 import { CopyButton } from '../components/copy-button'
@@ -258,103 +276,86 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
           </div>
         </header>
 
-        {error && (
-          <p className="error-text" role="alert">
-            {error}
-          </p>
-        )}
+        {error && <ErrorNote>{error}</ErrorNote>}
         {saved && (
-          <p className="status-note" role="status">
+          <StatusNote>
             Saved "{saved.key}" — now v{saved.version}, live at the edge in seconds.
-          </p>
+          </StatusNote>
         )}
-        {deleted && (
-          <p className="status-note" role="status">
-            Deleted "{deleted}".
-          </p>
-        )}
+        {deleted && <StatusNote>Deleted "{deleted}".</StatusNote>}
         {reverted && (
-          <p className="status-note" role="status">
-            Reverted — a new revision now carries the old content.
-          </p>
+          <StatusNote>Reverted — a new revision now carries the old content.</StatusNote>
         )}
-        {revealError && (
-          <p className="error-text" role="alert">
-            {revealError}
-          </p>
-        )}
+        {revealError && <ErrorNote>{revealError}</ErrorNote>}
 
         {mintedKey && (
-          <div className="token-box">
-            <p className="token-note">
-              API key — copy it now, it won't be shown again. Use it as{' '}
-              <code>EDGEVAULT_API_KEY</code> (CLI) or <code>apiKey</code> (SDK).
-            </p>
-            <div className="token-row">
-              <code className="token-value">{mintedKey}</code>
-              <CopyButton value={mintedKey} label="Copy key" />
-            </div>
-          </div>
+          <TokenBox
+            className="mt-6"
+            note={
+              <>
+                API key — copy it now, it won't be shown again. Use it as{' '}
+                <code>EDGEVAULT_API_KEY</code> (CLI) or <code>apiKey</code> (SDK).
+              </>
+            }
+          >
+            <TokenValue>{mintedKey}</TokenValue>
+            <CopyButton value={mintedKey} label="Copy key" />
+          </TokenBox>
         )}
 
         {revealed && (
-          <div className="token-box">
-            <p className="token-note">
-              Secret "{revealed.key}" — this reveal was logged to the audit trail.
-            </p>
-            <div className="token-row">
-              <code className="token-value">{revealed.content}</code>
-              <CopyButton value={revealed.content} label="Copy value" />
-            </div>
-          </div>
+          <TokenBox
+            className="mt-6"
+            note={<>Secret "{revealed.key}" — this reveal was logged to the audit trail.</>}
+          >
+            <TokenValue>{revealed.content}</TokenValue>
+            <CopyButton value={revealed.content} label="Copy value" />
+          </TokenBox>
         )}
 
         <h2>Items</h2>
-        {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
-        <section className="table-scroll" aria-label="Items" tabIndex={0}>
-          <table className="compare-table cards-sm">
-            <thead>
-              <tr>
-                <th>Key</th>
-                <th>Kind</th>
-                <th>Version</th>
-                <th>Updated</th>
-                <th />
+        <CardTable label="Items">
+          <thead>
+            <tr>
+              <Th>Key</Th>
+              <Th>Kind</Th>
+              <Th>Version</Th>
+              <Th>Updated</Th>
+              <Th />
+            </tr>
+          </thead>
+          <tbody>
+            {configs.map((item) => (
+              <tr key={item.key}>
+                <Td className="font-mono text-sm">{item.key}</Td>
+                <Td label="Kind">
+                  <Chip variant={`kind-${item.kind}`}>{item.kind}</Chip>
+                </Td>
+                <Td label="Version" className="text-muted-foreground">
+                  v{item.version}
+                </Td>
+                <Td label="Updated" className="text-muted-foreground">
+                  {formatTime(item.updatedAt)}
+                </Td>
+                <Td>
+                  <ItemActions
+                    item={item}
+                    busy={busy}
+                    baseSearch={baseSearch}
+                    onEdit={() => setEditing(item)}
+                  />
+                </Td>
               </tr>
-            </thead>
-            <tbody>
-              {configs.map((item) => (
-                <tr key={item.key}>
-                  <td className="mono">{item.key}</td>
-                  <td data-label="Kind">
-                    <span className={`status kind-${item.kind}`}>{item.kind}</span>
-                  </td>
-                  <td className="muted" data-label="Version">
-                    v{item.version}
-                  </td>
-                  <td className="muted" data-label="Updated">
-                    {formatTime(item.updatedAt)}
-                  </td>
-                  <td>
-                    <ItemActions
-                      item={item}
-                      busy={busy}
-                      baseSearch={baseSearch}
-                      onEdit={() => setEditing(item)}
-                    />
-                  </td>
-                </tr>
-              ))}
-              {configs.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="muted">
-                    Nothing here yet — add your first config, flag, or secret below.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </section>
+            ))}
+            {configs.length === 0 && (
+              <tr>
+                <Td colSpan={5} className="text-muted-foreground">
+                  Nothing here yet — add your first config, flag, or secret below.
+                </Td>
+              </tr>
+            )}
+          </tbody>
+        </CardTable>
 
         {historyKey && revisions && (
           <>
@@ -364,52 +365,49 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                 (close)
               </Link>
             </h2>
-            {/* biome-ignore lint/a11y/noNoninteractiveTabindex: scrollable region; keyboard users need focus to scroll it (WAI pattern) */}
-            <section className="table-scroll" aria-label="Revision history" tabIndex={0}>
-              <table className="compare-table cards-sm">
-                <thead>
-                  <tr>
-                    <th>Version</th>
-                    <th>Change</th>
-                    <th>Summary</th>
-                    <th>By</th>
-                    <th>At</th>
-                    <th />
+            <CardTable label="Revision history">
+              <thead>
+                <tr>
+                  <Th>Version</Th>
+                  <Th>Change</Th>
+                  <Th>Summary</Th>
+                  <Th>By</Th>
+                  <Th>At</Th>
+                  <Th />
+                </tr>
+              </thead>
+              <tbody>
+                {revisions.map((rev) => (
+                  <tr key={rev.id}>
+                    <Td label="Version" className="text-muted-foreground">
+                      v{rev.version}
+                    </Td>
+                    <Td label="Change">
+                      <Chip variant="neutral">{rev.changeType}</Chip>
+                    </Td>
+                    <Td label="Summary" className="text-muted-foreground">
+                      {rev.summary ?? '—'}
+                    </Td>
+                    <Td label="By" className="text-muted-foreground">
+                      {rev.actor ?? <span className="font-mono">{rev.createdBy.slice(0, 8)}</span>}
+                    </Td>
+                    <Td label="At" className="text-muted-foreground">
+                      {formatTime(rev.createdAt)}
+                    </Td>
+                    <Td>
+                      <RevertControl revisionId={rev.id} version={rev.version} busy={busy} />
+                    </Td>
                   </tr>
-                </thead>
-                <tbody>
-                  {revisions.map((rev) => (
-                    <tr key={rev.id}>
-                      <td className="muted" data-label="Version">
-                        v{rev.version}
-                      </td>
-                      <td data-label="Change">
-                        <span className="status chip-neutral">{rev.changeType}</span>
-                      </td>
-                      <td className="muted" data-label="Summary">
-                        {rev.summary ?? '—'}
-                      </td>
-                      <td className="muted" data-label="By">
-                        {rev.actor ?? <span className="mono">{rev.createdBy.slice(0, 8)}</span>}
-                      </td>
-                      <td className="muted" data-label="At">
-                        {formatTime(rev.createdAt)}
-                      </td>
-                      <td>
-                        <RevertControl revisionId={rev.id} version={rev.version} busy={busy} />
-                      </td>
-                    </tr>
-                  ))}
-                  {revisions.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="muted">
-                        No revisions recorded.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </section>
+                ))}
+                {revisions.length === 0 && (
+                  <tr>
+                    <Td colSpan={6} className="text-muted-foreground">
+                      No revisions recorded.
+                    </Td>
+                  </tr>
+                )}
+              </tbody>
+            </CardTable>
           </>
         )}
 
@@ -427,24 +425,25 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
           configs and flags; <code className="mono">secrets:read</code> additionally lets{' '}
           <code className="mono">edgevault run</code> inject secrets (admin-only to mint).
         </p>
-        <Form method="post" className="form">
+        <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
           <input type="hidden" name="intent" value="mint-key" />
-          <label>
-            Key name
-            <input type="text" name="name" required placeholder="e.g. production server" />
-          </label>
-          <fieldset className="event-filter">
-            <legend className="muted">Scopes</legend>
-            <label className="check">
-              <input type="checkbox" name="scopes" value="read" defaultChecked /> read
+          <Field label="Key name">
+            <Input type="text" name="name" required placeholder="e.g. production server" />
+          </Field>
+          <fieldset className="grid gap-1.5 rounded-sm border border-input p-3">
+            <legend className="text-muted-foreground">Scopes</legend>
+            {/* biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label */}
+            <label className="flex items-center gap-2 font-mono text-xs">
+              <Checkbox name="scopes" value="read" defaultChecked /> read
             </label>
-            <label className="check">
-              <input type="checkbox" name="scopes" value="secrets:read" /> secrets:read
+            {/* biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label */}
+            <label className="flex items-center gap-2 font-mono text-xs">
+              <Checkbox name="scopes" value="secrets:read" /> secrets:read
             </label>
           </fieldset>
-          <button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy} className="self-start">
             {busy ? 'Minting…' : 'Mint API key'}
-          </button>
+          </Button>
         </Form>
       </section>
     </main>
@@ -473,42 +472,38 @@ function ItemForm({
   }, [editing])
 
   return (
-    <Form method="post" className="form item-form" onSubmit={onDone}>
+    <Form method="post" className="mt-6 flex max-w-xl flex-col gap-3" onSubmit={onDone}>
       <input type="hidden" name="intent" value="save" />
-      <label>
-        Key
-        <input
+      <Field label="Key">
+        <Input
           type="text"
           name="key"
           required
           defaultValue={editing?.key ?? ''}
           placeholder="e.g. checkout-timeout-ms"
         />
-      </label>
-      <div className="row">
-        <label>
-          Kind
-          <select name="kind" value={kind} onChange={(e) => setKind(e.target.value)}>
+      </Field>
+      <div className="flex flex-wrap gap-3">
+        <Field label="Kind">
+          <Select name="kind" value={kind} onChange={(e) => setKind(e.target.value)}>
             <option value="config">config</option>
             <option value="flag">flag</option>
             <option value="secret">secret</option>
-          </select>
-        </label>
-        <label>
-          Format
-          <select name="contentType" defaultValue={editing?.contentType ?? 'json'}>
+          </Select>
+        </Field>
+        <Field label="Format">
+          <Select name="contentType" defaultValue={editing?.contentType ?? 'json'}>
             {CONTENT_TYPES.map((t) => (
               <option key={t} value={t}>
                 {t}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       </div>
-      <p className="field-hint">{KIND_HINT[kind]}</p>
-      <label>
-        Value
-        <textarea
+      <p className="m-0 text-xs text-muted-foreground">{KIND_HINT[kind]}</p>
+      <Field label="Value">
+        <Textarea
           ref={contentRef}
           name="content"
           required
@@ -516,25 +511,24 @@ function ItemForm({
           defaultValue={editing && editing.kind !== 'secret' ? editing.content : ''}
           placeholder={kind === 'flag' ? '{"enabled": true, "rollout": 0.25}' : ''}
         />
-      </label>
-      <div className="row">
-        <button type="submit" disabled={busy}>
+      </Field>
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" disabled={busy}>
           {busy ? 'Saving…' : editing ? 'Save new version' : 'Save'}
-        </button>
+        </Button>
         {editing && (
-          <button type="button" className="secondary" onClick={onDone}>
+          <Button type="button" variant="secondary" onClick={onDone}>
             Cancel edit
-          </button>
+          </Button>
         )}
       </div>
     </Form>
   )
 }
 
-/** The row's action group. Arming a delete replaces the WHOLE group (same
- * height, no sibling reflow) — and the confirm never lands where Delete was,
- * so a double-click can't fall through to it. Deleting breaks consumers
- * immediately and (if referenced) the API refuses; it gets the danger voice. */
+/** The row's action group. Arming the delete replaces the WHOLE group (same
+ * height, no sibling reflow — TwoStepConfirm's contract). Deleting breaks
+ * consumers immediately and (if referenced) the API refuses; danger voice. */
 function ItemActions({
   item,
   busy,
@@ -550,46 +544,47 @@ function ItemActions({
 
   if (arming) {
     return (
-      <div className="confirm-row">
-        <p className="confirm-note">Delete "{item.key}"?</p>
+      <div className="flex min-h-8 flex-nowrap items-center gap-2 max-sm:flex-wrap">
+        <p className="m-0 text-xs text-warn">Delete "{item.key}"?</p>
         <Form method="post" onSubmit={() => setArming(false)}>
           <input type="hidden" name="intent" value="delete" />
           <input type="hidden" name="key" value={item.key} />
-          <button type="submit" className="danger compact" disabled={busy}>
+          <Button type="submit" variant="danger" size="compact" disabled={busy}>
             Confirm delete
-          </button>
+          </Button>
         </Form>
-        <button type="button" className="secondary compact" onClick={() => setArming(false)}>
+        <Button type="button" variant="secondary" size="compact" onClick={() => setArming(false)}>
           Cancel
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className="row">
+    <ActionGroup>
       {item.kind !== 'secret' && (
-        <button type="button" className="secondary compact" onClick={onEdit}>
+        <Button type="button" variant="secondary" size="compact" onClick={onEdit}>
           Edit
-        </button>
+        </Button>
       )}
-      <Link className="secondary button compact" to={baseSearch({ history: item.key })}>
-        History
-      </Link>
+      <Button variant="secondary" size="compact" asChild>
+        <Link to={baseSearch({ history: item.key })}>History</Link>
+      </Button>
       {item.kind === 'secret' && (
-        <Link className="secondary button compact" to={baseSearch({ reveal: item.key })}>
-          Reveal
-        </Link>
+        <Button variant="secondary" size="compact" asChild>
+          <Link to={baseSearch({ reveal: item.key })}>Reveal</Link>
+        </Button>
       )}
-      <button
+      <Button
         type="button"
-        className="secondary compact"
+        variant="secondary"
+        size="compact"
         disabled={busy}
         onClick={() => setArming(true)}
       >
         Delete
-      </button>
-    </div>
+      </Button>
+    </ActionGroup>
   )
 }
 
@@ -603,34 +598,21 @@ function RevertControl({
   version: number
   busy: boolean
 }) {
-  const [arming, setArming] = useState(false)
-
-  if (!arming) {
-    return (
-      <button
-        type="button"
-        className="secondary compact"
-        disabled={busy}
-        onClick={() => setArming(true)}
-      >
-        Revert
-      </button>
-    )
-  }
-
   return (
-    <div className="confirm-row">
-      <p className="confirm-note">Replace the current value with v{version}?</p>
-      <Form method="post" onSubmit={() => setArming(false)}>
-        <input type="hidden" name="intent" value="revert" />
-        <input type="hidden" name="revisionId" value={revisionId} />
-        <button type="submit" className="danger compact" disabled={busy}>
-          Confirm revert
-        </button>
-      </Form>
-      <button type="button" className="secondary compact" onClick={() => setArming(false)}>
-        Cancel
-      </button>
-    </div>
+    <TwoStepConfirm
+      trigger="Revert"
+      disabled={busy}
+      note={`Replace the current value with v${version}?`}
+    >
+      {(close) => (
+        <Form method="post" onSubmit={close}>
+          <input type="hidden" name="intent" value="revert" />
+          <input type="hidden" name="revisionId" value={revisionId} />
+          <Button type="submit" variant="danger" size="compact" disabled={busy}>
+            Confirm revert
+          </Button>
+        </Form>
+      )}
+    </TwoStepConfirm>
   )
 }
