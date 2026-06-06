@@ -1,5 +1,6 @@
 import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
 import { Form, Link } from 'react-router'
+import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/home'
 
@@ -60,9 +61,9 @@ export async function action({ request, context }: Route.ActionArgs) {
       headers,
       body,
     })
-    return res.ok
-      ? { created: true }
-      : { error: `Could not create the organization (${res.status}).` }
+    if (res.ok) return { created: true }
+    const orgBody = (await res.json().catch(() => null)) as { detail?: string } | null
+    return { error: orgBody?.detail ?? friendlyError(res.status, 'creating the organization') }
   }
   if (intent === 'create-workspace') {
     const orgId = String(form.get('orgId'))
@@ -70,7 +71,9 @@ export async function action({ request, context }: Route.ActionArgs) {
       `https://api/api/v1/organizations/${orgId}/workspaces`,
       { method: 'POST', headers, body },
     )
-    return res.ok ? { created: true } : { error: `Could not create the workspace (${res.status}).` }
+    if (res.ok) return { created: true }
+    const wsBody = (await res.json().catch(() => null)) as { detail?: string } | null
+    return { error: wsBody?.detail ?? friendlyError(res.status, 'creating the workspace') }
   }
   return { error: 'Unknown action' }
 }
@@ -99,7 +102,35 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
         </header>
         {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
         {loaderData.orgs.length === 0 && (
-          <p className="lede">No organizations yet — create one below to get started.</p>
+          <div className="max-w-xl">
+            <p className="lede">Three steps from here to a config served at the edge.</p>
+            <ol className="m-0 mt-4 flex list-none flex-col gap-2 p-0 font-mono text-sm text-muted-foreground">
+              <li>
+                <span className="text-accent">1 · organization</span> — members and billing live
+                here.
+              </li>
+              <li>
+                <span className="text-accent">2 · workspace</span> — its own vault, environments,
+                and audit trail.
+              </li>
+              <li>
+                <span className="text-accent">3 · first config</span> — saved once, readable
+                worldwide in under 10 ms.
+              </li>
+            </ol>
+            <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+              <input type="hidden" name="intent" value="create-org" />
+              <Field label="Organization name">
+                <Input type="text" name="name" required placeholder="Acme Inc" />
+              </Field>
+              <Field label="Slug">
+                <Input type="text" name="slug" required placeholder="acme" />
+              </Field>
+              <Button type="submit" className="self-start">
+                Create organization
+              </Button>
+            </Form>
+          </div>
         )}
         {loaderData.orgs.map((org) => (
           <div key={org.id} className="org">
@@ -128,10 +159,13 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
                 </li>
               ))}
               {org.workspaces.length === 0 && (
-                <li className="text-muted-foreground">No workspaces</li>
+                <li className="text-muted-foreground">
+                  No workspaces yet — step 2: create one below. Environments, configs, and the audit
+                  trail all live inside it.
+                </li>
               )}
             </ul>
-            <details className="create-inline">
+            <details className="create-inline" open={org.workspaces.length === 0}>
               <summary>New workspace</summary>
               <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
                 <input type="hidden" name="intent" value="create-workspace" />
@@ -149,21 +183,23 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
             </details>
           </div>
         ))}
-        <details className="create-inline">
-          <summary>New organization</summary>
-          <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
-            <input type="hidden" name="intent" value="create-org" />
-            <Field label="Name">
-              <Input type="text" name="name" required placeholder="Acme Inc" />
-            </Field>
-            <Field label="Slug">
-              <Input type="text" name="slug" required placeholder="acme" />
-            </Field>
-            <Button type="submit" className="self-start">
-              Create organization
-            </Button>
-          </Form>
-        </details>
+        {loaderData.orgs.length > 0 && (
+          <details className="create-inline">
+            <summary>New organization</summary>
+            <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+              <input type="hidden" name="intent" value="create-org" />
+              <Field label="Name">
+                <Input type="text" name="name" required placeholder="Acme Inc" />
+              </Field>
+              <Field label="Slug">
+                <Input type="text" name="slug" required placeholder="acme" />
+              </Field>
+              <Button type="submit" className="self-start">
+                Create organization
+              </Button>
+            </Form>
+          </details>
+        )}
       </section>
     </main>
   )

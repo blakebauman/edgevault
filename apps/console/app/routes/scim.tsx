@@ -1,4 +1,4 @@
-import { ActionGroup, Button, ErrorNote, TokenBox, TokenValue } from '@edgevault/ui'
+import { ActionGroup, Button, ErrorNote, TokenBox, TokenValue, TwoStepConfirm } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/scim'
@@ -145,11 +145,24 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
             </Button>
           </Form>
           {status.configured && (
-            <Form method="post">
-              <Button type="submit" name="intent" value="revoke" variant="secondary">
-                Revoke token
-              </Button>
-            </Form>
+            <TwoStepConfirm
+              trigger="Revoke token"
+              note="Provisioning stops until a new token is configured in your IdP."
+            >
+              {(close) => (
+                <Form method="post" onSubmit={close}>
+                  <Button
+                    type="submit"
+                    name="intent"
+                    value="revoke"
+                    variant="danger"
+                    size="compact"
+                  >
+                    Confirm revoke
+                  </Button>
+                </Form>
+              )}
+            </TwoStepConfirm>
           )}
         </ActionGroup>
 

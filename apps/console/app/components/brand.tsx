@@ -33,27 +33,35 @@ export function TopBar({ authed }: { authed: boolean }) {
         <VaultMark />
         <span className="font-display text-base font-semibold tracking-tight">EdgeVault</span>
       </Link>
-      {authed && (
-        <nav className="flex items-center gap-5" aria-label="Account">
-          <Link
-            to="/share"
-            className="text-sm text-muted-foreground no-underline hover:text-accent"
-          >
-            Share a secret
-          </Link>
-          <Link
-            to="/account/mfa"
-            className="text-sm text-muted-foreground no-underline hover:text-accent"
-          >
-            Security
-          </Link>
-          <Form method="post" action="/logout">
-            <Button type="submit" variant="linklike" className="text-sm">
-              Sign out
-            </Button>
-          </Form>
-        </nav>
-      )}
+      <nav className="flex items-center gap-5" aria-label="Account">
+        <a
+          href="https://edgevault.io/docs"
+          className="text-sm text-muted-foreground no-underline hover:text-accent"
+        >
+          Docs
+        </a>
+        {authed && (
+          <>
+            <Link
+              to="/share"
+              className="text-sm text-muted-foreground no-underline hover:text-accent"
+            >
+              Share a secret
+            </Link>
+            <Link
+              to="/account/mfa"
+              className="text-sm text-muted-foreground no-underline hover:text-accent"
+            >
+              Security
+            </Link>
+            <Form method="post" action="/logout">
+              <Button type="submit" variant="linklike" className="text-sm">
+                Sign out
+              </Button>
+            </Form>
+          </>
+        )}
+      </nav>
     </header>
   )
 }

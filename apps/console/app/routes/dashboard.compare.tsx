@@ -12,6 +12,7 @@ import {
   TwoStepConfirm,
 } from '@edgevault/ui'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
+import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.compare'
@@ -113,7 +114,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       body: JSON.stringify(body),
     },
   )
-  if (!res.ok) return { error: `Promotion failed (${res.status})` }
+  if (!res.ok) return { error: friendlyError(res.status, 'starting the promotion') }
   return { started: body.key }
 }
 

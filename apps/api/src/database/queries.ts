@@ -27,17 +27,22 @@ export async function createOrganization(
 }
 
 export async function listOrganizationsForUser(database: Database, userId: string) {
-  return database
-    .select({
-      id: organizations.id,
-      name: organizations.name,
-      slug: organizations.slug,
-      role: members.role,
-      createdAt: organizations.createdAt,
-    })
-    .from(members)
-    .innerJoin(organizations, eq(members.organizationId, organizations.id))
-    .where(eq(members.userId, userId))
+  // Transactional so Hyperdrive never serves its ~60s query cache here — the
+  // console re-reads this list immediately after creating an org (same gotcha
+  // as the TOTP credential reads).
+  return database.transaction(async (tx) =>
+    tx
+      .select({
+        id: organizations.id,
+        name: organizations.name,
+        slug: organizations.slug,
+        role: members.role,
+        createdAt: organizations.createdAt,
+      })
+      .from(members)
+      .innerJoin(organizations, eq(members.organizationId, organizations.id))
+      .where(eq(members.userId, userId)),
+  )
 }
 
 export async function isOrgMember(
@@ -75,7 +80,11 @@ export async function createWorkspace(
 }
 
 export async function listWorkspaces(database: Database, organizationId: string) {
-  return database.select().from(workspaces).where(eq(workspaces.organizationId, organizationId))
+  // Transactional: read-after-write — the console lists workspaces right after
+  // creating one; Hyperdrive's query cache must not serve the pre-create list.
+  return database.transaction(async (tx) =>
+    tx.select().from(workspaces).where(eq(workspaces.organizationId, organizationId)),
+  )
 }
 
 export async function getWorkspaceWithOrg(

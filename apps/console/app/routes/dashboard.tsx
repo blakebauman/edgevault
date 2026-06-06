@@ -16,7 +16,8 @@ import {
 import { type FormEvent, useState } from 'react'
 import { Form, Link, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
-import { formatTime } from '../lib/format'
+import { LocalTime } from '../components/local-time'
+import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { useAgentChat } from '../lib/use-agent-chat'
 import { getWorkspaceName } from '../lib/workspace.server'
@@ -120,7 +121,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   let searchError: string | null = null
   if (searchRes) {
     if (searchRes.ok) hits = ((await searchRes.json()) as { hits: SearchHit[] }).hits
-    else searchError = `Search is unavailable right now (${searchRes.status}).`
+    else searchError = friendlyError(searchRes.status, 'searching')
   }
 
   return {
@@ -156,7 +157,10 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     if (res.status === 403) {
       return { error: 'Resolving a promotion requires an org owner or admin.' }
     }
-    if (!res.ok) return { error: `Could not ${intent} the promotion (${res.status}).` }
+    if (!res.ok) {
+      const doing = intent === 'approve' ? 'approving the promotion' : 'rejecting the promotion'
+      return { error: friendlyError(res.status, doing) }
+    }
     return intent === 'approve' ? { approved: true } : { rejected: true }
   }
 
@@ -168,7 +172,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       slug: String(form.get('slug') ?? '').trim(),
     }),
   })
-  if (!res.ok) return { error: `Could not create the environment (${res.status}).` }
+  if (!res.ok) return { error: friendlyError(res.status, 'creating the environment') }
   return { created: true }
 }
 
@@ -266,6 +270,13 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
         )}
 
         <h2>Environments</h2>
+        {scores.length === 0 && (
+          <p className="mb-2 max-w-prose text-sm text-muted-foreground">
+            Environments scope your values — development, staging, production. Create the first one;
+            configs, flags, and secrets live inside it, and promotions move them between
+            environments through the risk-scanned gate.
+          </p>
+        )}
         <CardTable label="Environments">
           <thead>
             <tr>
@@ -294,7 +305,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                   {s.secrets}
                 </Td>
                 <Td label="Last change" className="text-muted-foreground">
-                  {s.lastChange ? formatTime(s.lastChange) : '—'}
+                  {s.lastChange ? <LocalTime epoch={s.lastChange} /> : '—'}
                 </Td>
                 <Td>
                   <Button variant="secondary" size="compact" asChild>
@@ -306,13 +317,13 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
             {scores.length === 0 && (
               <tr>
                 <Td colSpan={6} className="text-muted-foreground">
-                  No environments yet — create one below.
+                  No environments yet — the form below creates your first.
                 </Td>
               </tr>
             )}
           </tbody>
         </CardTable>
-        <details className="create-inline">
+        <details className="create-inline" open={scores.length === 0}>
           <summary>New environment</summary>
           <Form method="post" className="mt-6 flex max-w-xs flex-col gap-3">
             <input type="hidden" name="intent" value="create-env" />
@@ -394,7 +405,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                   )}{' '}
                   <span className="text-xs text-muted-foreground">
                     {entry.actor ? `${entry.actor} · ` : ''}
-                    {formatTime(entry.createdAt)}
+                    <LocalTime epoch={entry.createdAt} />
                   </span>
                 </li>
               ))}
@@ -447,7 +458,7 @@ export default function Dashboard({ loaderData, actionData }: Route.ComponentPro
                       {p.actor ?? '—'}
                     </Td>
                     <Td label="At" className="text-muted-foreground">
-                      {formatTime(p.createdAt)}
+                      <LocalTime epoch={p.createdAt} />
                     </Td>
                     <Td>
                       {p.status === 'pending' && p.workflowInstanceId && (

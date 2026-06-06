@@ -1,6 +1,6 @@
 import { Button, CardTable, Chip, ErrorNote, Field, Input, Select, Td, Th } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
-import { formatTime } from '../lib/format'
+import { LocalTime } from '../components/local-time'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.audit'
@@ -140,7 +140,7 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
                   // biome-ignore lint/suspicious/noArrayIndexKey: warehouse events carry no id; the list is read-only and replaced wholesale per query
                   <tr key={`${event.at}-${event.action}-${event.key ?? ''}-${i}`}>
                     <Td label="At" className="text-muted-foreground">
-                      {formatTime(event.at)}
+                      <LocalTime epoch={event.at} />
                     </Td>
                     <Td label="Action">
                       <Chip variant="neutral">{event.action}</Chip>

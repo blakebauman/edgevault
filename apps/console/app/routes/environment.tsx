@@ -19,7 +19,8 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
 import { CopyButton } from '../components/copy-button'
-import { formatTime } from '../lib/format'
+import { LocalTime } from '../components/local-time'
+import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/environment'
@@ -163,7 +164,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         detail?: string
         error?: string
       } | null
-      return { error: body?.detail ?? body?.error ?? `Save failed (${res.status})` }
+      return { error: body?.detail ?? body?.error ?? friendlyError(res.status, 'saving') }
     }
     const { config } = (await res.json()) as { config: { key: string; version: number } }
     return { saved: { key: config.key, version: config.version } }
@@ -181,7 +182,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       const body = (await res.json().catch(() => null)) as { detail?: string } | null
       return { error: body?.detail ?? 'Other configs still reference this key.' }
     }
-    return res.ok ? { deleted: key } : { error: `Delete failed (${res.status})` }
+    return res.ok ? { deleted: key } : { error: friendlyError(res.status, 'deleting') }
   }
 
   if (intent === 'mint-key') {
@@ -196,7 +197,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     if (res.status === 403) {
       return { error: 'Keys with secrets:read require an org owner or admin.' }
     }
-    if (!res.ok) return { error: `Key creation failed (${res.status})` }
+    if (!res.ok) return { error: friendlyError(res.status, 'minting the key') }
     const { apiKey } = (await res.json()) as { apiKey: string }
     return { mintedKey: apiKey }
   }
@@ -210,7 +211,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     )
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { detail?: string } | null
-      return { error: body?.detail ?? `Revert failed (${res.status})` }
+      return { error: body?.detail ?? friendlyError(res.status, 'reverting') }
     }
     return { reverted: true }
   }
@@ -336,7 +337,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                   v{item.version}
                 </Td>
                 <Td label="Updated" className="text-muted-foreground">
-                  {formatTime(item.updatedAt)}
+                  <LocalTime epoch={item.updatedAt} />
                 </Td>
                 <Td>
                   <ItemActions
@@ -351,7 +352,9 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
             {configs.length === 0 && (
               <tr>
                 <Td colSpan={5} className="text-muted-foreground">
-                  Nothing here yet — add your first config, flag, or secret below.
+                  Nothing here yet. Add your first config, flag, or secret below — it's live at the
+                  edge seconds after saving. Then mint an API key (bottom of the page) and read it
+                  from your code with the SDK or CLI.
                 </Td>
               </tr>
             )}
@@ -393,7 +396,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                       {rev.actor ?? <span className="font-mono">{rev.createdBy.slice(0, 8)}</span>}
                     </Td>
                     <Td label="At" className="text-muted-foreground">
-                      {formatTime(rev.createdAt)}
+                      <LocalTime epoch={rev.createdAt} />
                     </Td>
                     <Td>
                       <RevertControl revisionId={rev.id} version={rev.version} busy={busy} />
@@ -461,6 +464,7 @@ function ItemForm({
   onDone: () => void
 }) {
   const [kind, setKind] = useState<string>(editing?.kind ?? 'config')
+  const [clientError, setClientError] = useState<string | null>(null)
   const contentRef = useRef<HTMLTextAreaElement>(null)
 
   // "Edit" lives in the table; the form lives below it. Carry the user there —
@@ -472,8 +476,24 @@ function ItemForm({
     }
   }, [editing])
 
+  // Catch malformed JSON before the round-trip — the server still validates.
+  function validate(e: React.FormEvent<HTMLFormElement>) {
+    const data = new FormData(e.currentTarget)
+    if (String(data.get('contentType')) === 'json') {
+      try {
+        JSON.parse(String(data.get('content')))
+      } catch {
+        e.preventDefault()
+        setClientError("That isn't valid JSON — check for a missing quote, comma, or brace.")
+        return
+      }
+    }
+    setClientError(null)
+    onDone()
+  }
+
   return (
-    <Form method="post" className="mt-6 flex max-w-xl flex-col gap-3" onSubmit={onDone}>
+    <Form method="post" className="mt-6 flex max-w-xl flex-col gap-3" onSubmit={validate}>
       <input type="hidden" name="intent" value="save" />
       <Field label="Key">
         <Input
@@ -513,6 +533,7 @@ function ItemForm({
           placeholder={kind === 'flag' ? '{"enabled": true, "rollout": 0.25}' : ''}
         />
       </Field>
+      {clientError && <ErrorNote>{clientError}</ErrorNote>}
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={busy}>
           {busy ? 'Saving…' : editing ? 'Save new version' : 'Save'}

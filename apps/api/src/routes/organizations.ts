@@ -18,15 +18,31 @@ import type { WorkspaceDurableObject } from '../durable-objects/workspace'
 
 const nameSlug = z.object({ name: z.string().min(1).max(120), slug: z.string().min(1).max(80) })
 
+/** Postgres unique-violation (23505), as surfaced through drizzle/Hyperdrive. */
+function isDuplicate(error: unknown): boolean {
+  const text = error instanceof Error ? `${error.message} ${error.cause ?? ''}` : String(error)
+  return text.includes('23505') || text.includes('duplicate key')
+}
+
 export const organizationRoutes = new Hono<AppEnv>()
   .post('/', zValidator('json', nameSlug), async (c) => {
     const { name, slug } = c.req.valid('json')
-    const organization = await createOrganization(c.var.database, {
-      name,
-      slug,
-      userId: c.var.userId,
-    })
-    return c.json({ organization }, 201)
+    try {
+      const organization = await createOrganization(c.var.database, {
+        name,
+        slug,
+        userId: c.var.userId,
+      })
+      return c.json({ organization }, 201)
+    } catch (error) {
+      if (isDuplicate(error)) {
+        return c.json(
+          { error: 'slug_taken', detail: 'An organization with that slug already exists.' },
+          409,
+        )
+      }
+      throw error
+    }
   })
   .get('/', async (c) => {
     const organizations = await listOrganizationsForUser(c.var.database, c.var.userId)
@@ -38,7 +54,21 @@ export const organizationRoutes = new Hono<AppEnv>()
       return c.json({ error: 'forbidden' }, 403)
     }
     const { name, slug } = c.req.valid('json')
-    const workspace = await createWorkspace(c.var.database, { organizationId: orgId, name, slug })
+    let workspace: Awaited<ReturnType<typeof createWorkspace>>
+    try {
+      workspace = await createWorkspace(c.var.database, { organizationId: orgId, name, slug })
+    } catch (error) {
+      if (isDuplicate(error)) {
+        return c.json(
+          {
+            error: 'slug_taken',
+            detail: 'A workspace with that slug already exists in this organization.',
+          },
+          409,
+        )
+      }
+      throw error
+    }
 
     // Seed the per-workspace Durable Object with its metadata.
     const stub = c.env.WORKSPACE.get(

@@ -27,7 +27,7 @@ function Th({ className, ...props }: React.ComponentProps<'th'>) {
   return (
     <th
       className={cn(
-        'border-b border-border px-3 py-2 text-left font-mono text-[0.7rem] font-normal uppercase tracking-widest text-accent',
+        'border-b border-border px-3 py-2 text-left font-mono text-xs font-normal uppercase tracking-widest text-accent',
         className,
       )}
       {...props}
