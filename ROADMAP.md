@@ -1,19 +1,22 @@
-# ROADMAP — Implementation Plans (Tier 1 & Tier 2)
+# ROADMAP — Implementation Plans
 
-Derived from a gap analysis against Infisical's feature set (2026-06), filtered through
-EdgeVault's positioning: edge-native config/flags/secrets with a <10ms delivery plane,
-AI-native workflows, open-core on Cloudflare. Each plan is grounded in the current
-architecture (see CLAUDE.md). Effort: S ≈ 1–2 days, M ≈ 3–5 days, L ≈ 1–2 weeks.
+Derived from a gap analysis against leading secrets-management platforms (Tiers 1–2,
+2026-06), plus security patterns borrowed from commercial password managers and applied
+to our existing secrets plane (Tier 3, 2026-06) — filtered through EdgeVault's
+positioning: edge-native config/flags/secrets with a <10ms delivery plane, AI-native
+workflows, open-core on Cloudflare. Each plan is grounded in the current architecture
+(see CLAUDE.md). Effort: S ≈ 1–2 days, M ≈ 3–5 days, L ≈ 1–2 weeks.
 
-**Suggested order:** 1.2 → 1.3 → 1.1 → 1.5 → 1.4 → 2.7 → 2.6 → 2.10 → 2.9 → 2.8 → 2.11
-(1.3 unblocks 2.8/2.9 notifications; 2.10 should land before 2.9 so JIT grants reference
-the real role model — or ship JIT v1 granting legacy roles.)
+**Status:** all of Tier 1 (1.1–1.5) has shipped; Tier 2 and Tier 3 are open.
+
+**Suggested order (remaining):** 2.7 → 2.6 → 2.10 → 2.9 → 2.8 → 2.11, with Tier 3 as a
+parallel track (3.2 → 3.1 → 3.3).
 
 ---
 
 ## Tier 1 — MIT core
 
-### 1.1 Secret referencing (`${KEY}` interpolation) — M/L
+### 1.1 Secret referencing (`${KEY}` interpolation) — M/L — ✅ shipped
 
 One config item references another; the delivery plane keeps serving fully pre-resolved
 values, so resolution happens entirely at write time in `apps/api`.
@@ -53,7 +56,7 @@ marker — pick block, simpler); promotion semantics (refs resolve in target env
 
 ---
 
-### 1.2 Environment comparison — S  *(cheapest win, do first)*
+### 1.2 Environment comparison — S — ✅ shipped
 
 `packages/diff` already exports `generateDiff`/`summarizeDiff` (`packages/diff/src/index.ts:25`).
 
@@ -73,7 +76,7 @@ marker — pick block, simpler); promotion semantics (refs resolve in target env
 
 ---
 
-### 1.3 Webhooks + Slack notifications — M  *(unblocks 2.8 / 2.9)*
+### 1.3 Webhooks + Slack notifications — M — ✅ shipped
 
 **Data model (Neon, `packages/database`):** `notification_channels`
 `(id, workspaceId FK, type 'webhook'|'slack', target /* URL, envelope-encrypted via
@@ -107,7 +110,7 @@ Cloudflare Email Service can be a later channel type behind the same table.
 
 ---
 
-### 1.4 CLI with `edgevault run` — M/L
+### 1.4 CLI with `edgevault run` — M/L — ✅ shipped
 
 **Package:** `packages/cli` → `@edgevault/cli`, bin `edgevault`. Node 22, near-zero deps
 (built-in `fetch`, `util.parseArgs`, `node:child_process`). Published to npm (MIT).
@@ -145,7 +148,7 @@ delivery (same pattern as existing cross-worker smokes).
 
 ---
 
-### 1.5 Secret sharing via expiring links — M
+### 1.5 Secret sharing via expiring links — M — ✅ shipped
 
 Zero-knowledge: encrypt **client-side** in the console with a random AES-GCM key; the key
 travels only in the URL fragment (`/s/:id#<key>`), which never reaches the server. Server
@@ -171,7 +174,7 @@ stores ciphertext + policy.
 round-trip encrypt/decrypt unit; BFF route test.
 
 **Why it matters:** top-of-funnel growth loop (every shared link is a product demo) —
-same playbook as Infisical/Doppler.
+a proven playbook across the secrets-management category.
 
 ---
 
@@ -180,7 +183,7 @@ same playbook as Infisical/Doppler.
 ### 2.6 Secret syncs (push) — L *(phase it)*
 
 Push resolved values/secrets to external stores. Flagship destination is **Cloudflare
-Workers secrets** — uniquely on-brand, weak in Infisical.
+Workers secrets** — uniquely on-brand, underserved elsewhere in the category.
 
 **Data model (Neon):** `sync_destinations (id, workspaceId, environmentId /* DO env id */,
 provider, config jsonb /* non-secret: account id, repo, script name */, credentials
@@ -348,6 +351,106 @@ Delivery-plane-only clients mirroring `packages/sdk` (`EdgeVault` class: `config
 
 ---
 
+## Tier 3 — Vault-grade protection for the secrets we already hold
+
+Security patterns borrowed from commercial password managers (2026-06), applied to
+EdgeVault's existing config secrets — **not** a password-manager product. No structured
+login items, no personal vaults, no autofill. The plays worth stealing are about *key
+custody and reveal friction*: revealing a secret should cost a fresh proof of presence,
+plaintext should live as briefly as possible on the client, and the most sensitive
+tenants should be able to take key custody away from us entirely. All three bolt onto
+the existing reveal path (`apps/api/src/routes/workspaces.ts:347`) and envelope crypto
+(`packages/crypto/src/index.ts`) rather than adding product surface.
+
+**Suggested order:** 3.2 → 3.1 → 3.3 (hygiene is an afternoon; step-up is the real
+upgrade; E2E is the EE capstone and reuses 3.1's reauth flow).
+
+---
+
+### 3.1 Step-up reauth before secret reveal — M
+
+The pattern: being logged in is not the same as proving presence. A reveal is rarer and
+more dangerous than any other authenticated action, so it demands a fresh second factor
+— and we already shipped both factors.
+
+**Build:**
+1. `apps/auth`: `POST /reauth` runs a passkey assertion (`buildAuthenticationOptions` /
+   `verifyAuthentication`, `apps/auth/src/webauthn.ts:95,103`) or TOTP (`verifyUserTotp`,
+   `apps/auth/src/mfa.ts:80`) against the current session → short-TTL (≤5 min)
+   `reveal_token` (signed, audience `secret-reveal`), cached via the existing
+   `AUTH_CACHE` idiom. Support both factors — TOTP-only users must be able to step up.
+2. api: the reveal route (`workspaces.ts:347`) and the human-mode environment export
+   require a valid `reveal_token`; absent/expired → 401 `reauth_required` with the
+   challenge. **Machine export is exempt** — CI cannot step up; its gate remains scoped
+   environment keys (`secrets:read`) + per-decrypt audit, unchanged.
+3. Console: the reveal button triggers the passkey prompt only when no fresh grant
+   exists; transparent within the grant window.
+4. CLI human mode: on `reauth_required`, browser passkey flow via the existing login
+   callback or a TOTP prompt; token cached in `~/.config/edgevault/credentials` (0600)
+   with its TTL.
+5. Org-level policy toggle (`require_step_up_for_reveal`, default on for new orgs);
+   every reveal keeps emitting the existing audit + notify events regardless.
+
+**Tests:** reveal-token expiry boundary unit; route test that a plain session token gets
+401 `reauth_required`; CLI unit (reauth-required → prompt → retry); TOTP fallback path.
+
+**Risks:** token replay — bind to user + session, short TTL, single audience. Don't
+break MCP/agent flows silently: MCP secret reveal should surface `reauth_required` as a
+structured error, not a generic 401.
+
+---
+
+### 3.2 Console reveal hygiene — S
+
+The cheap, pure-client patterns — no backend change:
+1. Copy-to-clipboard with best-effort 30s auto-clear and a visible "clipboard will
+   clear" affordance (clearing is best-effort browser-side; present it honestly).
+2. Revealed values masked by default with per-field toggles; re-mask on blur/navigate.
+3. Plaintext only ever in component state — never localStorage/sessionStorage, cleared
+   on unmount.
+
+**Tests:** component tests for mask/auto-clear timers; a lint-style grep test that no
+console code persists revealed values.
+
+---
+
+### 3.3 End-to-end encrypted workspaces (opt-in) — L (EE)
+
+The pattern: the wrapped-vault-key model. A per-workspace symmetric key is wrapped to
+each member's public key; secrets are encrypted client-side; the server stores
+ciphertext it cannot read. Applied to existing workspace secrets, opt-in per workspace,
+gated by a new `WORKSPACE_E2E` entitlement — the trust-model upsell for regulated
+tenants. The shipped share-link crypto (`encryptShareText`/`decryptShareText`,
+`packages/crypto/src/index.ts:226`) proves browser-side WebCrypto round-trips in this
+codebase; this extends a known pattern, not new R&D.
+
+**Sketch:**
+1. Per-user keypair derived client-side at login from the password (Argon2id already in
+   `apps/auth`); the private key never leaves the client.
+2. Workspace key wrapped to each member's pubkey; membership changes re-wrap client-side
+   by an admin. Envelope format gets a `v: 2` client-side variant alongside the existing
+   server-side `v: 1` (`SecretEnvelope` already carries a version field).
+3. Secrets encrypt in-browser before upload; configs/flags stay server-side and the
+   delivery plane is untouched (it never held secrets — the existing hard rule).
+4. Step-up (3.1) doubles as the unwrap ceremony UX: the same passkey prompt gates the
+   client-side key unwrap.
+
+**Documented costs (surfaced in the UI at opt-in):** no server-side reveal, so no AI
+risk analysis over secret values and **no machine export of E2E secrets** — `edgevault
+run` against an E2E workspace requires issuing a wrapped key to a service identity (the
+CLI holds key material; ship that in the same phase or document the loss explicitly).
+No break-glass. **Recovery-key escrow ships in the same phase or not at all** — an
+org-held recovery keypair the workspace key is additionally wrapped to; without it, a
+forgotten password loses the workspace.
+
+**Tests:** wrap/unwrap round-trip units; membership re-wrap; v1→v2 envelope migration
+on opt-in; recovery-key restore e2e.
+
+**Risks:** key recovery is the hard part (hence escrow-or-nothing); password changes
+must re-derive and re-wrap the user's private key without a decrypt-everything event.
+
+---
+
 ## Dependency graph
 
 ```
@@ -359,6 +462,11 @@ Delivery-plane-only clients mirroring `packages/sdk` (`EdgeVault` class: `config
 1.4 CLI ─────────────┴───────► GitHub Action (free follow-on)
 2.6 syncs (independent; uses 1.3 for failure notices)
 2.11 SDKs (independent)
+
+3.2 reveal hygiene (independent, console-only)
+3.1 step-up reveal ────► 3.3 E2E workspaces (the passkey prompt doubles as the unwrap UX)
+1.4 CLI (shipped) ─────► 3.1 human-mode reveal adopts reveal tokens
+1.5 share links (shipped) ─► 3.3 client-side crypto pattern already proven in-repo
 ```
 
 ## Open-core placement summary
@@ -370,6 +478,8 @@ Delivery-plane-only clients mirroring `packages/sdk` (`EdgeVault` class: `config
 | 2.8 change requests | Core-enforced, `CHANGE_REQUESTS` entitlement (new) |
 | 2.9 JIT access | Core-enforced, `JIT_ACCESS` entitlement (new) |
 | 2.10 advanced RBAC | Core evaluator MIT; custom roles behind `ADVANCED_RBAC` (exists) |
+| 3.1 step-up reveal, 3.2 reveal hygiene | MIT core |
+| 3.3 E2E workspaces + recovery escrow | EE — `WORKSPACE_E2E` entitlement (new) |
 
 New entitlements ⇒ update `packages/licensing` `ENTITLEMENTS` +
 `edge/control-plane` `planToEntitlements` + pricing page when numbers are real.

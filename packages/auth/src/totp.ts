@@ -5,7 +5,7 @@ import { sha256, sha512 } from '@noble/hashes/sha2.js'
 /**
  * TOTP (RFC 6238) / HOTP (RFC 4226) for multi-factor auth, built on
  * @noble/hashes (no telemetry, audited). Secrets are Base32 (RFC 4648) so they
- * paste straight into Google Authenticator / 1Password / Authy. Defaults match
+ * paste straight into standard authenticator apps. Defaults match
  * those apps: SHA-1, 6 digits, 30-second period.
  */
 

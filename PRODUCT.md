@@ -46,9 +46,10 @@ References (with the specific thing borrowed):
 
 - **Tailscale / Fly.io** — plainspoken engineering voice; technical editorial that trusts the reader.
 - **Swiss / international style** — grid and typographic discipline; hierarchy does the work.
-- **infisical.com** — the technical-drawing idiom (crop marks, dashed dividers, line-art product
-  visuals), one working accent, dark product panels set into a light page. (Extraction reviewed
-  2026-06-05; the scraped archive was removed with the stardust pipeline.)
+- **A direct category neighbor (secrets management)** — the technical-drawing idiom (crop marks,
+  dashed dividers, line-art product visuals), one working accent, dark product panels set into a
+  light page. (Extraction reviewed 2026-06-05; the scraped archive was removed with the stardust
+  pipeline.)
 
 ## Anti-references
 

@@ -108,7 +108,7 @@ vocabulary (carried from the retired stardust brand profile).
 
 ### Primary
 - **Relay Violet** (#7B2CBF): the one working accent. Links, eyebrows, box-score values,
-  diagram labels, sidebar active states. It plays the role Infisical gives its acid yellow-green:
+  diagram labels, sidebar active states. The single-acid-accent role:
   everywhere a value is "in transit", nowhere as decoration.
 
 ### Secondary
