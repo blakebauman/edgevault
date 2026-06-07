@@ -17,10 +17,11 @@ import {
   TwoStepConfirm,
 } from '@edgevault/ui'
 import { useEffect, useRef, useState } from 'react'
-import { Form, Link, redirect, useNavigation, useSearchParams } from 'react-router'
+import { Form, Link, redirect, useFetcher, useNavigation, useSearchParams } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
+import { RevealField } from '../components/reveal-field'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
@@ -84,7 +85,6 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const base = `/${params.workspaceId}`
 
   const url = new URL(request.url)
-  const revealKey = url.searchParams.get('reveal')
   const historyKey = url.searchParams.get('history')
 
   const [workspaceName, envsRes, configsRes, deletedRes] = await Promise.all([
@@ -110,21 +110,6 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     ? ((await deletedRes.json()) as { deleted: DeletedRow[] }).deleted
     : []
 
-  // Audited, admin-gated secret reveal — proxied here so the browser never
-  // holds the bearer token. Triggered by ?reveal=<key>.
-  let revealed: { key: string; content: string } | null = null
-  let revealError: string | null = null
-  if (revealKey) {
-    const res = await api(
-      env,
-      token,
-      `${base}/environments/${params.envId}/configs/${encodeURIComponent(revealKey)}/reveal`,
-    )
-    if (res.ok) revealed = (await res.json()) as { key: string; content: string }
-    else if (res.status === 403) revealError = 'Revealing secrets requires an org owner or admin.'
-    else revealError = friendlyError(res.status, 'revealing the secret')
-  }
-
   let revisions: Revision[] | null = null
   if (historyKey) {
     const res = await api(
@@ -142,8 +127,6 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     envName: environment ? `${environment.name} /${environment.slug}` : params.envId,
     configs,
     deletedConfigs,
-    revealed,
-    revealError,
     historyKey,
     revisions,
   }
@@ -248,6 +231,22 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return { restored: { key: config.key, version: config.version } }
   }
 
+  if (intent === 'reveal') {
+    // Audited, admin-gated. Proxied here so the browser never holds the bearer
+    // token, and posted (not navigated) so the plaintext never lands in the URL,
+    // browser history, or the server-rendered document — only in fetcher state.
+    const key = String(form.get('key'))
+    const res = await api(
+      env,
+      token,
+      `${base}/environments/${params.envId}/configs/${encodeURIComponent(key)}/reveal`,
+    )
+    if (res.ok) return { revealed: (await res.json()) as { key: string; content: string } }
+    if (res.status === 403)
+      return { revealError: 'Revealing secrets requires an org owner or admin.' }
+    return { revealError: friendlyError(res.status, 'revealing the secret') }
+  }
+
   if (intent === 'revert') {
     const res = await api(
       env,
@@ -271,6 +270,48 @@ const KIND_HINT: Record<string, string> = {
   secret: 'Envelope-encrypted before storage. The value is shown only via an audited reveal.',
 }
 
+/** Time a revealed secret stays in memory before it's dropped automatically. */
+const REVEAL_TTL_MS = 60_000
+
+/**
+ * Drives an audited secret reveal over a fetcher (POST, no navigation) so the
+ * plaintext never touches the URL, history, or SSR document. The value is
+ * mirrored into owned state we fully control: it auto-clears after a TTL and on
+ * unmount (navigate), and a per-data-object guard stops the fetcher's lingering
+ * result from re-populating after we've dropped it.
+ */
+function useReveal() {
+  const fetcher = useFetcher<typeof action>()
+  const [revealed, setRevealed] = useState<{ key: string; content: string } | null>(null)
+  const seen = useRef<unknown>(null)
+
+  useEffect(() => {
+    if (fetcher.data === seen.current) return
+    seen.current = fetcher.data
+    if (fetcher.data && 'revealed' in fetcher.data && fetcher.data.revealed) {
+      setRevealed(fetcher.data.revealed)
+    }
+  }, [fetcher.data])
+
+  useEffect(() => {
+    if (!revealed) return
+    const t = setTimeout(() => setRevealed(null), REVEAL_TTL_MS)
+    return () => clearTimeout(t)
+  }, [revealed])
+
+  const error = fetcher.data && 'revealError' in fetcher.data ? fetcher.data.revealError : null
+
+  return {
+    revealed,
+    error: revealed ? null : error,
+    reveal(key: string) {
+      setRevealed(null)
+      fetcher.submit({ intent: 'reveal', key }, { method: 'post' })
+    },
+    clear: () => setRevealed(null),
+  }
+}
+
 export default function Environment({ loaderData, actionData }: Route.ComponentProps) {
   const {
     workspaceId,
@@ -279,13 +320,12 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
     envName,
     configs,
     deletedConfigs,
-    revealed,
-    revealError,
     historyKey,
     revisions,
   } = loaderData
   const navigation = useNavigation()
   const busy = navigation.state !== 'idle'
+  const reveal = useReveal()
   const [searchParams] = useSearchParams()
   const [editing, setEditing] = useState<ConfigRow | null>(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
@@ -372,7 +412,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
         {reverted && (
           <StatusNote>Reverted — a new revision now carries the old content.</StatusNote>
         )}
-        {revealError && <ErrorNote>{revealError}</ErrorNote>}
+        {reveal.error && <ErrorNote>{reveal.error}</ErrorNote>}
 
         {mintedKey && (
           <TokenBox
@@ -385,18 +425,16 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
             }
           >
             <TokenValue>{mintedKey}</TokenValue>
-            <CopyButton value={mintedKey} label="Copy key" />
+            <CopyButton value={mintedKey} label="Copy key" clearAfterMs={30_000} />
           </TokenBox>
         )}
 
-        {revealed && (
-          <TokenBox
-            className="mt-6"
-            note={<>Secret "{revealed.key}" — this reveal was logged to the audit trail.</>}
-          >
-            <TokenValue>{revealed.content}</TokenValue>
-            <CopyButton value={revealed.content} label="Copy value" />
-          </TokenBox>
+        {reveal.revealed && (
+          <RevealField
+            secretKey={reveal.revealed.key}
+            value={reveal.revealed.content}
+            onDismiss={reveal.clear}
+          />
         )}
 
         <h2>Items</h2>
@@ -483,6 +521,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                     busy={busy}
                     baseSearch={baseSearch}
                     onEdit={() => setEditing(item)}
+                    onReveal={() => reveal.reveal(item.key)}
                   />
                 </Td>
               </tr>
@@ -725,11 +764,13 @@ function ItemActions({
   busy,
   baseSearch,
   onEdit,
+  onReveal,
 }: {
   item: ConfigRow
   busy: boolean
   baseSearch: (extra: Record<string, string>) => string
   onEdit: () => void
+  onReveal: () => void
 }) {
   const [arming, setArming] = useState(false)
 
@@ -762,8 +803,8 @@ function ItemActions({
         <Link to={baseSearch({ history: item.key })}>History</Link>
       </Button>
       {item.kind === 'secret' && (
-        <Button variant="secondary" size="compact" asChild>
-          <Link to={baseSearch({ reveal: item.key })}>Reveal</Link>
+        <Button type="button" variant="secondary" size="compact" disabled={busy} onClick={onReveal}>
+          Reveal
         </Button>
       )}
       <Button
