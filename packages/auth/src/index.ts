@@ -12,6 +12,7 @@ export {
   generateSigningKeyPair,
   importSigningKey,
   importVerificationKey,
+  REVEAL_TOKEN_AUDIENCE,
   signAccessToken,
   verifyAccessToken,
   verifyWithJwkSet,

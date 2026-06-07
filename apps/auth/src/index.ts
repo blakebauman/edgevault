@@ -23,6 +23,7 @@ import {
   confirmTotpEnrollment,
   disableTotp,
   signMfaChallenge,
+  signRevealToken,
   startTotpEnrollment,
   totpStatus,
   userHasMfa,
@@ -292,6 +293,44 @@ app.post(
     return c.json({ ok: true })
   },
 )
+
+// --- Step-up reauth --------------------------------------------------------
+// Mint a short-lived reveal token after a fresh second factor (passkey or
+// TOTP). The secret-reveal path in `api` requires it: being signed in isn't
+// enough to reveal a secret. Token-gated (requireUser) and bound to the current
+// user — a passkey assertion for another account can't mint a token for this
+// one. The console BFF round-trips the WebAuthn challenge in a cookie, exactly
+// like the login and registration flows above.
+const reauthSchema = z.discriminatedUnion('method', [
+  z.object({ method: z.literal('totp'), code: z.string().min(6).max(10) }),
+  z.object({
+    method: z.literal('passkey'),
+    response: z.unknown(),
+    expectedChallenge: z.string().min(1),
+    expectedOrigin: z.string().min(1),
+    expectedRPID: z.string().min(1),
+  }),
+])
+
+app.post('/reauth', requireUser, zValidator('json', reauthSchema), async (c) => {
+  const body = c.req.valid('json')
+  let ok = false
+  if (body.method === 'totp') {
+    ok = await verifyUserTotp(c.env, c.var.database, c.var.userId, body.code)
+  } else {
+    const assertedUserId = await verifyAuthentication(c.var.database, {
+      // biome-ignore lint/suspicious/noExplicitAny: the browser response shape is validated by the library
+      response: body.response as any,
+      expectedChallenge: body.expectedChallenge,
+      expectedOrigin: body.expectedOrigin,
+      expectedRPID: body.expectedRPID,
+    })
+    ok = assertedUserId !== null && assertedUserId === c.var.userId
+  }
+  if (!ok) return c.json({ error: 'reauth_failed' }, 401)
+  const revealToken = await signRevealToken(c.env, c.var.userId)
+  return c.json({ revealToken, expiresIn: 300 })
+})
 
 // --- Social OAuth (GitHub / Google) ----------------------------------------
 // The console BFF supplies the redirect URI (its own callback) and round-trips

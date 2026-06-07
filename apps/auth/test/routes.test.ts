@@ -47,6 +47,18 @@ describe('POST /sign-out (no cookie)', () => {
   })
 })
 
+describe('POST /reauth (step-up)', () => {
+  it('rejects without a bearer token before any database or key work', async () => {
+    const res = await call('/reauth', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ method: 'totp', code: '123456' }),
+    })
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: 'unauthorized' })
+  })
+})
+
 describe('POST /sign-up/email (validation)', () => {
   it('rejects an invalid email before any database call', async () => {
     const res = await call('/sign-up/email', {

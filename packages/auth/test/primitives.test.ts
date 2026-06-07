@@ -17,6 +17,7 @@ import {
   hashToken,
   importSigningKey,
   importVerificationKey,
+  REVEAL_TOKEN_AUDIENCE,
   signAccessToken,
   verifyAccessToken,
   verifyPassword,
@@ -133,5 +134,34 @@ describe('jwt (EdDSA)', () => {
     await expect(
       verifyWithJwkSet(token, otherSet, { issuer: 'https://auth.edgevault.test' }),
     ).rejects.toThrow()
+  })
+
+  it('isolates the reveal-token audience from access tokens (both directions)', async () => {
+    const { privateJwk, publicJwk } = await generateSigningKeyPair()
+    const signing = await importSigningKey(privateJwk)
+    const jwkSet = createJwkSet(buildJwks([publicJwk]))
+    const issuer = 'https://auth.edgevault.test'
+
+    // A reveal token (as `auth` mints it) verifies only against its own audience.
+    const revealToken = await signAccessToken({ sub: 'user-7' }, signing, {
+      issuer,
+      audience: REVEAL_TOKEN_AUDIENCE,
+      expiresIn: '5m',
+    })
+    const claims = await verifyWithJwkSet(revealToken, jwkSet, {
+      issuer,
+      audience: REVEAL_TOKEN_AUDIENCE,
+    })
+    expect(claims.sub).toBe('user-7')
+
+    // A plain access token (audience defaults to issuer) must NOT satisfy a
+    // reveal check — being signed in isn't a fresh step-up.
+    const accessToken = await signAccessToken({ sub: 'user-7' }, signing, { issuer })
+    await expect(
+      verifyWithJwkSet(accessToken, jwkSet, { issuer, audience: REVEAL_TOKEN_AUDIENCE }),
+    ).rejects.toThrow()
+
+    // And a reveal token must NOT be usable as a normal access token.
+    await expect(verifyWithJwkSet(revealToken, jwkSet, { issuer })).rejects.toThrow()
   })
 })

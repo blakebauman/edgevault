@@ -2,6 +2,7 @@ import {
   buildOtpauthUri,
   generateTotpSecret,
   importVerificationKey,
+  REVEAL_TOKEN_AUDIENCE,
   signAccessToken,
   verifyAccessToken,
   verifyTotp,
@@ -109,6 +110,21 @@ export async function signMfaChallenge(env: Env, userId: string): Promise<string
   return signAccessToken({ sub: userId }, signing, {
     issuer: env.AUTH_ISSUER,
     audience: MFA_AUDIENCE,
+    expiresIn: '5m',
+  })
+}
+
+/**
+ * Mint a short-lived step-up token after a fresh second-factor proof. Required
+ * by the secret-reveal path so being signed in isn't enough — revealing a secret
+ * costs a fresh proof of presence. Verified in `api` against the JWKS by its
+ * `secret-reveal` audience; lives only ~5 minutes.
+ */
+export async function signRevealToken(env: Env, userId: string): Promise<string> {
+  const { signing } = await getKeys(env)
+  return signAccessToken({ sub: userId }, signing, {
+    issuer: env.AUTH_ISSUER,
+    audience: REVEAL_TOKEN_AUDIENCE,
     expiresIn: '5m',
   })
 }

@@ -8,6 +8,14 @@ import * as jose from 'jose'
 
 const ALG = 'EdDSA'
 
+/**
+ * Audience for short-lived step-up tokens minted after a fresh second-factor
+ * proof and required by the secret-reveal path. Distinct from access tokens so a
+ * normal session token can never satisfy a reveal, and vice versa. Shared so the
+ * minting worker (`auth`) and the verifying worker (`api`) can't drift.
+ */
+export const REVEAL_TOKEN_AUDIENCE = 'secret-reveal'
+
 export interface AccessTokenClaims extends jose.JWTPayload {
   /** Subject — the user id. */
   sub: string
