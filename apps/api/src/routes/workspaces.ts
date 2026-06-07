@@ -21,7 +21,7 @@ import {
   listNotificationChannels,
 } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
-import type { WorkspaceDurableObject } from '../durable-objects/workspace'
+import type { VaultDurableObject } from '../durable-objects/vault'
 import { deleteThrough, publishApiKey, publishTargets } from '../edge-cache'
 import { buildNotifyJob, dispatchNotifications, invalidateChannelCache } from '../notify'
 import { enforceRateLimit } from '../rate-limit'
@@ -34,10 +34,7 @@ import { prepareSecretContent, revealSecret } from '../secrets'
  * caller and org membership has already been checked.
  */
 
-function stubFor(
-  c: Context<AppEnv>,
-  workspaceId: string,
-): DurableObjectStub<WorkspaceDurableObject> {
+function stubFor(c: Context<AppEnv>, workspaceId: string): DurableObjectStub<VaultDurableObject> {
   return c.env.WORKSPACE.get(c.env.WORKSPACE.idFromName(workspaceId))
 }
 

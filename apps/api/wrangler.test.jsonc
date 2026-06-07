@@ -12,7 +12,7 @@
   "vars": {
     "ENVIRONMENT": "test",
     "SERVICE_NAME": "edgevault-api",
-    "AUTH_ISSUER": "https://auth.edgevault.io",
+    "AUTH_ISSUER": "https://auth.test",
     "CONSOLE_URL": "https://app.test",
     "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
     "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
@@ -24,13 +24,13 @@
   ],
   "durable_objects": {
     "bindings": [
-      { "name": "WORKSPACE", "class_name": "WorkspaceDurableObject" },
+      { "name": "WORKSPACE", "class_name": "VaultDurableObject" },
       { "name": "AGENT", "class_name": "EdgeVaultAgent" },
       { "name": "SHARE", "class_name": "ShareDurableObject" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["WorkspaceDurableObject"] },
+    { "tag": "v1", "new_sqlite_classes": ["VaultDurableObject"] },
     { "tag": "v2", "new_sqlite_classes": ["EdgeVaultAgent"] },
     { "tag": "v3", "new_sqlite_classes": ["ShareDurableObject"] }
   ],

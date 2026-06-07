@@ -10,14 +10,14 @@ plane.
 |---|---|
 | `console` (`app.edgevault.io`) | React Router 7 UI + BFF. The browser only talks here; it proxies to the others over service bindings (no CORS, no cross-site cookies). |
 | `auth` (`auth.edgevault.io`) | Custom auth — sessions, JWT/JWKS, API keys, social OAuth, MFA/passkeys. Built on audited primitives (`jose`, `@noble/hashes`, `@oslojs/*`), no framework, no telemetry. |
-| `api` (`api.edgevault.io`) | Control plane — authz, metadata in Neon (via Hyperdrive), routes all config/secret writes through the Workspace DO, hosts AI + MCP. |
+| `api` (`api.edgevault.io`) | Control plane — authz, metadata in Neon (via Hyperdrive), routes all config/secret writes through the Vault DO, hosts AI + MCP. |
 | `delivery` (`cdn.edgevault.io`) | Data plane — serves **pre-resolved** configs/flags from KV with an in-memory L1, gated by environment-scoped API keys. No business logic; cannot decrypt secrets. |
 | `enterprise` (`ee/`, internal) | OIDC/SAML SSO + SCIM, gated by entitlements. Reached only via the console's service binding. |
 | `control-plane` (`edge/`, proprietary) | Stripe billing/metering + tenant provisioning. SaaS-only, excluded from OSS. |
 
 ## Durable Objects
 
-- **`WorkspaceDurableObject`** — one SQLite DO per workspace (system of record):
+- **`VaultDurableObject`** — one SQLite DO per workspace (system of record):
   environments, config content, revisions, promotions, flags, activity log, and
   envelope-encrypted secret ciphertext. Hosts hibernatable WebSocket + SSE for
   live updates. Strong consistency per workspace, 10 GB ceiling.
@@ -29,14 +29,14 @@ plane.
 | Data | Store | Consistency |
 |---|---|---|
 | Users, orgs, sessions, API-key hashes, workspace metadata, entitlements | Neon Postgres via Hyperdrive | global; strong on primary |
-| Config content, revisions, promotions, flags, activity log, **secret ciphertext** | Workspace DO SQLite | strong per workspace |
+| Config content, revisions, promotions, flags, activity log, **secret ciphertext** | Vault DO SQLite | strong per workspace |
 | Pre-resolved edge values `config:{ws}:{env}:{key}` | KV (cache-tagged) | eventual (write-through) |
 | Platform secrets (signing keys, KEK) | Secrets Store | — |
 | Audit warehouse / semantic search / metrics | Queues→R2, Vectorize, Analytics Engine | — |
 
 ## Core data flows
 
-- **Write** — client/MCP → `api` (authz + Zod) → Workspace DO RPC (revision +
+- **Write** — client/MCP → `api` (authz + Zod) → Vault DO RPC (revision +
   activity log + broadcast + audit queue) → `api` recomputes the resolved value
   → KV write-through + `waitUntil` Vectorize upsert.
 - **Edge read (<10 ms target)** — SDK → `delivery` → L1 → KV → (cold miss) Neon

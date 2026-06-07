@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { aiRunner, textModel } from '../ai'
 import type { ActivityEntry } from '../durable-objects/types'
-import type { WorkspaceDurableObject } from '../durable-objects/workspace'
+import type { VaultDurableObject } from '../durable-objects/vault'
 
 /**
  * EdgeVault Agent — a per-workspace assistant that answers "what changed and
@@ -72,7 +72,7 @@ export class EdgeVaultAgent extends DurableObject<Env> {
   async ask(input: { workspaceId: string; question: string; userId?: string }): Promise<AskResult> {
     const workspace = this.env.WORKSPACE.get(
       this.env.WORKSPACE.idFromName(input.workspaceId),
-    ) as DurableObjectStub<WorkspaceDurableObject>
+    ) as DurableObjectStub<VaultDurableObject>
     const events = await workspace.listActivity(25)
 
     // The model (and the fallback) speak about people, not UUIDs — resolve

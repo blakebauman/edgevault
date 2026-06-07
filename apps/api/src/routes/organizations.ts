@@ -13,7 +13,7 @@ import {
   listOrganizationsForUser,
   listWorkspaces,
 } from '../database/queries'
-import type { WorkspaceDurableObject } from '../durable-objects/workspace'
+import type { VaultDurableObject } from '../durable-objects/vault'
 
 /** Organization + workspace management, backed by Neon (via Hyperdrive). */
 
@@ -93,7 +93,7 @@ export const organizationRoutes = new Hono<AppEnv>()
     // Seed the per-workspace Durable Object with its metadata.
     const stub = c.env.WORKSPACE.get(
       c.env.WORKSPACE.idFromName(workspace.id),
-    ) as DurableObjectStub<WorkspaceDurableObject>
+    ) as DurableObjectStub<VaultDurableObject>
     await stub.ensureWorkspace({ id: workspace.id, name: workspace.name, organizationId: orgId })
 
     return c.json({ workspace }, 201)
@@ -110,7 +110,7 @@ export const organizationRoutes = new Hono<AppEnv>()
       workspaces.map(async (ws) => {
         const stub = c.env.WORKSPACE.get(
           c.env.WORKSPACE.idFromName(ws.id),
-        ) as DurableObjectStub<WorkspaceDurableObject>
+        ) as DurableObjectStub<VaultDurableObject>
         const environments = await stub.countEnvironments().catch(() => 0)
         return { ...ws, environments }
       }),

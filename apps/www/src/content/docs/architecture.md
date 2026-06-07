@@ -20,7 +20,7 @@ no CORS, no cross-site cookies.
 
 ## The system of record
 
-Every workspace gets a **`WorkspaceDurableObject`** — a SQLite Durable Object holding
+Every workspace gets a **`VaultDurableObject`** — a SQLite Durable Object holding
 environments, config/flag/secret items, versioned revisions, promotions, and the activity log. One
 DO per workspace means strong consistency where it matters: two writers to the same workspace are
 serialized; the history is a single ordered log.
@@ -45,7 +45,7 @@ DO).
 | Store | Holds |
 | --- | --- |
 | Neon Postgres (via Hyperdrive) | users, orgs, sessions, API-key hashes, workspace metadata, entitlements |
-| Workspace DO SQLite | config content, revisions, secret **ciphertext** |
+| Vault DO SQLite | config content, revisions, secret **ciphertext** |
 | Workers KV | pre-resolved edge values (write-through on every change) |
 | Secrets Store | signing keys, the master KEK |
 | R2 | the append-only NDJSON audit warehouse |

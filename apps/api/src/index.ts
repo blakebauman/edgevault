@@ -12,7 +12,7 @@ import { workspaceRoutes } from './routes/workspaces'
 
 export { EdgeVaultAgent } from './agent/agent'
 export { ShareDurableObject } from './durable-objects/share'
-export { WorkspaceDurableObject } from './durable-objects/workspace'
+export { VaultDurableObject } from './durable-objects/vault'
 export { PromotionWorkflow } from './workflows/promotion'
 
 /**

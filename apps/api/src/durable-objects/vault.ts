@@ -106,7 +106,7 @@ function toEnvironment(row: EnvRow): Environment {
  * <10ms edge read path never touches this DO (it reads pre-resolved values
  * from KV). Real-time WebSocket/SSE push lands in Phase 3.
  */
-export class WorkspaceDurableObject extends DurableObject<Env> {
+export class VaultDurableObject extends DurableObject<Env> {
   private readonly sql: SqlStorage
   private readonly revisions: RevisionManager
   private readonly promotions: PromotionManager

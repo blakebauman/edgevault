@@ -1,14 +1,12 @@
 import { env, runInDurableObject } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-import type { WorkspaceDurableObject } from '../src/durable-objects/workspace'
+import type { VaultDurableObject } from '../src/durable-objects/vault'
 
 function workspace(name: string) {
-  return env.WORKSPACE.get(
-    env.WORKSPACE.idFromName(name),
-  ) as DurableObjectStub<WorkspaceDurableObject>
+  return env.WORKSPACE.get(env.WORKSPACE.idFromName(name)) as DurableObjectStub<VaultDurableObject>
 }
 
-describe('WorkspaceDurableObject', () => {
+describe('VaultDurableObject', () => {
   it('creates environments and isolates workspaces', async () => {
     const ws = workspace('ws-a')
     const dev = await ws.createEnvironment({

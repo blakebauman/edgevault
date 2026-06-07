@@ -3,7 +3,7 @@ import { hashToken } from '@edgevault/auth'
 import { encryptSecret } from '@edgevault/crypto'
 import { apiKeyCacheKey, type ResolvedConfig } from '@edgevault/edge-protocol'
 import { beforeAll, describe, expect, it } from 'vitest'
-import type { WorkspaceDurableObject } from '../src/durable-objects/workspace'
+import type { VaultDurableObject } from '../src/durable-objects/vault'
 import app from '../src/index'
 
 /**
@@ -18,9 +18,7 @@ const SECRETS_KEY = 'evk_live_machine-secrets'
 let envId = ''
 
 function workspace() {
-  return env.WORKSPACE.get(
-    env.WORKSPACE.idFromName(WS),
-  ) as DurableObjectStub<WorkspaceDurableObject>
+  return env.WORKSPACE.get(env.WORKSPACE.idFromName(WS)) as DurableObjectStub<VaultDurableObject>
 }
 
 async function call(path: string, apiKey?: string) {

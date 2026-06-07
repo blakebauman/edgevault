@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it, vi } from 'vitest'
-import type { WorkspaceDurableObject } from '../src/durable-objects/workspace'
+import type { VaultDurableObject } from '../src/durable-objects/vault'
 import { handleMcpMessage, type McpToolContext } from '../src/mcp/server'
 import { edgevaultTools } from '../src/mcp/tools'
 
@@ -15,7 +15,7 @@ function call(message: Record<string, unknown>): Promise<{ status: number; body?
 function workspace() {
   return env.WORKSPACE.get(
     env.WORKSPACE.idFromName('mcp-ws'),
-  ) as DurableObjectStub<WorkspaceDurableObject>
+  ) as DurableObjectStub<VaultDurableObject>
 }
 
 describe('MCP server', () => {

@@ -2,7 +2,7 @@ import { hashToken } from '@edgevault/auth'
 import { type ApiKeyRecord, apiKeyCacheKey, type ResolvedConfig } from '@edgevault/edge-protocol'
 import { Hono } from 'hono'
 import { emitAudit } from '../audit'
-import type { WorkspaceDurableObject } from '../durable-objects/workspace'
+import type { VaultDurableObject } from '../durable-objects/vault'
 import { rateLimitByIp } from '../rate-limit'
 import { revealSecret } from '../secrets'
 
@@ -40,7 +40,7 @@ export const machineRoutes = new Hono<MachineEnv>()
     const includeSecrets = scopes.includes('secrets:read')
     const stub = c.env.WORKSPACE.get(
       c.env.WORKSPACE.idFromName(workspaceId),
-    ) as DurableObjectStub<WorkspaceDurableObject>
+    ) as DurableObjectStub<VaultDurableObject>
     const targets = await stub.listResolvedConfigs(environmentId)
 
     const configs: Record<string, ResolvedConfig> = {}

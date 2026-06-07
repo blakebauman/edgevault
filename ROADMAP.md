@@ -35,7 +35,7 @@ error. Cross-workspace refs: out of scope.
 1. `packages/refs` (or extend `@edgevault/edge-protocol`): `extractRefs(content)` parser,
    `resolveRefs(content, lookup)` with DFS cycle detection and depth cap (~10). Pure,
    unit-tested, no bindings.
-2. Workspace DO (`apps/api/src/durable-objects/workspace.ts`): new table
+2. Workspace DO (`apps/api/src/durable-objects/vault.ts`): new table
    `config_references (item_id, environment_id, config_key, ref_environment_id, ref_key)`,
    maintained inside `setConfig`/`deleteConfig`. New RPCs: `getDependents(envId, key)`,
    `resolveItems(refs[])` (batch read for the resolver).

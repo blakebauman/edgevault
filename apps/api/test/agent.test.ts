@@ -1,15 +1,13 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
 import type { EdgeVaultAgent } from '../src/agent/agent'
-import type { WorkspaceDurableObject } from '../src/durable-objects/workspace'
+import type { VaultDurableObject } from '../src/durable-objects/vault'
 
 function agent(name: string) {
   return env.AGENT.get(env.AGENT.idFromName(name)) as DurableObjectStub<EdgeVaultAgent>
 }
 function workspace(name: string) {
-  return env.WORKSPACE.get(
-    env.WORKSPACE.idFromName(name),
-  ) as DurableObjectStub<WorkspaceDurableObject>
+  return env.WORKSPACE.get(env.WORKSPACE.idFromName(name)) as DurableObjectStub<VaultDurableObject>
 }
 
 // The fallback path waits for the (unavailable) live AI call to reject first,

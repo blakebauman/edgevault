@@ -5,13 +5,13 @@ import { z } from 'zod'
 import { aiRunner, embeddingModel, indexConfig, vectorize } from '../ai'
 import { configChangeEvent, emitAudit, promoteEvent, revealEvent } from '../audit'
 import type { ConfigItem } from '../durable-objects/types'
-import type { WorkspaceDurableObject } from '../durable-objects/workspace'
+import type { VaultDurableObject } from '../durable-objects/vault'
 import { publishTargets } from '../edge-cache'
 import { dispatchNotifications } from '../notify'
 import { prepareSecretContent, revealSecret } from '../secrets'
 import { defineTool, type McpToolContext } from './server'
 
-function stub(ctx: McpToolContext): DurableObjectStub<WorkspaceDurableObject> {
+function stub(ctx: McpToolContext): DurableObjectStub<VaultDurableObject> {
   return ctx.env.WORKSPACE.get(ctx.env.WORKSPACE.idFromName(ctx.workspaceId))
 }
 

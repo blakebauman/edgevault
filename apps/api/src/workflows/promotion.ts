@@ -2,7 +2,7 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloud
 import { scoreConfigRisk } from '@edgevault/ai'
 import { aiRunner, textModel } from '../ai'
 import type { ConfigItem, Promotion } from '../durable-objects/types'
-import type { WorkspaceDurableObject } from '../durable-objects/workspace'
+import type { VaultDurableObject } from '../durable-objects/vault'
 import { publishTargets } from '../edge-cache'
 import { dispatchNotifications } from '../notify'
 
@@ -34,7 +34,7 @@ export class PromotionWorkflow extends WorkflowEntrypoint<Env, PromotionParams> 
     const workspace = () =>
       this.env.WORKSPACE.get(
         this.env.WORKSPACE.idFromName(params.workspaceId),
-      ) as DurableObjectStub<WorkspaceDurableObject>
+      ) as DurableObjectStub<VaultDurableObject>
 
     // 1. Snapshot the source and record a pending promotion. The instance id
     // travels with the row so the console can approve/reject a parked one.

@@ -1,18 +1,12 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it } from 'vitest'
-import type { WorkspaceDurableObject } from '../src/durable-objects/workspace'
+import type { VaultDurableObject } from '../src/durable-objects/vault'
 
 function workspace(name: string) {
-  return env.WORKSPACE.get(
-    env.WORKSPACE.idFromName(name),
-  ) as DurableObjectStub<WorkspaceDurableObject>
+  return env.WORKSPACE.get(env.WORKSPACE.idFromName(name)) as DurableObjectStub<VaultDurableObject>
 }
 
-async function openSocket(
-  ws: DurableObjectStub<WorkspaceDurableObject>,
-  user: string,
-  envId = '*',
-) {
+async function openSocket(ws: DurableObjectStub<VaultDurableObject>, user: string, envId = '*') {
   const res = await ws.fetch(
     new Request(`https://do/ws?user=${user}&env=${envId}`, {
       headers: { Upgrade: 'websocket' },
@@ -42,7 +36,7 @@ function nextEvent(
   })
 }
 
-describe('WorkspaceDurableObject WebSocket', () => {
+describe('VaultDurableObject WebSocket', () => {
   it('pushes config.changed to a connected client', async () => {
     const ws = workspace('ws-rt')
     const e = await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })
