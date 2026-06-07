@@ -3,6 +3,7 @@ import {
   createJwkSet,
   type JWK,
   type JwkSet,
+  REVEAL_TOKEN_AUDIENCE,
   verifyWithJwkSet,
 } from '@edgevault/auth'
 import type { MiddlewareHandler } from 'hono'
@@ -55,4 +56,24 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
     return c.json({ error: 'invalid_token' }, 401)
   }
   await next()
+}
+
+/**
+ * Verify a step-up reveal token (minted by `auth`'s /reauth after a fresh second
+ * factor) against the same JWKS, by its `secret-reveal` audience. Returns the
+ * user id it was minted for, or null if missing/invalid/expired. The caller must
+ * still check that id matches the authenticated user.
+ */
+export async function verifyRevealToken(env: Env, token: string): Promise<string | null> {
+  const opts = { issuer: env.AUTH_ISSUER, audience: REVEAL_TOKEN_AUDIENCE }
+  try {
+    try {
+      return (await verifyWithJwkSet(token, await getJwkSet(env, false), opts)).sub
+    } catch {
+      // Key may have rotated — refresh the JWKS once and retry.
+      return (await verifyWithJwkSet(token, await getJwkSet(env, true), opts)).sub
+    }
+  } catch {
+    return null
+  }
 }

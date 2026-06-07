@@ -1,4 +1,13 @@
-import { index, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  index,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core'
 import { users } from './auth'
 
 /** Roles within an organization. Advanced/attribute-based RBAC lives in ee/. */
@@ -18,6 +27,10 @@ export const organizations = pgTable(
     name: text('name').notNull(),
     slug: text('slug').notNull(),
     image: text('image'),
+    // Step-up policy: when true, revealing a secret requires a fresh second
+    // factor (passkey/TOTP) — being signed in isn't enough. Off by default so
+    // the reveal UX is unchanged until an org opts in.
+    requireStepUpForReveal: boolean('require_step_up_for_reveal').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -83,6 +83,19 @@ describe('audit event builders', () => {
       revealEvent({ workspaceId: 'w', environmentId: 'e', kind: 'secret', key: 'k', userId: 'u' }),
     ).toMatchObject({ action: 'secret.revealed', resourceType: 'secret', userId: 'u' })
   })
+
+  it('revealEvent records whether a fresh step-up backed the reveal', () => {
+    expect(
+      revealEvent({
+        workspaceId: 'w',
+        environmentId: 'e',
+        kind: 'secret',
+        key: 'k',
+        userId: 'u',
+        stepUp: true,
+      }),
+    ).toMatchObject({ action: 'secret.revealed', stepUp: true })
+  })
 })
 
 describe('rate limiting', () => {

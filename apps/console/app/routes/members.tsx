@@ -82,17 +82,33 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   // Pending invitations are an admin view; members get an empty list (403).
   let invitations: Invitation[] = []
+  let requireStepUpForReveal = false
   if (body.role === 'owner' || body.role === 'admin') {
-    const invRes = await env.API_SERVICE.fetch(
-      `https://api/api/v1/organizations/${params.orgId}/invitations`,
-      { headers },
-    )
+    const [invRes, secRes] = await Promise.all([
+      env.API_SERVICE.fetch(`https://api/api/v1/organizations/${params.orgId}/invitations`, {
+        headers,
+      }),
+      env.API_SERVICE.fetch(`https://api/api/v1/organizations/${params.orgId}/security`, {
+        headers,
+      }),
+    ])
     if (invRes.ok) {
       invitations = ((await invRes.json()) as { invitations: Invitation[] }).invitations
     }
+    if (secRes.ok) {
+      requireStepUpForReveal = ((await secRes.json()) as { requireStepUpForReveal: boolean })
+        .requireStepUpForReveal
+    }
   }
 
-  return { org, members: body.members, role: body.role, viewerId: body.viewerId, invitations }
+  return {
+    org,
+    members: body.members,
+    role: body.role,
+    viewerId: body.viewerId,
+    invitations,
+    requireStepUpForReveal,
+  }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -159,11 +175,26 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return { error: detail ?? friendlyError(res.status, 'removing the member') }
   }
 
+  if (intent === 'security') {
+    const res = await env.API_SERVICE.fetch(
+      `https://api/api/v1/organizations/${params.orgId}/security`,
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify({
+          requireStepUpForReveal: form.get('requireStepUpForReveal') === 'on',
+        }),
+      },
+    )
+    if (res.ok) return { securitySaved: true as const }
+    return { error: friendlyError(res.status, 'updating the security policy') }
+  }
+
   return { error: 'Unknown action' }
 }
 
 export default function Members({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, members, role, viewerId, invitations } = loaderData
+  const { org, members, role, viewerId, invitations, requireStepUpForReveal } = loaderData
   const isAdmin = role === 'owner' || role === 'admin'
   const isOwner = role === 'owner'
   const ownerCount = members.filter((m) => m.role === 'owner').length
@@ -194,6 +225,9 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
         {actionData && 'revoked' in actionData && <StatusNote>Invitation revoked.</StatusNote>}
         {actionData && 'roleChanged' in actionData && <StatusNote>Role updated.</StatusNote>}
         {actionData && 'removed' in actionData && <StatusNote>Member removed.</StatusNote>}
+        {actionData && 'securitySaved' in actionData && (
+          <StatusNote>Security policy updated.</StatusNote>
+        )}
 
         <CardTable label="Members">
           <thead>
@@ -327,6 +361,31 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
                 </Select>
               </Field>
               <Button type="submit">Add</Button>
+            </Form>
+          </>
+        )}
+
+        {isAdmin && (
+          <>
+            <h2>Security</h2>
+            <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+              Require a fresh second factor (passkey or authenticator code) before any secret is
+              revealed in this organization. Being signed in won't be enough — revealing a secret
+              will ask for a quick re-check. Machine API keys (CLI / CI) are unaffected.
+            </p>
+            <Form method="post" className="mt-4 flex flex-wrap items-center gap-3">
+              <input type="hidden" name="intent" value="security" />
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="requireStepUpForReveal"
+                  defaultChecked={requireStepUpForReveal}
+                />
+                Require step-up to reveal secrets
+              </label>
+              <Button type="submit" variant="secondary" size="compact">
+                Save
+              </Button>
             </Form>
           </>
         )}

@@ -16,6 +16,7 @@ import {
   createNotificationChannel,
   deleteNotificationChannel,
   getNotificationChannel,
+  getOrgRequiresStepUpForReveal,
   getUserDisplayNames,
   getWorkspaceWithOrg,
   listNotificationChannels,
@@ -23,6 +24,7 @@ import {
 import type { ConfigItem } from '../durable-objects/types'
 import type { VaultDurableObject } from '../durable-objects/vault'
 import { deleteThrough, publishApiKey, publishTargets } from '../edge-cache'
+import { verifyRevealToken } from '../middleware/auth'
 import { buildNotifyJob, dispatchNotifications, invalidateChannelCache } from '../notify'
 import { enforceRateLimit } from '../rate-limit'
 import { prepareSecretContent, revealSecret } from '../secrets'
@@ -345,6 +347,29 @@ export const workspaceRoutes = new Hono<AppEnv>()
     if (c.var.role !== 'owner' && c.var.role !== 'admin') {
       return c.json({ error: 'forbidden', detail: 'revealing secrets requires admin' }, 403)
     }
+    // Step-up: when the org requires it, a fresh second factor (proven by a
+    // reveal token minted at auth's /reauth) is needed on top of being signed
+    // in. The token is verified by its `secret-reveal` audience and must belong
+    // to the caller. Machine export (API-key auth) is a different route and is
+    // intentionally exempt — CI cannot step up.
+    let stepUp = false
+    const revealToken = c.req.header('x-reveal-token')
+    if (revealToken) {
+      const sub = await verifyRevealToken(c.env, revealToken)
+      stepUp = sub !== null && sub === c.var.userId
+    }
+    if (c.var.orgId && !stepUp) {
+      const required = await getOrgRequiresStepUpForReveal(c.var.database, c.var.orgId)
+      if (required) {
+        return c.json(
+          {
+            error: 'reauth_required',
+            detail: 'revealing this secret requires a fresh second factor',
+          },
+          401,
+        )
+      }
+    }
     const item = await stubFor(c, c.req.param('workspaceId')).getConfig(
       c.req.param('envId'),
       c.req.param('key'),
@@ -359,6 +384,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
       kind: item.kind,
       key: item.key,
       userId: c.var.userId,
+      stepUp,
     })
     c.executionCtx.waitUntil(emitAudit(c.env, revealed))
     c.executionCtx.waitUntil(dispatchNotifications(c.env, revealed))

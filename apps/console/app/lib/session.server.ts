@@ -140,6 +140,22 @@ export function clearWebauthnCookie(request: Request): string {
   return `${WEBAUTHN_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
 }
 
+// --- Step-up reveal token cookie --------------------------------------------
+// Holds the short-lived reveal token minted by auth's /reauth after a fresh
+// second factor. httpOnly so the browser can't read it; forwarded server-side
+// as x-reveal-token on the reveal call. 5-minute lifetime matches the token.
+
+const REVEAL_COOKIE = 'ev_reveal'
+
+export function setRevealCookie(token: string, request: Request): string {
+  return `${REVEAL_COOKIE}=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=300${secureAttr(request)}`
+}
+
+export function getRevealToken(request: Request): string | null {
+  const match = (request.headers.get('Cookie') ?? '').match(/(?:^|;\s*)ev_reveal=([^;]+)/)
+  return match?.[1] ? decodeURIComponent(match[1]) : null
+}
+
 // --- Social OAuth transaction cookie ----------------------------------------
 // Holds the state + PKCE verifier between the OAuth start and provider callback.
 

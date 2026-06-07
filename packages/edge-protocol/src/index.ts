@@ -55,6 +55,12 @@ export interface AuditEvent {
   key?: string
   userId: string
   /**
+   * For `secret.revealed`: whether the reveal was backed by a fresh step-up
+   * (passkey/TOTP), versus session auth alone. Lets the warehouse tell apart
+   * step-up-verified reveals from ones an org's policy didn't require.
+   */
+  stepUp?: boolean
+  /**
    * How many billable occurrences this record represents. Defaults to 1 for a
    * normal per-change audit event. High-volume signals that are pre-aggregated
    * at the edge (e.g. `edge_read` counts from the delivery worker) set this so

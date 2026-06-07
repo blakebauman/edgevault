@@ -22,8 +22,9 @@ import { CopyButton } from '../components/copy-button'
 import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
 import { RevealField } from '../components/reveal-field'
+import { StepUpPrompt } from '../components/step-up-prompt'
 import { friendlyError } from '../lib/errors'
-import { getToken } from '../lib/session.server'
+import { getRevealToken, getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/environment'
 
@@ -74,6 +75,7 @@ function api(env: Env, token: string, path: string, init?: RequestInit) {
     headers: {
       authorization: `Bearer ${token}`,
       ...(init?.body ? { 'content-type': 'application/json' } : {}),
+      ...(init?.headers as Record<string, string> | undefined),
     },
   })
 }
@@ -235,13 +237,22 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     // Audited, admin-gated. Proxied here so the browser never holds the bearer
     // token, and posted (not navigated) so the plaintext never lands in the URL,
     // browser history, or the server-rendered document — only in fetcher state.
+    // If the org requires step-up, forward the httpOnly reveal token (minted at
+    // /api/reveal-token after a fresh second factor); its absence/expiry comes
+    // back as reauth_required, which the UI turns into a step-up prompt.
     const key = String(form.get('key'))
+    const revealToken = getRevealToken(request)
     const res = await api(
       env,
       token,
       `${base}/environments/${params.envId}/configs/${encodeURIComponent(key)}/reveal`,
+      revealToken ? { headers: { 'x-reveal-token': revealToken } } : undefined,
     )
     if (res.ok) return { revealed: (await res.json()) as { key: string; content: string } }
+    if (res.status === 401) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null
+      if (body?.error === 'reauth_required') return { revealError: 'reauth_required' }
+    }
     if (res.status === 403)
       return { revealError: 'Revealing secrets requires an org owner or admin.' }
     return { revealError: friendlyError(res.status, 'revealing the secret') }
@@ -283,13 +294,27 @@ const REVEAL_TTL_MS = 60_000
 function useReveal() {
   const fetcher = useFetcher<typeof action>()
   const [revealed, setRevealed] = useState<{ key: string; content: string } | null>(null)
+  // The key awaiting a fresh step-up — drives the reauth prompt and the retry.
+  const [needsStepUp, setNeedsStepUp] = useState<string | null>(null)
+  const lastKey = useRef<string | null>(null)
   const seen = useRef<unknown>(null)
+
+  const submit = (key: string) => {
+    setRevealed(null)
+    lastKey.current = key
+    fetcher.submit({ intent: 'reveal', key }, { method: 'post' })
+  }
 
   useEffect(() => {
     if (fetcher.data === seen.current) return
     seen.current = fetcher.data
-    if (fetcher.data && 'revealed' in fetcher.data && fetcher.data.revealed) {
-      setRevealed(fetcher.data.revealed)
+    const data = fetcher.data
+    if (!data) return
+    if ('revealed' in data && data.revealed) {
+      setRevealed(data.revealed)
+      setNeedsStepUp(null)
+    } else if ('revealError' in data && data.revealError === 'reauth_required') {
+      setNeedsStepUp(lastKey.current)
     }
   }, [fetcher.data])
 
@@ -299,15 +324,17 @@ function useReveal() {
     return () => clearTimeout(t)
   }, [revealed])
 
-  const error = fetcher.data && 'revealError' in fetcher.data ? fetcher.data.revealError : null
+  const rawError = fetcher.data && 'revealError' in fetcher.data ? fetcher.data.revealError : null
+  const error = revealed || needsStepUp || rawError === 'reauth_required' ? null : rawError
 
   return {
     revealed,
-    error: revealed ? null : error,
-    reveal(key: string) {
-      setRevealed(null)
-      fetcher.submit({ intent: 'reveal', key }, { method: 'post' })
-    },
+    needsStepUp,
+    error,
+    reveal: submit,
+    /** Re-run the reveal for the key that triggered step-up, now that a token exists. */
+    retryStepUp: () => needsStepUp && submit(needsStepUp),
+    cancelStepUp: () => setNeedsStepUp(null),
     clear: () => setRevealed(null),
   }
 }
@@ -427,6 +454,14 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
             <TokenValue>{mintedKey}</TokenValue>
             <CopyButton value={mintedKey} label="Copy key" clearAfterMs={30_000} />
           </TokenBox>
+        )}
+
+        {reveal.needsStepUp && (
+          <StepUpPrompt
+            secretKey={reveal.needsStepUp}
+            onSuccess={reveal.retryStepUp}
+            onCancel={reveal.cancelStepUp}
+          />
         )}
 
         {reveal.revealed && (

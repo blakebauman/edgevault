@@ -9,9 +9,11 @@ import {
   createOrganization,
   createWorkspace,
   getMemberRole,
+  getOrgRequiresStepUpForReveal,
   isOrgMember,
   listOrganizationsForUser,
   listWorkspaces,
+  setOrgRequireStepUpForReveal,
 } from '../database/queries'
 import type { VaultDurableObject } from '../durable-objects/vault'
 
@@ -316,3 +318,27 @@ export const organizationRoutes = new Hono<AppEnv>()
     }
     return c.json({ ok: true })
   })
+  // --- Security policy (step-up before reveal) ---
+  .get('/:orgId/security', async (c) => {
+    const orgId = c.req.param('orgId')
+    const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+    if (!role) return c.json({ error: 'forbidden' }, 403)
+    return c.json({
+      requireStepUpForReveal: await getOrgRequiresStepUpForReveal(c.var.database, orgId),
+    })
+  })
+  .patch(
+    '/:orgId/security',
+    zValidator('json', z.object({ requireStepUpForReveal: z.boolean() })),
+    async (c) => {
+      const orgId = c.req.param('orgId')
+      const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+      if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+      await setOrgRequireStepUpForReveal(
+        c.var.database,
+        orgId,
+        c.req.valid('json').requireStepUpForReveal,
+      )
+      return c.json({ ok: true })
+    },
+  )

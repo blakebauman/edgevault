@@ -29,6 +29,9 @@ type Pages = {
   "/api/passkey": {
     params: {};
   };
+  "/api/reveal-token": {
+    params: {};
+  };
   "/sso/:orgId/start": {
     params: {
       "orgId": string;
@@ -133,7 +136,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/invite/:id" | "/orgs/:orgId/members" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/api/reveal-token" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/invite/:id" | "/orgs/:orgId/members" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -158,6 +161,10 @@ type RouteFiles = {
   "routes/api.passkey.tsx": {
     id: "routes/api.passkey";
     page: "/api/passkey";
+  };
+  "routes/api.reveal-token.tsx": {
+    id: "routes/api.reveal-token";
+    page: "/api/reveal-token";
   };
   "routes/sso.start.tsx": {
     id: "routes/sso.start";
@@ -249,6 +256,7 @@ type RouteModules = {
   "routes/logout": typeof import("./app/routes/logout.tsx");
   "routes/account-mfa": typeof import("./app/routes/account-mfa.tsx");
   "routes/api.passkey": typeof import("./app/routes/api.passkey.tsx");
+  "routes/api.reveal-token": typeof import("./app/routes/api.reveal-token.tsx");
   "routes/sso.start": typeof import("./app/routes/sso.start.tsx");
   "routes/sso.callback": typeof import("./app/routes/sso.callback.tsx");
   "routes/saml.start": typeof import("./app/routes/saml.start.tsx");

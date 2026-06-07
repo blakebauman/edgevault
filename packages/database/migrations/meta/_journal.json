@@ -78,6 +78,13 @@
       "when": 1780693115706,
       "tag": "0010_quick_red_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1780874196354,
+      "tag": "0011_new_salo",
+      "breakpoints": true
     }
   ]
 }

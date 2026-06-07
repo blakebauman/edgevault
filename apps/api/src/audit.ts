@@ -55,6 +55,7 @@ export function revealEvent(args: {
   kind: string
   key: string
   userId: string
+  stepUp?: boolean
 }): Omit<AuditEvent, 'at'> {
   return {
     workspaceId: args.workspaceId,
@@ -63,5 +64,6 @@ export function revealEvent(args: {
     resourceType: args.kind,
     key: args.key,
     userId: args.userId,
+    stepUp: args.stepUp,
   }
 }

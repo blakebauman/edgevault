@@ -67,6 +67,34 @@ export async function getMemberRole(
   return row?.role ?? null
 }
 
+/**
+ * Does this org require a fresh step-up (passkey/TOTP) before a secret reveal?
+ * Read on the reveal path only (low frequency), so a dedicated lookup is fine.
+ */
+export async function getOrgRequiresStepUpForReveal(
+  database: Database,
+  organizationId: string,
+): Promise<boolean> {
+  const [row] = await database
+    .select({ require: organizations.requireStepUpForReveal })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1)
+  return row?.require ?? false
+}
+
+/** Set the org's step-up-before-reveal policy. */
+export async function setOrgRequireStepUpForReveal(
+  database: Database,
+  organizationId: string,
+  value: boolean,
+): Promise<void> {
+  await database
+    .update(organizations)
+    .set({ requireStepUpForReveal: value })
+    .where(eq(organizations.id, organizationId))
+}
+
 export async function createWorkspace(
   database: Database,
   input: { organizationId: string; name: string; slug: string },

@@ -1,0 +1,1 @@
+ALTER TABLE "organizations" ADD COLUMN "require_step_up_for_reveal" boolean DEFAULT false NOT NULL;
