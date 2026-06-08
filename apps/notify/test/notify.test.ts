@@ -144,7 +144,7 @@ describe('queue handler', () => {
       organizationName: 'Acme',
       inviterName: 'Ada',
       role: 'member',
-      acceptUrl: 'https://app.edgevault.io/invite/x',
+      acceptUrl: 'https://app.test/invite/x',
       expiresAt: Date.now() + 1000,
     }
     const send = vi.fn(async () => ({ messageId: 'm1' }))

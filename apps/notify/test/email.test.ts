@@ -8,7 +8,7 @@ const job: InvitationEmailJob = {
   organizationName: 'Acme & Sons',
   inviterName: 'Ada Lovelace',
   role: 'member',
-  acceptUrl: 'https://app.edgevault.io/invite/11111111-2222-3333-4444-555555555555',
+  acceptUrl: 'https://app.test/invite/11111111-2222-3333-4444-555555555555',
   expiresAt: Date.UTC(2026, 5, 13, 12, 0, 0),
 }
 

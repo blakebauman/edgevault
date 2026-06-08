@@ -14,7 +14,7 @@ const connection: OidcConnection = {
   issuer: 'https://idp.example.com',
   clientId: 'client-123',
   clientSecret: 'secret',
-  redirectUri: 'https://app.edgevault.dev/sso/callback',
+  redirectUri: 'https://app.test/sso/callback',
 }
 
 const discovery: OidcDiscovery = {

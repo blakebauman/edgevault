@@ -177,9 +177,10 @@ pnpm db:up             # start the proxy (ephemeral branch created)
 pnpm db:migrate:local  # apply drizzle migrations to the fresh branch
 
 # .dev.vars per worker: apps/auth (JWT_PRIVATE_JWK, MASTER_KEK, INTERNAL_TOKEN),
-# apps/api (MASTER_KEK, INTERNAL_TOKEN), apps/console (INTERNAL_TOKEN),
-# ee/enterprise (MASTER_KEK, INTERNAL_TOKEN), edge/control-plane (INTERNAL_TOKEN,
-# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
+# apps/api (MASTER_KEK, INTERNAL_TOKEN, CONSOLE_URL=http://localhost:5173),
+# apps/console (INTERNAL_TOKEN, API_WS_BASE=ws://localhost:8790 — overrides the
+# production wss:// default), ee/enterprise (MASTER_KEK, INTERNAL_TOKEN),
+# edge/control-plane (INTERNAL_TOKEN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
 (cd apps/auth     && npx wrangler dev --port 8788 --inspector-port 9320)
 (cd apps/api      && npx wrangler dev --port 8790 --inspector-port 9321)
 (cd apps/delivery && npx wrangler dev --port 8791 --inspector-port 9322)
