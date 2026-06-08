@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../context'
+import { getOrgRequiresStepUpForReveal } from '../database/queries'
 import { handleMcpMessage } from './server'
 import { edgevaultTools } from './tools'
 
@@ -25,11 +26,17 @@ export const mcpRoutes = new Hono<AppEnv>()
         400,
       )
     }
+    // Resolve the org's step-up policy here, where the DB handle lives, so the
+    // reveal tool just checks a boolean (an agent can't do a second factor).
+    const requireStepUp = c.var.orgId
+      ? await getOrgRequiresStepUpForReveal(c.var.database, c.var.orgId)
+      : false
     const ctx = {
       env: c.env,
       workspaceId: c.req.param('workspaceId'),
       userId: c.var.userId,
       role: c.var.role,
+      requireStepUp,
     }
 
     // Batched JSON-RPC.

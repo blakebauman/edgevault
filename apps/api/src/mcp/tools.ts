@@ -144,6 +144,15 @@ export const edgevaultTools = [
       if (!isAdmin(ctx)) {
         return { error: 'forbidden', detail: 'revealing secrets requires admin' }
       }
+      // Honor the org's step-up policy: an agent can't perform a passkey/TOTP
+      // ceremony, so refuse rather than bypass — the human reveals in the console.
+      if (ctx.requireStepUp) {
+        return {
+          error: 'reauth_required',
+          detail:
+            'This organization requires a fresh second factor to reveal secrets. Reveal it in the EdgeVault console.',
+        }
+      }
       const item = await stub(ctx).getConfig(args.environmentId, args.key)
       if (!item) return { error: 'not_found' }
       const content = await revealSecret(ctx.env, ctx.workspaceId, item)

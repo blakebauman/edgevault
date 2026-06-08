@@ -173,6 +173,36 @@ describe('MCP server', () => {
     expect(text).not.toContain('s3cret')
   })
 
+  it('reveal_secret refuses with reauth_required when the org requires step-up', async () => {
+    const e = await workspace().createEnvironment({ name: 'Step', slug: 'step', userId: 'u1' })
+    await call({
+      jsonrpc: '2.0',
+      id: 30,
+      method: 'tools/call',
+      params: {
+        name: 'set_config',
+        arguments: { environmentId: e.id, key: 'api.token', content: 's3cret', kind: 'secret' },
+      },
+    })
+    // Admin, but the org policy requires a fresh second factor — which an agent
+    // can't provide, so reveal is refused (not bypassed) and no plaintext leaks.
+    const stepUpCtx: McpToolContext = { ...ctx, requireStepUp: true }
+    const res = await handleMcpMessage(
+      {
+        jsonrpc: '2.0',
+        id: 31,
+        method: 'tools/call',
+        params: { name: 'reveal_secret', arguments: { environmentId: e.id, key: 'api.token' } },
+      },
+      edgevaultTools,
+      stepUpCtx,
+    )
+    // biome-ignore lint/suspicious/noExplicitAny: test reads into JSON-RPC result shapes
+    const text = (res.body as any).result.content[0].text
+    expect(JSON.parse(text).error).toBe('reauth_required')
+    expect(text).not.toContain('s3cret')
+  })
+
   it('reveal_secret and set_config leave a cold audit trail', async () => {
     const e = await workspace().createEnvironment({
       name: 'Aud',

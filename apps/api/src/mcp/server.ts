@@ -17,6 +17,13 @@ export interface McpToolContext {
   userId: string
   /** Caller's org role (owner | admin | member), set by requireWorkspaceMember. */
   role: string | null
+  /**
+   * Whether the org requires a fresh step-up (passkey/TOTP) before a reveal.
+   * Resolved once at the HTTP boundary (where the DB handle lives). When true,
+   * reveal_secret refuses — an agent can't perform a second-factor ceremony, so
+   * the human must reveal in the console.
+   */
+  requireStepUp?: boolean
 }
 
 export interface McpTool {
