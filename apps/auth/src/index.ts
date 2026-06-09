@@ -231,6 +231,11 @@ app.post('/mfa/totp/disable', requireUser, zValidator('json', mfaCodeSchema), as
 // authentication is public (discoverable login).
 
 const rpSchema = z.object({ rpID: z.string().min(1) })
+// Auth options additionally let the caller demand user verification — the
+// reveal step-up ceremony passes 'required'; login omits it (→ 'preferred').
+const authOptionsSchema = rpSchema.extend({
+  userVerification: z.enum(['preferred', 'required']).optional(),
+})
 const verifySchema = z.object({
   response: z.unknown(),
   expectedChallenge: z.string().min(1),
@@ -265,9 +270,10 @@ app.post('/webauthn/register/verify', requireUser, zValidator('json', verifySche
 app.post(
   '/webauthn/auth/options',
   rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'webauthn-ip'),
-  zValidator('json', rpSchema),
+  zValidator('json', authOptionsSchema),
   async (c) => {
-    return c.json(await buildAuthenticationOptions(c.req.valid('json').rpID))
+    const { rpID, userVerification } = c.req.valid('json')
+    return c.json(await buildAuthenticationOptions(rpID, userVerification ?? 'preferred'))
   },
 )
 
@@ -301,16 +307,23 @@ app.post(
 // user — a passkey assertion for another account can't mint a token for this
 // one. The console BFF round-trips the WebAuthn challenge in a cookie, exactly
 // like the login and registration flows above.
-const reauthSchema = z.discriminatedUnion('method', [
-  z.object({ method: z.literal('totp'), code: z.string().min(6).max(10) }),
-  z.object({
-    method: z.literal('passkey'),
-    response: z.unknown(),
-    expectedChallenge: z.string().min(1),
-    expectedOrigin: z.string().min(1),
-    expectedRPID: z.string().min(1),
-  }),
-])
+// `org` scopes the minted reveal token to one organization. Auth doesn't verify
+// membership here — it doesn't need to: the api re-checks the token's org
+// against the workspace's real org AND independently enforces admin membership,
+// so a forged/wrong org claim unlocks nothing.
+const reauthSchema = z.intersection(
+  z.object({ org: z.string().optional() }),
+  z.discriminatedUnion('method', [
+    z.object({ method: z.literal('totp'), code: z.string().min(6).max(10) }),
+    z.object({
+      method: z.literal('passkey'),
+      response: z.unknown(),
+      expectedChallenge: z.string().min(1),
+      expectedOrigin: z.string().min(1),
+      expectedRPID: z.string().min(1),
+    }),
+  ]),
+)
 
 app.post(
   '/reauth',
@@ -332,11 +345,15 @@ app.post(
         expectedChallenge: body.expectedChallenge,
         expectedOrigin: body.expectedOrigin,
         expectedRPID: body.expectedRPID,
+        // Step-up demands a verified factor, not mere presence.
+        requireUserVerification: true,
       })
       ok = assertedUserId !== null && assertedUserId === c.var.userId
     }
     if (!ok) return c.json({ error: 'reauth_failed' }, 401)
-    const revealToken = await signRevealToken(c.env, c.var.userId)
+    // Scope the token to the workspace's org (sent by the BFF): a step-up in one
+    // org can't unlock reveals in another (the api re-checks org === c.var.orgId).
+    const revealToken = await signRevealToken(c.env, c.var.userId, body.org ?? null)
     return c.json({ revealToken, expiresIn: 300 })
   },
 )

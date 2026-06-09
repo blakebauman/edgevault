@@ -120,9 +120,13 @@ export async function signMfaChallenge(env: Env, userId: string): Promise<string
  * costs a fresh proof of presence. Verified in `api` against the JWKS by its
  * `secret-reveal` audience; lives only ~5 minutes.
  */
-export async function signRevealToken(env: Env, userId: string): Promise<string> {
+export async function signRevealToken(
+  env: Env,
+  userId: string,
+  org: string | null,
+): Promise<string> {
   const { signing } = await getKeys(env)
-  return signAccessToken({ sub: userId }, signing, {
+  return signAccessToken({ sub: userId, ...(org ? { org } : {}) }, signing, {
     issuer: env.AUTH_ISSUER,
     audience: REVEAL_TOKEN_AUDIENCE,
     expiresIn: '5m',

@@ -350,13 +350,14 @@ export const workspaceRoutes = new Hono<AppEnv>()
     // Step-up: when the org requires it, a fresh second factor (proven by a
     // reveal token minted at auth's /reauth) is needed on top of being signed
     // in. The token is verified by its `secret-reveal` audience and must belong
-    // to the caller. Machine export (API-key auth) is a different route and is
-    // intentionally exempt — CI cannot step up.
+    // to the caller AND be scoped to this workspace's org (so a step-up in one
+    // org can't unlock reveals in another). Machine export (API-key auth) is a
+    // different route and is intentionally exempt — CI cannot step up.
     let stepUp = false
     const revealToken = c.req.header('x-reveal-token')
     if (revealToken) {
-      const sub = await verifyRevealToken(c.env, revealToken)
-      stepUp = sub !== null && sub === c.var.userId
+      const claims = await verifyRevealToken(c.env, revealToken)
+      stepUp = claims !== null && claims.sub === c.var.userId && claims.org === c.var.orgId
     }
     if (c.var.orgId && !stepUp) {
       const required = await getOrgRequiresStepUpForReveal(c.var.database, c.var.orgId)
@@ -399,7 +400,14 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const ids = [...new Set(revisions.map((r) => r.createdBy))]
     const actors = await getUserDisplayNames(c.var.database, ids)
     return c.json({
-      revisions: revisions.map((r) => ({ ...r, actor: actors.get(r.createdBy) ?? null })),
+      // Never return secret ciphertext over the API — same rule as redact() on
+      // the item routes. History keeps the content hash (so the UI can show a
+      // secret changed between revisions) but never the envelope itself.
+      revisions: revisions.map((r) => ({
+        ...r,
+        content: r.kind === 'secret' ? '' : r.content,
+        actor: actors.get(r.createdBy) ?? null,
+      })),
     })
   })
 

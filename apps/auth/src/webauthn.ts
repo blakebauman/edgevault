@@ -94,9 +94,13 @@ export async function verifyRegistration(
 
 export async function buildAuthenticationOptions(
   rpID: string,
+  // Login stays 'preferred' (usernameless UX); step-up before a secret reveal
+  // passes 'required' so the assertion proves a verified factor (PIN/biometric),
+  // not mere possession.
+  userVerification: 'preferred' | 'required' = 'preferred',
 ): Promise<PublicKeyCredentialRequestOptionsJSON> {
   // No allowCredentials → discoverable (usernameless) login.
-  return generateAuthenticationOptions({ rpID, userVerification: 'preferred' })
+  return generateAuthenticationOptions({ rpID, userVerification })
 }
 
 /** Verify a passkey assertion. Returns the authenticated user id, or null. */
@@ -107,6 +111,8 @@ export async function verifyAuthentication(
     expectedChallenge: string
     expectedOrigin: string
     expectedRPID: string
+    /** Reject the assertion unless the authenticator performed user verification. */
+    requireUserVerification?: boolean
   },
 ): Promise<string | null> {
   const authenticator = await getAuthenticatorById(database, input.response.id)
@@ -123,7 +129,7 @@ export async function verifyAuthentication(
       counter: authenticator.counter,
       transports: authenticator.transports as AuthenticatorTransportFuture[],
     },
-    requireUserVerification: false,
+    requireUserVerification: input.requireUserVerification ?? false,
   })
   if (!verification.verified) return null
 

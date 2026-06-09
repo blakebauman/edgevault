@@ -23,7 +23,14 @@ describe('StepUpPrompt', () => {
   it('verifies with a passkey and reports success', async () => {
     mockPasskey.mockResolvedValue({ ok: true })
     const onSuccess = vi.fn()
-    render(<StepUpPrompt secretKey="db.password" onSuccess={onSuccess} onCancel={() => {}} />)
+    render(
+      <StepUpPrompt
+        secretKey="db.password"
+        workspaceId="ws-1"
+        onSuccess={onSuccess}
+        onCancel={() => {}}
+      />,
+    )
 
     await userEvent.click(screen.getByRole('button', { name: /verify with passkey/i }))
 
@@ -37,7 +44,14 @@ describe('StepUpPrompt', () => {
       error: 'No matching passkey, or verification failed.',
     })
     const onSuccess = vi.fn()
-    render(<StepUpPrompt secretKey="db.password" onSuccess={onSuccess} onCancel={() => {}} />)
+    render(
+      <StepUpPrompt
+        secretKey="db.password"
+        workspaceId="ws-1"
+        onSuccess={onSuccess}
+        onCancel={() => {}}
+      />,
+    )
 
     await userEvent.click(screen.getByRole('button', { name: /verify with passkey/i }))
 
@@ -48,19 +62,33 @@ describe('StepUpPrompt', () => {
   it('falls back to an authenticator code', async () => {
     mockTotp.mockResolvedValue({ ok: true })
     const onSuccess = vi.fn()
-    render(<StepUpPrompt secretKey="db.password" onSuccess={onSuccess} onCancel={() => {}} />)
+    render(
+      <StepUpPrompt
+        secretKey="db.password"
+        workspaceId="ws-1"
+        onSuccess={onSuccess}
+        onCancel={() => {}}
+      />,
+    )
 
     await userEvent.click(screen.getByRole('button', { name: /use authenticator code/i }))
     await userEvent.type(screen.getByLabelText(/authenticator code/i), '123456')
     await userEvent.click(screen.getByRole('button', { name: /confirm/i }))
 
-    expect(mockTotp).toHaveBeenCalledWith('123456')
+    expect(mockTotp).toHaveBeenCalledWith('123456', 'ws-1')
     await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce())
   })
 
   it('cancels', async () => {
     const onCancel = vi.fn()
-    render(<StepUpPrompt secretKey="db.password" onSuccess={() => {}} onCancel={onCancel} />)
+    render(
+      <StepUpPrompt
+        secretKey="db.password"
+        workspaceId="ws-1"
+        onSuccess={() => {}}
+        onCancel={onCancel}
+      />,
+    )
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(onCancel).toHaveBeenCalledOnce()
   })

@@ -64,14 +64,17 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
  * user id it was minted for, or null if missing/invalid/expired. The caller must
  * still check that id matches the authenticated user.
  */
-export async function verifyRevealToken(env: Env, token: string): Promise<string | null> {
+export async function verifyRevealToken(
+  env: Env,
+  token: string,
+): Promise<AccessTokenClaims | null> {
   const opts = { issuer: env.AUTH_ISSUER, audience: REVEAL_TOKEN_AUDIENCE }
   try {
     try {
-      return (await verifyWithJwkSet(token, await getJwkSet(env, false), opts)).sub
+      return await verifyWithJwkSet(token, await getJwkSet(env, false), opts)
     } catch {
       // Key may have rotated — refresh the JWKS once and retry.
-      return (await verifyWithJwkSet(token, await getJwkSet(env, true), opts)).sub
+      return await verifyWithJwkSet(token, await getJwkSet(env, true), opts)
     }
   } catch {
     return null

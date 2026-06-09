@@ -459,6 +459,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
         {reveal.needsStepUp && (
           <StepUpPrompt
             secretKey={reveal.needsStepUp}
+            workspaceId={workspaceId}
             onSuccess={reveal.retryStepUp}
             onCancel={reveal.cancelStepUp}
           />

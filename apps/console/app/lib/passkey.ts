@@ -64,10 +64,10 @@ async function postReveal(intent: string, payload?: Record<string, unknown>): Pr
 
 /**
  * Step up with a passkey to mint a reveal token (stored in an httpOnly cookie by
- * the BFF). Same ceremony as sign-in, but bound to the current user and scoped
- * to the secret-reveal audience.
+ * the BFF). Same ceremony as sign-in, but bound to the current user, scoped to
+ * the secret-reveal audience, and to the workspace's org.
  */
-export async function stepUpWithPasskey(): Promise<Result> {
+export async function stepUpWithPasskey(workspaceId: string): Promise<Result> {
   const { startAuthentication } = await import('@simplewebauthn/browser')
   const optRes = await postReveal('passkey-options')
   if (!optRes.ok) return { ok: false, error: 'Could not start the passkey check.' }
@@ -78,14 +78,14 @@ export async function stepUpWithPasskey(): Promise<Result> {
   } catch {
     return { ok: false, error: 'Passkey check was cancelled.' }
   }
-  const verifyRes = await postReveal('passkey-verify', { response: assertion })
+  const verifyRes = await postReveal('passkey-verify', { response: assertion, workspaceId })
   return verifyRes.ok
     ? { ok: true }
     : { ok: false, error: 'No matching passkey, or verification failed.' }
 }
 
 /** Step up with a TOTP code to mint a reveal token. */
-export async function stepUpWithTotp(code: string): Promise<Result> {
-  const res = await postReveal('totp', { code })
+export async function stepUpWithTotp(code: string, workspaceId: string): Promise<Result> {
+  const res = await postReveal('totp', { code, workspaceId })
   return res.ok ? { ok: true } : { ok: false, error: 'That code didn’t match. Try again.' }
 }

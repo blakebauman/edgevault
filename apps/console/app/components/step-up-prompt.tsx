@@ -10,10 +10,12 @@ import { stepUpWithPasskey, stepUpWithTotp } from '../lib/passkey'
  */
 export function StepUpPrompt({
   secretKey,
+  workspaceId,
   onSuccess,
   onCancel,
 }: {
   secretKey: string
+  workspaceId: string
   onSuccess: () => void
   onCancel: () => void
 }) {
@@ -48,7 +50,7 @@ export function StepUpPrompt({
             className="flex items-end gap-2"
             onSubmit={(e) => {
               e.preventDefault()
-              if (!busy) run(() => stepUpWithTotp(code.trim()))
+              if (!busy) run(() => stepUpWithTotp(code.trim(), workspaceId))
             }}
           >
             <Field label="Authenticator code" className="flex-1">
@@ -72,7 +74,7 @@ export function StepUpPrompt({
               variant="default"
               size="compact"
               disabled={busy}
-              onClick={() => run(stepUpWithPasskey)}
+              onClick={() => run(() => stepUpWithPasskey(workspaceId))}
             >
               {busy ? 'Waiting for passkey…' : 'Verify with passkey'}
             </Button>

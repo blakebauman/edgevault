@@ -27,8 +27,23 @@ export async function action({ request, context }: Route.ActionArgs) {
     intent?: string
     response?: unknown
     code?: string
+    workspaceId?: string
   }
   const json = (data: unknown, init?: ResponseInit) => Response.json(data, init)
+
+  // Resolve the workspace's org so the reveal token can be scoped to it. The api
+  // re-checks this against the workspace's real org, so an unresolved/wrong value
+  // simply means the token won't satisfy the reveal (fails closed).
+  async function resolveOrg(): Promise<string | undefined> {
+    if (!body.workspaceId) return undefined
+    const res = await env.API_SERVICE.fetch(
+      `https://api/api/v1/workspaces/${encodeURIComponent(body.workspaceId)}`,
+      { headers: { authorization: `Bearer ${token}` } },
+    )
+    if (!res.ok) return undefined
+    return ((await res.json()) as { workspace?: { organizationId?: string } }).workspace
+      ?.organizationId
+  }
 
   switch (body.intent) {
     // Passkey leg 1: get assertion options, round-trip the challenge in a cookie.
@@ -36,7 +51,8 @@ export async function action({ request, context }: Route.ActionArgs) {
       const res = await env.AUTH_SERVICE.fetch('https://auth/webauthn/auth/options', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ rpID }),
+        // Reveal step-up requires a verified factor (PIN/biometric), not presence.
+        body: JSON.stringify({ rpID, userVerification: 'required' }),
       })
       if (!res.ok) return json({ error: 'options_failed' }, { status: 400 })
       const options = (await res.json()) as { challenge: string }
@@ -58,6 +74,7 @@ export async function action({ request, context }: Route.ActionArgs) {
           expectedChallenge,
           expectedOrigin: origin,
           expectedRPID: rpID,
+          org: await resolveOrg(),
         }),
       })
       if (!res.ok) {
@@ -80,7 +97,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       const res = await env.AUTH_SERVICE.fetch('https://auth/reauth', {
         method: 'POST',
         headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ method: 'totp', code }),
+        body: JSON.stringify({ method: 'totp', code, org: await resolveOrg() }),
       })
       if (!res.ok) return json({ error: 'reauth_failed' }, { status: 401 })
       const { revealToken } = (await res.json()) as { revealToken: string }
