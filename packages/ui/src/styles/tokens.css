@@ -24,6 +24,10 @@
   --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Martian Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
+  /* logo lockup — single source of truth for the wordmark across console + www */
+  --logo-size: 16px; /* wordmark glyph (font) size */
+  --logo-mark-size: 22px; /* vault-mark box; pairs with --logo-size */
+
   --radius: 2px; /* machined — pills are banned */
   --fold: 26px; /* the dog-ear ("unsealed") */
 

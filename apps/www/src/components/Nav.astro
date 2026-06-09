@@ -1,4 +1,6 @@
 ---
+import Logo from './Logo.astro'
+
 interface Props {
   active?: 'product' | 'security' | 'pricing' | 'docs'
 }
@@ -11,7 +13,7 @@ const CONSOLE = 'https://app.edgevault.io'
 
 <nav data-section="nav" data-intent="orient + persistent conversion" data-layout="full-bleed">
   <div class="wrap">
-    <a href="/" class="home"><img src="/assets/logo.svg" alt="EdgeVault" /></a>
+    <a href="/" class="home"><Logo /></a>
     <div class="links">
       <a href="/product" class:list={[{ active: active === 'product' }]}>Product</a>
       <a href="/security" class:list={[{ active: active === 'security' }]}>Security</a>
@@ -42,9 +44,10 @@ const CONSOLE = 'https://app.edgevault.io'
     gap: var(--spacing-md);
     width: 100%;
   }
-  nav img {
-    height: 26px;
-    display: block;
+  nav .home {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
   }
   nav .links {
     display: flex;
@@ -95,9 +98,6 @@ const CONSOLE = 'https://app.edgevault.io'
       row-gap: 0;
       padding-top: 12px;
       gap: 12px;
-    }
-    nav img {
-      height: 22px;
     }
     nav :global(.btn-fill) {
       padding: 8px 14px;

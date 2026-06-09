@@ -2,16 +2,20 @@ import { Button } from '@edgevault/ui'
 import { Form, Link } from 'react-router'
 
 /** The vault mark — square with a folded corner; the keyway slot is the single
- * accent dose (same mark as the marketing site, light-on-dark variant). */
-export function VaultMark({ size = 22 }: { size?: number }) {
+ * accent dose (same mark as the marketing site, light-on-dark variant). Sized
+ * from the shared --logo-mark-size token so it stays in lockstep with www. */
+export function VaultMark() {
   return (
     <svg
-      width={size}
-      height={size}
       viewBox="0 0 32 32"
       aria-hidden="true"
       focusable="false"
-      style={{ display: 'block' }}
+      style={{
+        width: 'var(--logo-mark-size)',
+        height: 'var(--logo-mark-size)',
+        display: 'block',
+        flex: 'none',
+      }}
     >
       <path d="M4 4 H20 L28 12 V28 H4 Z" fill="none" stroke="currentColor" strokeWidth="3" />
       <path d="M20 4 V12 H28" fill="none" stroke="currentColor" strokeWidth="3" />
@@ -31,7 +35,12 @@ export function TopBar({ authed }: { authed: boolean }) {
         aria-label="EdgeVault — all workspaces"
       >
         <VaultMark />
-        <span className="font-display text-base font-semibold tracking-tight">EdgeVault</span>
+        <span
+          className="font-display font-semibold tracking-tight"
+          style={{ fontSize: 'var(--logo-size)' }}
+        >
+          EdgeVault
+        </span>
       </Link>
       <nav className="flex items-center gap-5 max-sm:gap-3" aria-label="Account">
         <a
