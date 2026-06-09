@@ -6,10 +6,10 @@
  * worker to mint a hosted-page URL the browser is redirected to.
  *
  * The Checkout Session stamps `metadata.organizationId` + `metadata.plan` onto
- * the resulting subscription — exactly what the webhook needs to grant
- * entitlements and record the org → customer mapping. Self-serve plans are
- * pro/team; `enterprise` is deliberately sales-led (entitlements granted via
- * the control plane, not Checkout) so it is not purchasable here.
+ * the resulting subscription — exactly what the webhook needs to record the
+ * org's plan + customer mapping. Self-serve plans are pro/team; `enterprise` is
+ * deliberately sales-led (set via the control plane, not Checkout) so it is not
+ * purchasable here.
  */
 
 export const SELF_SERVE_PLANS = ['pro', 'team'] as const
@@ -51,7 +51,7 @@ export function buildCheckoutParams(input: CheckoutInput): URLSearchParams {
     cancel_url: input.cancelUrl,
     client_reference_id: input.organizationId,
     // The webhook reads these off the subscription — without them the
-    // subscription is ignored and no entitlements are granted.
+    // subscription is ignored and no plan is recorded.
     'subscription_data[metadata][organizationId]': input.organizationId,
     'subscription_data[metadata][plan]': input.plan,
   })

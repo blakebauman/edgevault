@@ -1,12 +1,5 @@
-import { freeLicense } from '@edgevault/licensing'
 import { describe, expect, it } from 'vitest'
-import {
-  applyScimPatch,
-  assertScimEntitled,
-  SCIM_USER_SCHEMA,
-  type ScimUser,
-  toScimListResponse,
-} from '../src/index'
+import { applyScimPatch, SCIM_USER_SCHEMA, type ScimUser, toScimListResponse } from '../src/index'
 
 const user = (): ScimUser => ({
   schemas: [SCIM_USER_SCHEMA],
@@ -72,13 +65,10 @@ describe('applyScimPatch', () => {
   })
 })
 
-describe('SCIM list + entitlement', () => {
+describe('SCIM list', () => {
   it('wraps resources in a SCIM ListResponse', () => {
     const list = toScimListResponse([user(), user()])
     expect(list.totalResults).toBe(2)
     expect(list.schemas[0]).toContain('ListResponse')
-  })
-  it('blocks SCIM without the entitlement', () => {
-    expect(() => assertScimEntitled(freeLicense('org-1'))).toThrow()
   })
 })

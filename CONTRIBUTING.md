@@ -1,8 +1,9 @@
 # Contributing to EdgeVault
 
 Thanks for your interest! EdgeVault is open-core: the `apps/*` and `packages/*`
-core is MIT-licensed; `ee/*` is the commercial Enterprise Edition; `edge/*` is
-proprietary. Contributions are accepted to the **core** (and to docs).
+core is MIT-licensed and includes every product feature (enterprise SSO/SAML and
+SCIM included); `edge/*` is the proprietary Managed-Edge billing control plane.
+Contributions are accepted to the **core** (and to docs).
 
 ## Developer Certificate of Origin (DCO)
 
@@ -32,7 +33,7 @@ pnpm typecheck && pnpm test
 
 ## Boundary rules
 
-- The MIT core must **never** import from `ee/` or `edge/`.
+- The MIT core must **never** import from `edge/`.
 - Do not add telemetry that phones home. Any analytics must be opt-in.
 
 ## Security

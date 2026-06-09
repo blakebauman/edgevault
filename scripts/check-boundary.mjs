@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Open-core boundary check: the MIT core (apps/*, packages/*) must never depend
-// on or import from the commercial `ee/*` or proprietary `edge/*` code. Run in CI.
+// on or import from the proprietary `edge/*` control-plane code. Run in CI.
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -8,7 +8,7 @@ const ROOT = new URL('..', import.meta.url).pathname
 const CORE_DIRS = ['apps', 'packages']
 // Forbidden import specifiers in core. Note: `@edgevault/edge-protocol` is a CORE
 // (MIT) package and is intentionally allowed; only the proprietary control plane is not.
-const FORBIDDEN = [/@edgevault\/ee-/, /@edgevault\/edge-control/, /from ['"][./]+(ee|edge)\//]
+const FORBIDDEN = [/@edgevault\/edge-control/, /from ['"][./]+edge\//]
 
 function walk(dir, files = []) {
   for (const entry of readdirSync(dir)) {
@@ -34,8 +34,8 @@ for (const base of CORE_DIRS) {
 }
 
 if (violations.length > 0) {
-  console.error('✖ Open-core boundary violations (MIT core must not use ee/ or edge/):')
+  console.error('✖ Open-core boundary violations (MIT core must not use edge/):')
   for (const v of violations) console.error(`  - ${v}`)
   process.exit(1)
 }
-console.log('✓ Open-core boundary intact: no ee/ or edge/ imports in the MIT core.')
+console.log('✓ Open-core boundary intact: no edge/ imports in the MIT core.')

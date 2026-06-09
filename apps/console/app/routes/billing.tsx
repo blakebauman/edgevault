@@ -9,8 +9,8 @@ import type { Route } from './+types/billing'
  * Checkout (hosted page) or open the Stripe Billing Portal to manage/cancel.
  * The BFF enforces the owner/admin check, then asks the Managed-Edge control
  * plane (BILLING_SERVICE, INTERNAL_TOKEN-authed) to mint the hosted-page URL.
- * Without the binding (OSS self-host) the page explains license keys instead.
- * Entitlements update asynchronously via the Stripe webhook after Checkout.
+ * Without the binding (OSS self-host) the page explains that instead. The plan
+ * updates asynchronously via the Stripe webhook after Checkout.
  */
 
 export function meta(_: Route.MetaArgs) {
@@ -26,7 +26,6 @@ interface Org {
 
 interface BillingStatus {
   plan: string
-  entitlements: string[]
   hasCustomer: boolean
   plans: { pro: boolean; team: boolean }
 }
@@ -152,8 +151,8 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
         {!isAdmin && <Forbidden subject="manage billing" />}
         {isAdmin && !billingAvailable && (
           <p className="text-muted-foreground">
-            This deployment is self-hosted: plans are activated with license keys instead of
-            billing. Contact your EdgeVault vendor for an enterprise license.
+            This deployment is self-hosted: it runs the full open-core platform, with no hosted
+            billing. Every feature — including SSO/SAML and SCIM — is available here.
           </p>
         )}
 
@@ -199,7 +198,7 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
               ))}
               <TokenBox note="Enterprise">
                 <p className="text-muted-foreground">
-                  SSO/SAML, SCIM, advanced RBAC, audit retention. Sales-led —{' '}
+                  Volume pricing, SLAs, and dedicated support. Sales-led —{' '}
                   <a href="mailto:sales@edgevault.io">contact sales</a>.
                 </p>
               </TokenBox>

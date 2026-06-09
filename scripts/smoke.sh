@@ -14,9 +14,6 @@ APP="https://app${S}.edgevault.io"
 AUTH="https://auth${S}.edgevault.io"
 API="https://api${S}.edgevault.io"
 CDN="https://cdn${S}.edgevault.io"
-# Commercial EE worker is internal (no custom domain) — reach it on workers.dev.
-# Self-hosters override the account subdomain via WORKERS_SUBDOMAIN.
-ENT="https://edgevault-enterprise${S}.${WORKERS_SUBDOMAIN:-bauman}.workers.dev"
 # Proprietary Managed-Edge control plane (public for Stripe webhooks). Optional
 # for self-hosters — skip with SKIP_CONTROL_PLANE=1.
 CTL="https://billing${S}.edgevault.io"
@@ -37,7 +34,6 @@ check "console /login" "$APP/login" 200
 # request returns 401. This both proves the worker is up AND that *EdgeVault's*
 # delivery worker (not some other worker) owns the cdn hostname.
 check "cdn (delivery /v1 auth)" "$CDN/v1/configs/_smoke" 401
-check "enterprise /health"      "$ENT/health" 200
 [ "${SKIP_CONTROL_PLANE:-0}" = 1 ] || check "control-plane /health" "$CTL/health" 200
 
 # JWKS must publish at least one verification key (proves the signing secret loaded).

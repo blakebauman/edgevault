@@ -1,11 +1,6 @@
-import { ENTITLEMENTS, type License, requireEntitlement } from '@edgevault/licensing'
-
 /**
- * EdgeVault Enterprise Edition — SCIM 2.0 directory provisioning (RFC 7643/7644).
- * Provides the resource shapes and the PATCH operation applier; the HTTP
- * endpoints mount in the auth worker, gated by the `scim` entitlement.
- *
- * COMMERCIAL: see ee/LICENSE. The MIT core must not import from here.
+ * SCIM 2.0 directory provisioning (RFC 7643/7644). Provides the resource shapes
+ * and the PATCH operation applier; the HTTP endpoints mount in the api worker.
  */
 
 export const SCIM_USER_SCHEMA = 'urn:ietf:params:scim:schemas:core:2.0:User'
@@ -134,9 +129,4 @@ export function toScimListResponse<T>(
     itemsPerPage: resources.length,
     Resources: resources,
   }
-}
-
-/** Gate: throws EntitlementError unless the org's license includes SCIM. */
-export function assertScimEntitled(license: License): void {
-  requireEntitlement(license, ENTITLEMENTS.SCIM)
 }

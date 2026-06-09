@@ -4,17 +4,15 @@ import type { Route } from './+types/saml.acs'
 
 /**
  * SAML Assertion Consumer Service — the IdP POSTs its SAMLResponse here. The
- * ee/enterprise worker verifies the signature + conditions and returns identity
- * claims; the auth worker turns them into a session; we exchange that for an
- * access token and land the user in the console. No SAML/session logic here.
+ * auth worker verifies the signature + conditions and returns identity claims,
+ * then turns them into a session; we exchange that for an access token and land
+ * the user in the console. No SAML/session logic here.
  */
 export async function action({ request, params, context }: Route.ActionArgs) {
   const env = context.cloudflare.env
   const orgId = params.orgId
   const fail = (reason: string) =>
     redirect(`/login?sso=${reason}`, { headers: { 'Set-Cookie': clearSamlCookie(request) } })
-
-  if (!env.ENTERPRISE_SERVICE) return fail('unavailable')
 
   const form = await request.formData()
   const samlResponse = String(form.get('SAMLResponse') ?? '')
@@ -25,8 +23,8 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const tx = getSamlTransaction(request)
   const expectedInResponseTo = tx && tx.orgId === orgId ? tx.authnId : undefined
 
-  // 1) Verify the SAMLResponse in the enterprise worker → identity claims.
-  const acsRes = await env.ENTERPRISE_SERVICE.fetch(`https://enterprise/orgs/${orgId}/saml/acs`, {
+  // 1) Verify the SAMLResponse in the auth worker → identity claims.
+  const acsRes = await env.AUTH_SERVICE.fetch(`https://auth/orgs/${orgId}/saml/acs`, {
     method: 'POST',
     headers: { 'x-internal-token': env.INTERNAL_TOKEN, 'content-type': 'application/json' },
     body: JSON.stringify({ samlResponse, expectedInResponseTo }),

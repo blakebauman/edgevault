@@ -15,12 +15,10 @@
   },
   // BFF: the console SSR worker proxies to auth + api via service bindings, so
   // the browser only talks to the console origin (no CORS / cross-site cookies).
-  // ENTERPRISE_SERVICE (commercial ee/enterprise worker) hosts SSO/SCIM; the SSO
-  // routes degrade gracefully (sso=unavailable) if the binding is ever removed.
+  // SSO/SAML live in auth; SCIM lives in api — both reached via AUTH/API_SERVICE.
   "services": [
     { "binding": "AUTH_SERVICE", "service": "edgevault-auth" },
     { "binding": "API_SERVICE", "service": "edgevault-api" },
-    { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise" },
     { "binding": "BILLING_SERVICE", "service": "edgevault-control-plane" }
   ],
   "env": {
@@ -33,7 +31,6 @@
       "services": [
         { "binding": "AUTH_SERVICE", "service": "edgevault-auth-staging" },
         { "binding": "API_SERVICE", "service": "edgevault-api-staging" },
-        { "binding": "ENTERPRISE_SERVICE", "service": "edgevault-enterprise-staging" },
         { "binding": "BILLING_SERVICE", "service": "edgevault-control-plane-staging" }
       ]
     }

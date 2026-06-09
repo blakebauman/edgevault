@@ -1,9 +1,0 @@
-{
-  "extends": "@edgevault/typescript-config/base.json",
-  "compilerOptions": {
-    "lib": ["ES2022", "DOM"],
-    "types": [],
-    "noEmit": true
-  },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
-}

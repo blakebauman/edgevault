@@ -9,13 +9,12 @@ Queues, R2, Vectorize, KV, Rate Limiting) and a **Neon** Postgres database.
 
 | Worker | Package | Tier | Purpose |
 |---|---|---|---|
-| `edgevault-auth` | `apps/auth` | core (MIT) | identity, sessions, JWT/JWKS, MFA, passkeys, social OAuth |
-| `edgevault-api` | `apps/api` | core | control plane, Workspace DO, AI/MCP, workflows, audit query |
+| `edgevault-auth` | `apps/auth` | core (MIT) | identity, sessions, JWT/JWKS, MFA, passkeys, social OAuth, enterprise SSO (OIDC/SAML) |
+| `edgevault-api` | `apps/api` | core | control plane, Workspace DO, AI/MCP, workflows, audit query, SCIM 2.0 |
 | `edgevault-delivery` | `apps/delivery` | core | edge read path (KV + L1) |
 | `edgevault-console` | `apps/console` | core | React Router UI / BFF |
 | `edgevault-audit` | `apps/audit` | core | Queue → R2 audit warehouse consumer |
 | `edgevault-notify` | `apps/notify` | core | Queue → Slack / signed-webhook notification delivery |
-| `edgevault-enterprise` | `ee/enterprise` | EE (commercial) | SSO (OIDC/SAML) + SCIM — deploy only with an EE entitlement |
 | `edgevault-control-plane` | `edge/control-plane` | Managed Edge (proprietary) | Stripe billing + metering — SaaS only, excluded from OSS |
 
 ## 1. Prerequisites
@@ -39,7 +38,7 @@ npx wrangler hyperdrive create edgevault-neon \
 Paste each returned id into the matching `wrangler.jsonc` binding (they currently
 hold placeholder ids):
 
-- `HYPERDRIVE` → `apps/api`, `apps/auth` (and `ee/enterprise`, `edge/control-plane` if deployed)
+- `HYPERDRIVE` → `apps/api`, `apps/auth` (and `edge/control-plane` if deployed)
 - `CONFIGS_CACHE`, `ENVIRONMENT_API_KEYS` → `apps/api` **and** `apps/delivery` (same ids → shared)
 - `AUTH_CACHE` → `apps/auth`
 - `VECTORIZE` (`edgevault-configs`), `AUDIT_QUEUE`/`AUDIT_BUCKET` are bound by name
@@ -67,7 +66,7 @@ node scripts/gen-secrets.mjs   # prints JWT_PRIVATE_JWK, MASTER_KEK, INTERNAL_TO
 |---|---|---|
 | `JWT_PRIVATE_JWK` | auth | EdDSA signing key (JWKS is derived/published) |
 | `MASTER_KEK` | auth, api, **enterprise** | envelope-encryption key — **must be identical** across all three |
-| `INTERNAL_TOKEN` | auth, api, console, enterprise, control-plane | trusted-mesh shared secret (SSO/SAML + MFA provisioning + billing + share-link consume) |
+| `INTERNAL_TOKEN` | auth, api, console, control-plane | trusted-mesh shared secret (SSO/SAML + MFA provisioning + billing + share-link consume) |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | auth | optional — enables GitHub login |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | auth | optional — enables Google login |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | control-plane | Managed Edge only |
@@ -82,8 +81,7 @@ pnpm --filter @edgevault/api       deploy
 pnpm --filter @edgevault/delivery  deploy
 pnpm --filter @edgevault/audit     deploy
 pnpm --filter @edgevault/console   deploy
-# EE / Managed Edge only:
-pnpm --filter @edgevault/ee-enterprise      deploy
+# Managed Edge billing only (proprietary):
 pnpm --filter @edgevault/edge-control-plane deploy
 ```
 
@@ -179,8 +177,8 @@ pnpm db:migrate:local  # apply drizzle migrations to the fresh branch
 # .dev.vars per worker: apps/auth (JWT_PRIVATE_JWK, MASTER_KEK, INTERNAL_TOKEN),
 # apps/api (MASTER_KEK, INTERNAL_TOKEN, CONSOLE_URL=http://localhost:5173),
 # apps/console (INTERNAL_TOKEN, API_WS_BASE=ws://localhost:8790 — overrides the
-# production wss:// default), ee/enterprise (MASTER_KEK, INTERNAL_TOKEN),
-# edge/control-plane (INTERNAL_TOKEN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
+# production wss:// default), edge/control-plane (INTERNAL_TOKEN,
+# STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
 (cd apps/auth     && npx wrangler dev --port 8788 --inspector-port 9320)
 (cd apps/api      && npx wrangler dev --port 8790 --inspector-port 9321)
 (cd apps/delivery && npx wrangler dev --port 8791 --inspector-port 9322)
@@ -196,13 +194,12 @@ point `wrangler dev` at a real Neon branch instead, export
 — it overrides `localConnectionString`.
 
 The dev registry auto-connects the service bindings (`AUTH_SERVICE`,
-`API_SERVICE`, `ENTERPRISE_SERVICE`). WebAuthn binds to the origin, so passkeys
-only work against a stable host (e.g. `localhost`).
+`API_SERVICE`). WebAuthn binds to the origin, so passkeys only work against a
+stable host (e.g. `localhost`).
 
 ## Tiers
 
-- **Core** (`apps/*`, `packages/*`) — MIT, deploy freely.
-- **Enterprise** (`ee/*`) — requires a commercial license + a signed entitlement
-  (`@edgevault/licensing`).
+- **Core** (`apps/*`, `packages/*`) — MIT, deploy freely. Includes every product
+  feature (enterprise SSO/SAML in `apps/auth`, SCIM in `apps/api`).
 - **Managed Edge** (`edge/*`) — proprietary; operated by us, not part of the OSS
   distribution.

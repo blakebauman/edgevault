@@ -5,7 +5,7 @@ import Prose from '../layouts/Prose.astro'
 
 <Prose
   title="EdgeVault License — MIT core"
-  description="EdgeVault's open-source core is MIT licensed. Code under ee/ is commercially licensed; edge/ is proprietary. The license text, verbatim."
+  description="EdgeVault's open-source core is MIT licensed and includes every product feature; only edge/ (managed billing) is proprietary. The license text, verbatim."
   path="/license"
   eyebrow="License"
   heading="MIT, where it matters."
@@ -37,9 +37,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.</pre>
   <h2>The boundary, plainly</h2>
   <ul>
-    <li><span class="mono">apps/*</span> and <span class="mono">packages/*</span> — MIT (the text above).</li>
-    <li><span class="mono">ee/</span> — EdgeVault Enterprise Edition License (SSO, SCIM; entitlement-gated).</li>
-    <li><span class="mono">edge/</span> — proprietary managed-edge control plane; not licensed for redistribution.</li>
+    <li><span class="mono">apps/*</span> and <span class="mono">packages/*</span> — MIT (the text above). Every product feature lives here, SSO/SAML and SCIM included.</li>
+    <li><span class="mono">edge/</span> — proprietary managed-edge billing control plane; not licensed for redistribution.</li>
   </ul>
-  <p>CI enforces this boundary: core code that imports from <span class="mono">ee/</span> or <span class="mono">edge/</span> fails the build.</p>
+  <p>CI enforces this boundary: core code that imports from <span class="mono">edge/</span> fails the build. There is no feature-gating — the platform monetizes through usage, not by withholding features.</p>
 </Prose>

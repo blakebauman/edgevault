@@ -40,6 +40,7 @@ import {
   verifyCredentials,
 } from './services'
 import { invalidateSessionCached, validateSessionCached } from './session-cache'
+import { ssoRoutes } from './sso'
 import {
   buildAuthenticationOptions,
   buildRegistrationOptions,
@@ -79,7 +80,8 @@ const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
  * EdgeVault auth service. Custom, zero-telemetry: email/password (Argon2id),
  * opaque DB-backed sessions (cached in AUTH_CACHE KV), EdDSA JWT/JWKS for
  * service-to-service verify, TOTP MFA, passkeys/WebAuthn, and social OAuth.
- * Enterprise SSO/SCIM live in the ee/ enterprise worker.
+ * Enterprise SSO (OIDC/SAML) connection + login routes live in ./sso; SCIM
+ * directory provisioning lives in the api worker.
  */
 
 const app = new Hono<AppEnv>()
@@ -518,5 +520,9 @@ app.post('/internal/sso/provision', async (c) => {
   setSessionCookie(c, token, expiresAt)
   return c.json({ user })
 })
+
+// Enterprise SSO (OIDC + SAML) connection management + login verification,
+// called by the console BFF over the service binding (INTERNAL_TOKEN-gated).
+app.route('/', ssoRoutes)
 
 export default app

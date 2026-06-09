@@ -41,8 +41,8 @@ Deploys (`pnpm deploy` / `turbo run deploy`) push to the real Cloudflare account
 
 ## Open-core boundary (enforced)
 
-- `apps/*`, `packages/*` — MIT core. **Must never import from `ee/` or `edge/`** — `scripts/check-boundary.mjs` fails CI on any such import. (`@edgevault/edge-protocol` is a core package and is fine.)
-- `ee/*` — commercial Enterprise Edition (SSO OIDC/SAML, SCIM), gated by `@edgevault/licensing` signed entitlements.
+- `apps/*`, `packages/*` — MIT core. **Must never import from `edge/`** — `scripts/check-boundary.mjs` fails CI on any such import. (`@edgevault/edge-protocol` is a core package and is fine.)
+- All product features are core/MIT, including enterprise SSO (OIDC/SAML, in `apps/auth` + `@edgevault/sso-saml`) and SCIM provisioning (in `apps/api` + `@edgevault/scim`). There is no feature-gating/entitlement layer — the platform monetizes through usage metering + self-serve plan tiers (in `edge/`), not by withholding features.
 - `edge/*` — proprietary Managed Edge control plane (Stripe billing/metering), excluded from OSS.
 - No telemetry that phones home; any analytics must be opt-in.
 - Commits require DCO sign-off: `git commit -s`.
@@ -53,21 +53,21 @@ Six core Workers plus two Durable Object classes. The browser only talks to the 
 
 | Worker | Role |
 |---|---|
-| `apps/api` (api.edgevault.io) | Control plane: Hono + zod-openapi. Authz, Neon metadata via Hyperdrive, all config/secret writes through the Vault DO, AI (search/risk/assistant), promotion Workflows, MCP server. |
+| `apps/api` (api.edgevault.io) | Control plane: Hono + zod-openapi. Authz, Neon metadata via Hyperdrive, all config/secret writes through the Vault DO, AI (search/risk/assistant), promotion Workflows, MCP server, SCIM 2.0 directory surface. |
 | `apps/delivery` (cdn.edgevault.io) | <10ms data plane: serves pre-resolved configs/flags from KV behind an in-memory L1, environment-scoped API keys. No business logic; cannot decrypt secrets. |
-| `apps/auth` (auth.edgevault.io) | Custom auth, no framework: Argon2id passwords, opaque sessions, EdDSA JWT/JWKS, MFA/passkeys, social OAuth. Built on `jose`, `@noble/hashes`, `@oslojs/*`. |
+| `apps/auth` (auth.edgevault.io) | Custom auth, no framework: Argon2id passwords, opaque sessions, EdDSA JWT/JWKS, MFA/passkeys, social OAuth, enterprise SSO (OIDC/SAML). Built on `jose`, `@noble/hashes`, `@oslojs/*`. |
 | `apps/console` (app.edgevault.io) | React Router 7 UI + BFF on Workers (via `@cloudflare/vite-plugin`). |
 | `apps/audit` | Queue consumer → R2 NDJSON audit warehouse. |
 | `apps/notify` | Queue consumer → notification delivery (Slack Block Kit + HMAC-signed webhooks). Jobs arrive fully materialized from `api`; no DB, no KEK. |
 | `apps/www` (edgevault.io) | Marketing site: static Astro build (0 KB client JS) served by an assets-only worker. Brand/design source of record is `DESIGN.md` + `.impeccable/`; copy, personas, and content strategy live in `PRODUCT.md`; this app is the implementation. |
-| `ee/enterprise`, `edge/control-plane` | EE SSO/SCIM and proprietary billing — internal, reached via service bindings. |
+| `edge/control-plane` | Proprietary Managed-Edge billing (Stripe checkout/portal + usage metering) — internal, reached via service binding. |
 
 Durable Objects (in `apps/api`):
 - **VaultDurableObject** — one SQLite DO per workspace, the config **system of record**: environments, config/flag/secret items, versioned revisions, promotions, activity log, hibernatable WebSocket/SSE broadcast. Strong consistency per workspace.
 - **EdgeVaultAgent** — AI chat state, "what changed & why", the stateful MCP server.
 
 Where data lives:
-- **Neon Postgres via Hyperdrive** — users, orgs, sessions, API-key hashes, workspace metadata, entitlements (Drizzle, `packages/database`).
+- **Neon Postgres via Hyperdrive** — users, orgs, sessions, API-key hashes, workspace metadata, SSO/SAML/SCIM connections, billing plan + Stripe customer mapping (Drizzle, `packages/database`).
 - **Vault DO SQLite** — config content, revisions, secret *ciphertext*.
 - **KV** — pre-resolved edge values `config:{ws}:{env}:{key}`, write-through on every change (eventual consistency).
 - **Secrets Store** — signing keys, `MASTER_KEK`.

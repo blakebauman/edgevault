@@ -19,7 +19,7 @@ export const invitationStatus = pgEnum('invitation_status', [
   'expired',
 ])
 
-/** Tenant root. Organizations own workspaces, members, and billing entitlements. */
+/** Tenant root. Organizations own workspaces, members, and billing state. */
 export const organizations = pgTable(
   'organizations',
   {

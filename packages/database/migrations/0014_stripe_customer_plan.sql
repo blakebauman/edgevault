@@ -1,0 +1,1 @@
+ALTER TABLE "stripe_customers" ADD COLUMN "plan" text DEFAULT 'free' NOT NULL;

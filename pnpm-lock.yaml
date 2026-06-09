@@ -50,15 +50,15 @@ importers:
       '@edgevault/edge-protocol':
         specifier: workspace:*
         version: link:../../packages/edge-protocol
-      '@edgevault/licensing':
-        specifier: workspace:*
-        version: link:../../packages/licensing
       '@edgevault/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
       '@edgevault/refs':
         specifier: workspace:*
         version: link:../../packages/refs
+      '@edgevault/scim':
+        specifier: workspace:*
+        version: link:../../packages/scim
       '@hono/zod-openapi':
         specifier: ^1.1.0
         version: 1.4.0(hono@4.12.23)(zod@4.4.3)
@@ -124,6 +124,9 @@ importers:
       '@edgevault/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@edgevault/sso-saml':
+        specifier: workspace:*
+        version: link:../../packages/sso-saml
       '@hono/zod-validator':
         specifier: ^0.7.0
         version: 0.7.6(hono@4.12.23)(zod@4.4.3)
@@ -305,9 +308,6 @@ importers:
       '@edgevault/edge-protocol':
         specifier: workspace:*
         version: link:../../packages/edge-protocol
-      '@edgevault/licensing':
-        specifier: workspace:*
-        version: link:../../packages/licensing
       hono:
         specifier: ^4.9.2
         version: 4.12.23
@@ -324,84 +324,6 @@ importers:
       wrangler:
         specifier: ^4.98.0
         version: 4.98.0
-
-  ee/enterprise:
-    dependencies:
-      '@edgevault/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@edgevault/crypto':
-        specifier: workspace:*
-        version: link:../../packages/crypto
-      '@edgevault/database':
-        specifier: workspace:*
-        version: link:../../packages/database
-      '@edgevault/ee-scim':
-        specifier: workspace:*
-        version: link:../scim
-      '@edgevault/ee-sso-saml':
-        specifier: workspace:*
-        version: link:../sso-saml
-      '@edgevault/licensing':
-        specifier: workspace:*
-        version: link:../../packages/licensing
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(@types/pg@8.20.0)(pg@8.21.0)
-      hono:
-        specifier: ^4.9.2
-        version: 4.12.23
-    devDependencies:
-      '@edgevault/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.8
-        version: 4.1.8(@types/node@25.9.1)(happy-dom@16.8.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-      wrangler:
-        specifier: ^4.98.0
-        version: 4.98.0
-
-  ee/scim:
-    dependencies:
-      '@edgevault/licensing':
-        specifier: workspace:*
-        version: link:../../packages/licensing
-    devDependencies:
-      '@edgevault/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.8
-        version: 4.1.8(@types/node@25.9.1)(happy-dom@16.8.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
-  ee/sso-saml:
-    dependencies:
-      '@edgevault/licensing':
-        specifier: workspace:*
-        version: link:../../packages/licensing
-      '@xmldom/xmldom':
-        specifier: ^0.9.8
-        version: 0.9.10
-      jose:
-        specifier: ^6.2.3
-        version: 6.2.3
-    devDependencies:
-      '@edgevault/typescript-config':
-        specifier: workspace:*
-        version: link:../../packages/typescript-config
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.8
-        version: 4.1.8(@types/node@25.9.1)(happy-dom@16.8.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/ai:
     devDependencies:
@@ -538,22 +460,6 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
-  packages/licensing:
-    dependencies:
-      jose:
-        specifier: ^6.2.3
-        version: 6.2.3
-    devDependencies:
-      '@edgevault/typescript-config':
-        specifier: workspace:*
-        version: link:../typescript-config
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.8
-        version: 4.1.8(@types/node@25.9.1)(happy-dom@16.8.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
-
   packages/realtime:
     devDependencies:
       '@edgevault/typescript-config':
@@ -584,6 +490,18 @@ importers:
         specifier: ^4.1.8
         version: 4.1.8(@types/node@25.9.1)(happy-dom@16.8.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  packages/scim:
+    devDependencies:
+      '@edgevault/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@25.9.1)(happy-dom@16.8.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
   packages/sdk:
     dependencies:
       '@edgevault/edge-protocol':
@@ -599,6 +517,25 @@ importers:
       react:
         specifier: ^19.0.0
         version: 19.2.7
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@25.9.1)(happy-dom@16.8.1)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/sso-saml:
+    dependencies:
+      '@xmldom/xmldom':
+        specifier: ^0.9.8
+        version: 0.9.10
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
+    devDependencies:
+      '@edgevault/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
       typescript:
         specifier: ^5.9.2
         version: 5.9.3

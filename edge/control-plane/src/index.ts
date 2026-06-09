@@ -9,38 +9,31 @@ import {
 import { runMauMetering } from './mau'
 import { runMeteringCron } from './metering'
 import {
-  entitlementUpdateFromEvent,
-  type StripeEntitlementUpdate,
+  planUpdateFromEvent,
+  type StripePlanUpdate,
   timingSafeEqual,
   verifyStripeWebhook,
 } from './stripe'
 
 /**
- * Persist an entitlement change to the shared Neon table (via Hyperdrive) that
- * the OSS api/auth workers read. `@edgevault/database` is imported dynamically so
- * its `pg` (CommonJS) dependency stays out of the static module graph. On
- * cancellation `entitlementUpdateFromEvent` already collapses the grant to the
- * free plan, so a single upsert covers both grant and revoke. The org → Stripe
- * customer mapping is recorded alongside so the metering cron can attribute
- * usage.
+ * Persist a plan change to the shared Neon `stripe_customers` row (via
+ * Hyperdrive). `@edgevault/database` is imported dynamically so its `pg`
+ * (CommonJS) dependency stays out of the static module graph. On cancellation
+ * `planUpdateFromEvent` already collapses the plan to free, so a single upsert
+ * covers both upgrade and revoke; the customer mapping (kept on cancellation)
+ * lets the metering cron attribute usage. A subscription event without a
+ * customer id is malformed — there is no row to write — so it is skipped.
  */
-async function applyEntitlementUpdate(env: Env, update: StripeEntitlementUpdate): Promise<void> {
-  const { createDatabase, upsertEntitlements, upsertStripeCustomer } = await import(
-    '@edgevault/database'
-  )
+async function applyPlanUpdate(env: Env, update: StripePlanUpdate): Promise<void> {
+  if (!update.stripeCustomerId) return
+  const { createDatabase, upsertStripeCustomer } = await import('@edgevault/database')
   const conn = createDatabase(env.HYPERDRIVE.connectionString)
   try {
-    await upsertEntitlements(conn.database, {
+    await upsertStripeCustomer(conn.database, {
       organizationId: update.organizationId,
-      plan: update.grant.plan,
-      entitlements: update.grant.entitlements,
+      stripeCustomerId: update.stripeCustomerId,
+      plan: update.plan,
     })
-    if (update.stripeCustomerId) {
-      await upsertStripeCustomer(conn.database, {
-        organizationId: update.organizationId,
-        stripeCustomerId: update.stripeCustomerId,
-      })
-    }
   } finally {
     await conn.close()
   }
@@ -106,9 +99,9 @@ type Vars = { database: Database }
 
 /**
  * Managed Edge control plane (proprietary, SaaS-only). Handles Stripe billing
- * webhooks (→ tenant entitlements written to Neon), the self-serve Checkout /
- * Billing Portal surface for the console BFF, and the usage-metering cron.
- * Excluded from the OSS distribution.
+ * webhooks (→ tenant plan written to Neon), the self-serve Checkout / Billing
+ * Portal surface for the console BFF, and the usage-metering cron. Excluded
+ * from the OSS distribution.
  */
 const app = new Hono<{ Bindings: Env; Variables: Vars }>()
 
@@ -136,9 +129,9 @@ app.post('/webhooks/stripe', async (c) => {
   } catch {
     return c.text('invalid payload', 400)
   }
-  const update = entitlementUpdateFromEvent(event as { type?: string })
+  const update = planUpdateFromEvent(event as { type?: string })
   if (update) {
-    c.executionCtx.waitUntil(applyEntitlementUpdate(c.env, update))
+    c.executionCtx.waitUntil(applyPlanUpdate(c.env, update))
   }
   return c.json({ received: true })
 })
@@ -188,14 +181,13 @@ billing.use('*', async (c, next) => {
 billing.get('/status', async (c) => {
   const organizationId = c.req.query('organizationId')
   if (!organizationId) return c.json({ error: 'organizationId required' }, 400)
-  const { getEntitlements, getStripeCustomer } = await import('@edgevault/database')
-  const [row, customerId] = await Promise.all([
-    getEntitlements(c.var.database, organizationId),
+  const { getOrgPlan, getStripeCustomer } = await import('@edgevault/database')
+  const [plan, customerId] = await Promise.all([
+    getOrgPlan(c.var.database, organizationId),
     getStripeCustomer(c.var.database, organizationId),
   ])
   return c.json({
-    plan: row?.plan ?? 'free',
-    entitlements: row?.entitlements ?? [],
+    plan,
     hasCustomer: customerId !== null,
     plans: {
       pro: Boolean(c.env.STRIPE_PRICE_PRO),

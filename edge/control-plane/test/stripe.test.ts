@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { reportMeterEvents } from '../src/metering'
-import { entitlementUpdateFromEvent, planToEntitlements, verifyStripeWebhook } from '../src/stripe'
+import { normalizePlan, planUpdateFromEvent, verifyStripeWebhook } from '../src/stripe'
 
 async function signStripe(body: string, secret: string, t = 1_700_000_000): Promise<string> {
   const key = await crypto.subtle.importKey(
@@ -40,39 +40,40 @@ describe('verifyStripeWebhook', () => {
   })
 })
 
-describe('planToEntitlements', () => {
-  it('grants enterprise everything, free nothing', () => {
-    expect(planToEntitlements('enterprise').entitlements).toContain('sso')
-    expect(planToEntitlements('enterprise').entitlements).toContain('scim')
-    expect(planToEntitlements('free').entitlements).toEqual([])
-    expect(planToEntitlements('pro').plan).toBe('pro')
+describe('normalizePlan', () => {
+  it('passes known tiers through and collapses the rest to free', () => {
+    expect(normalizePlan('enterprise')).toBe('enterprise')
+    expect(normalizePlan('team')).toBe('team')
+    expect(normalizePlan('pro')).toBe('pro')
+    expect(normalizePlan('free')).toBe('free')
+    expect(normalizePlan('bogus')).toBe('free')
   })
 })
 
-describe('entitlementUpdateFromEvent', () => {
-  it('maps a subscription with org metadata to a grant', () => {
-    const update = entitlementUpdateFromEvent({
+describe('planUpdateFromEvent', () => {
+  it('maps a subscription with org metadata to a plan', () => {
+    const update = planUpdateFromEvent({
       type: 'customer.subscription.created',
       data: {
         object: { status: 'active', metadata: { organizationId: 'org-1', plan: 'enterprise' } },
       },
     })
     expect(update?.organizationId).toBe('org-1')
-    expect(update?.grant.plan).toBe('enterprise')
+    expect(update?.plan).toBe('enterprise')
     expect(update?.revoked).toBe(false)
   })
 
   it('revokes to free on cancellation', () => {
-    const update = entitlementUpdateFromEvent({
+    const update = planUpdateFromEvent({
       type: 'customer.subscription.deleted',
       data: { object: { metadata: { organizationId: 'org-1', plan: 'enterprise' } } },
     })
     expect(update?.revoked).toBe(true)
-    expect(update?.grant.plan).toBe('free')
+    expect(update?.plan).toBe('free')
   })
 
   it('captures the Stripe customer id for the metering roster', () => {
-    const update = entitlementUpdateFromEvent({
+    const update = planUpdateFromEvent({
       type: 'customer.subscription.created',
       data: {
         object: {
@@ -84,13 +85,13 @@ describe('entitlementUpdateFromEvent', () => {
     })
     expect(update?.stripeCustomerId).toBe('cus_42')
     // Cancellation keeps the mapping (final invoices may still meter usage).
-    const cancelled = entitlementUpdateFromEvent({
+    const cancelled = planUpdateFromEvent({
       type: 'customer.subscription.deleted',
       data: { object: { customer: 'cus_42', metadata: { organizationId: 'org-1' } } },
     })
     expect(cancelled?.stripeCustomerId).toBe('cus_42')
     // Expanded (object-valued) customer fields are not silently misused.
-    const expanded = entitlementUpdateFromEvent({
+    const expanded = planUpdateFromEvent({
       type: 'customer.subscription.created',
       data: { object: { customer: { id: 'cus_42' }, metadata: { organizationId: 'org-1' } } },
     })
@@ -98,9 +99,9 @@ describe('entitlementUpdateFromEvent', () => {
   })
 
   it('ignores unrelated events and events without an org', () => {
-    expect(entitlementUpdateFromEvent({ type: 'invoice.paid' })).toBeNull()
+    expect(planUpdateFromEvent({ type: 'invoice.paid' })).toBeNull()
     expect(
-      entitlementUpdateFromEvent({ type: 'customer.subscription.created', data: { object: {} } }),
+      planUpdateFromEvent({ type: 'customer.subscription.created', data: { object: {} } }),
     ).toBeNull()
   })
 })

@@ -3,11 +3,11 @@ import { clearSsoCookie, getSsoTransaction, setTokenCookie } from '../lib/sessio
 import type { Route } from './+types/sso.callback'
 
 /**
- * Complete enterprise SSO. The ee/enterprise worker verifies the IdP code +
- * ID token and returns the identity claims; the auth worker turns those into an
- * EdgeVault session (JIT-provisioning the user + org membership); we then
- * exchange that session for an access token — exactly like password sign-in —
- * and land the user in the console. No EE secret or session logic lives here.
+ * Complete enterprise SSO. The auth worker verifies the IdP code + ID token and
+ * returns the identity claims, then turns those into an EdgeVault session
+ * (JIT-provisioning the user + org membership); we then exchange that session
+ * for an access token — exactly like password sign-in — and land the user in
+ * the console. No SSO secret or session logic lives here.
  */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env
@@ -20,25 +20,22 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const fail = (reason: string) =>
     redirect(`/login?sso=${reason}`, { headers: { 'Set-Cookie': clearSsoCookie(request) } })
 
-  if (!code || !state || !tx || tx.orgId !== orgId || !env.ENTERPRISE_SERVICE) {
+  if (!code || !state || !tx || tx.orgId !== orgId) {
     return fail('error')
   }
 
-  // 1) Verify the OIDC response in the enterprise worker → identity claims.
-  const cbRes = await env.ENTERPRISE_SERVICE.fetch(
-    `https://enterprise/orgs/${orgId}/sso/callback`,
-    {
-      method: 'POST',
-      headers: { 'x-internal-token': env.INTERNAL_TOKEN, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        state,
-        expectedState: tx.state,
-        nonce: tx.nonce,
-        codeVerifier: tx.codeVerifier,
-      }),
-    },
-  )
+  // 1) Verify the OIDC response in the auth worker → identity claims.
+  const cbRes = await env.AUTH_SERVICE.fetch(`https://auth/orgs/${orgId}/sso/callback`, {
+    method: 'POST',
+    headers: { 'x-internal-token': env.INTERNAL_TOKEN, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      code,
+      state,
+      expectedState: tx.state,
+      nonce: tx.nonce,
+      codeVerifier: tx.codeVerifier,
+    }),
+  })
   if (!cbRes.ok) return fail('denied')
   const claims = (await cbRes.json()) as { email: string; name: string | null }
 

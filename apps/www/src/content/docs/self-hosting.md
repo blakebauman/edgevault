@@ -42,7 +42,8 @@ automatically; production is gated).
 
 ## What's not in the core
 
-SSO (OIDC/SAML), SCIM, and advanced RBAC are commercial (`ee/`, entitlement-gated); the
-Stripe billing control plane (`edge/`) is proprietary and only relevant to the managed service.
-Everything else — including envelope encryption, promotions, realtime, the AI layer, and the MCP
-server — is in the MIT core. CI fails any build that adds telemetry to it.
+Only the Stripe billing control plane (`edge/`) is proprietary, and it's relevant solely to the
+managed service. **Every product feature is in the MIT core** — SSO (OIDC/SAML), SCIM, RBAC,
+envelope encryption, promotions, realtime, the AI layer, and the MCP server. There is no
+feature-gating: self-hosting gives you the whole platform. CI fails any build that adds telemetry
+to the core.

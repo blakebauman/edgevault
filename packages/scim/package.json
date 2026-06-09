@@ -1,5 +1,5 @@
 {
-  "name": "@edgevault/licensing",
+  "name": "@edgevault/scim",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,6 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "test": "vitest run"
-  },
-  "dependencies": {
-    "jose": "^6.2.3"
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",

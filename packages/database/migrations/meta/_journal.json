@@ -85,6 +85,27 @@
       "when": 1780874196354,
       "tag": "0011_new_salo",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780980182860,
+      "tag": "0012_drop_entitlements",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780980193961,
+      "tag": "0013_add_scim_connections",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1780981018318,
+      "tag": "0014_stripe_customer_plan",
+      "breakpoints": true
     }
   ]
 }

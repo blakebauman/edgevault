@@ -7,7 +7,7 @@ import type { Route } from './+types/sso-admin'
 /**
  * Org enterprise-SSO (OIDC) admin. Owner/admins register the IdP connection
  * (issuer, client id/secret, redirect URI). The console enforces the owner/admin
- * check here because the ee/enterprise connection endpoints trust this BFF
+ * check here because the auth worker's SSO connection endpoints trust this BFF
  * (INTERNAL_TOKEN); the client secret is write-only and never returned.
  */
 
@@ -51,25 +51,20 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   const isAdmin = ADMIN_ROLES.has(org.role)
   const suggestedRedirectUri = `${new URL(request.url).origin}/sso/${params.orgId}/callback`
-  const ssoAvailable = Boolean(env.ENTERPRISE_SERVICE)
 
   let connection: ConnectionView = { configured: false }
-  let entitled = true
-  if (isAdmin && env.ENTERPRISE_SERVICE) {
-    const res = await env.ENTERPRISE_SERVICE.fetch(
-      `https://enterprise/orgs/${params.orgId}/sso/connection`,
-      { headers: { 'x-internal-token': env.INTERNAL_TOKEN } },
-    )
-    if (res.status === 402) entitled = false
-    else if (res.ok) connection = (await res.json()) as ConnectionView
+  if (isAdmin) {
+    const res = await env.AUTH_SERVICE.fetch(`https://auth/orgs/${params.orgId}/sso/connection`, {
+      headers: { 'x-internal-token': env.INTERNAL_TOKEN },
+    })
+    if (res.ok) connection = (await res.json()) as ConnectionView
     // 404 → not configured yet (default connection above)
   }
 
-  return { org, isAdmin, ssoAvailable, entitled, connection, suggestedRedirectUri }
+  return { org, isAdmin, connection, suggestedRedirectUri }
 }
 
 function messageForStatus(status: number): string {
-  if (status === 402) return 'This organization’s plan does not include enterprise SSO.'
   if (status === 401 || status === 403) return 'You are not allowed to manage SSO for this org.'
   if (status === 400) return 'Please fill in the issuer, client ID, secret, and redirect URI.'
   return 'Something went wrong. Please try again.'
@@ -81,8 +76,6 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const env = context.cloudflare.env
   const org = await requireOrgAdmin(token, params.orgId, env)
   if (!ADMIN_ROLES.has(org.role)) return { error: 'Only owners or admins can configure SSO.' }
-  if (!env.ENTERPRISE_SERVICE)
-    return { error: 'Enterprise SSO is not enabled for this deployment.' }
 
   const form = await request.formData()
   const scopesRaw = String(form.get('scopes') ?? '').trim()
@@ -94,20 +87,17 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     scopes: scopesRaw ? scopesRaw.split(/\s+/) : undefined,
   }
 
-  const res = await env.ENTERPRISE_SERVICE.fetch(
-    `https://enterprise/orgs/${params.orgId}/sso/connection`,
-    {
-      method: 'PUT',
-      headers: { 'x-internal-token': env.INTERNAL_TOKEN, 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  )
+  const res = await env.AUTH_SERVICE.fetch(`https://auth/orgs/${params.orgId}/sso/connection`, {
+    method: 'PUT',
+    headers: { 'x-internal-token': env.INTERNAL_TOKEN, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!res.ok) return { error: messageForStatus(res.status) }
   return { saved: true as const }
 }
 
-export default function SsoAdmin({ loaderData, actionData, params }: Route.ComponentProps) {
-  const { org, isAdmin, ssoAvailable, entitled, connection, suggestedRedirectUri } = loaderData
+export default function SsoAdmin({ loaderData, actionData }: Route.ComponentProps) {
+  const { org, isAdmin, connection, suggestedRedirectUri } = loaderData
   const error = actionData && 'error' in actionData ? actionData.error : null
   const saved = actionData && 'saved' in actionData ? actionData.saved : false
 
@@ -125,18 +115,8 @@ export default function SsoAdmin({ loaderData, actionData, params }: Route.Compo
         </header>
 
         {!isAdmin && <Forbidden subject="configure SSO" />}
-        {isAdmin && !ssoAvailable && (
-          <ErrorNote>Enterprise SSO is not enabled for this deployment.</ErrorNote>
-        )}
-        {isAdmin && ssoAvailable && !entitled && (
-          <ErrorNote>
-            This organization’s plan does not include enterprise SSO.{' '}
-            <Link to={`/orgs/${params.orgId}/billing`}>Upgrade on the billing page</Link> to enable
-            it.
-          </ErrorNote>
-        )}
 
-        {isAdmin && ssoAvailable && entitled && (
+        {isAdmin && (
           <>
             <p className="lede">
               Connect your identity provider (Okta, Entra ID, Google Workspace). Set your IdP’s
