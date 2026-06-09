@@ -75,12 +75,20 @@ export async function getOrgRequiresStepUpForReveal(
   database: Database,
   organizationId: string,
 ): Promise<boolean> {
-  const [row] = await database
-    .select({ require: organizations.requireStepUpForReveal })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId))
-    .limit(1)
-  return row?.require ?? false
+  // Transactional on purpose: a security policy must read fresh. Hyperdrive's
+  // ~60s query cache would otherwise let reveals bypass step-up for up to a
+  // minute after an org enables it (a no-token reveal caches policy=false, then
+  // enabling doesn't take effect until the TTL lapses — confirmed live, ~82s).
+  // Hyperdrive never caches in-transaction queries (same fix as the TOTP
+  // read-after-write bug).
+  return database.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ require: organizations.requireStepUpForReveal })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1)
+    return row?.require ?? false
+  })
 }
 
 /** Set the org's step-up-before-reveal policy. */
