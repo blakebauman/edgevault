@@ -312,25 +312,34 @@ const reauthSchema = z.discriminatedUnion('method', [
   }),
 ])
 
-app.post('/reauth', requireUser, zValidator('json', reauthSchema), async (c) => {
-  const body = c.req.valid('json')
-  let ok = false
-  if (body.method === 'totp') {
-    ok = await verifyUserTotp(c.env, c.var.database, c.var.userId, body.code)
-  } else {
-    const assertedUserId = await verifyAuthentication(c.var.database, {
-      // biome-ignore lint/suspicious/noExplicitAny: the browser response shape is validated by the library
-      response: body.response as any,
-      expectedChallenge: body.expectedChallenge,
-      expectedOrigin: body.expectedOrigin,
-      expectedRPID: body.expectedRPID,
-    })
-    ok = assertedUserId !== null && assertedUserId === c.var.userId
-  }
-  if (!ok) return c.json({ error: 'reauth_failed' }, 401)
-  const revealToken = await signRevealToken(c.env, c.var.userId)
-  return c.json({ revealToken, expiresIn: 300 })
-})
+app.post(
+  '/reauth',
+  // Rate-limited like every other factor-verifying route: step-up's own threat
+  // model assumes the session may be compromised, so a held access token must
+  // not be able to brute-force the 6-digit TOTP into a reveal token.
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'reauth-ip'),
+  requireUser,
+  zValidator('json', reauthSchema),
+  async (c) => {
+    const body = c.req.valid('json')
+    let ok = false
+    if (body.method === 'totp') {
+      ok = await verifyUserTotp(c.env, c.var.database, c.var.userId, body.code)
+    } else {
+      const assertedUserId = await verifyAuthentication(c.var.database, {
+        // biome-ignore lint/suspicious/noExplicitAny: the browser response shape is validated by the library
+        response: body.response as any,
+        expectedChallenge: body.expectedChallenge,
+        expectedOrigin: body.expectedOrigin,
+        expectedRPID: body.expectedRPID,
+      })
+      ok = assertedUserId !== null && assertedUserId === c.var.userId
+    }
+    if (!ok) return c.json({ error: 'reauth_failed' }, 401)
+    const revealToken = await signRevealToken(c.env, c.var.userId)
+    return c.json({ revealToken, expiresIn: 300 })
+  },
+)
 
 // --- Social OAuth (GitHub / Google) ----------------------------------------
 // The console BFF supplies the redirect URI (its own callback) and round-trips

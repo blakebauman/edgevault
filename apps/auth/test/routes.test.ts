@@ -128,4 +128,21 @@ describe('rate limiting', () => {
     const res = await callWith({}, { email: 'bad', password: 'longenough' })
     expect(res.status).toBe(400)
   })
+
+  it('rate-limits /reauth ahead of auth, so a held session cannot brute-force TOTP', async () => {
+    // fakeLimiter(0) blocks the first hit. The 429 (not 401) proves the limiter
+    // runs before requireUser — without it, a compromised access token could
+    // hammer the 6-digit code to mint a reveal token.
+    const res = await app.fetch(
+      new Request('https://auth.test/reauth', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.9' },
+        body: JSON.stringify({ method: 'totp', code: '123456' }),
+      }),
+      { ...env, AUTH_IP_LIMITER: fakeLimiter(0) } as unknown as Env,
+      ctx,
+    )
+    expect(res.status).toBe(429)
+    expect(await res.json()).toMatchObject({ error: 'rate_limited' })
+  })
 })
