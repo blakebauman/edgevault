@@ -69,11 +69,10 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
           <div class="perf" aria-hidden="true"></div>
           <ul>
             <li>everything in Team</li>
-            <li>SSO (OIDC/SAML)</li>
-            <li>SCIM provisioning</li>
-            <li>advanced RBAC</li>
-            <li>signed entitlements</li>
+            <li>committed-use pricing</li>
             <li>support with an SLA</li>
+            <li>security review &amp; DPA</li>
+            <li>dedicated onboarding</li>
           </ul>
           <div class="foot"><a class="btn-line" href="/contact">Talk to us</a></div>
         </div>
@@ -82,17 +81,17 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
         <div>
           <div class="t">Self-host — $0 forever</div>
           <p>
-            The MIT core on your own Cloudflare account: same workers, same Durable Objects, no
-            telemetry, no callback. Enterprise identity features (SSO, SCIM, advanced RBAC) are
-            commercial and entitlement-gated.
+            The full platform on your own Cloudflare account: same workers, same Durable Objects,
+            no telemetry, no callback. Every feature — including SSO/SAML and SCIM — is in the MIT
+            core. Nothing is withheld; the paid tiers buy usage allowance, support, and scale.
           </p>
         </div>
         <a class="btn-line" href={GITHUB}>Clone the repo</a>
       </div>
       <p class="footnote">
         Allowance, rate, and support figures are launch placeholders — Stripe pricing is not yet
-        activated. Tier structure and entitlements match the control plane. "Talk to us" appears
-        only where a human is genuinely required.
+        activated. Tiers differ on usage allowance + support, never on which features you can use —
+        there is no feature-gating. "Talk to us" appears only where a human is genuinely required.
       </p>
     </div>
   </section>
@@ -153,7 +152,7 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
         <div class="card qa"><h3>What counts as an edge read?</h3><p>One GET against the delivery plane (cdn.edgevault.io). L1 cache hits count; your origin reads don't exist because there is no origin.</p></div>
         <div class="card qa"><h3>What's an MAU?</h3><p>A unique end-user identity evaluated for flags in a calendar month. Anonymous percentage rollouts don't create MAUs.</p></div>
         <div class="card qa"><h3>What's the catch in the free tier?</h3><p>An allowance, stated above. When you outgrow it, the Pro meter starts. That's the catch.</p></div>
-        <div class="card qa"><h3>Is self-hosting feature-crippled?</h3><p>No. The MIT core is the same code path the managed edge runs. Enterprise identity features (SSO, SCIM, advanced RBAC) are commercial and gated by signed entitlements.</p></div>
+        <div class="card qa"><h3>Is self-hosting feature-crippled?</h3><p>No. The MIT core is the same code path the managed edge runs, and it includes every feature — SSO/SAML, SCIM, RBAC, all of it. There is no feature-gating; the paid tiers buy usage allowance, support, and scale.</p></div>
         <div class="card qa"><h3>Do config writes and secret operations cost money?</h3><p>No. They're metered so you can see them in your usage, and included in every tier.</p></div>
         <div class="card qa"><h3>Do you phone home?</h3><p>No. The open-core boundary check in CI fails any build that adds telemetry to core.</p></div>
         <div class="card qa"><h3>Can I move from managed to self-hosted later?</h3><p>Yes. Export is a first-class API, and the data model is the same Drizzle schema either way.</p></div>

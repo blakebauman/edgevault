@@ -1,6 +1,6 @@
 # SAML 2.0 — internal security self-review
 
-Scope: `@edgevault/ee-sso-saml` SAML SP (`src/c14n.ts`, `src/saml.ts`). This is an
+Scope: `@edgevault/sso-saml` SAML SP (`src/c14n.ts`, `src/saml.ts`). This is an
 **internal** review (audit prep), **not** a substitute for the external XML-DSig
 audit + live-IdP interop testing that must precede enabling SAML for real orgs.
 The OIDC path in this package (built on `jose`) does **not** carry these caveats.
@@ -25,8 +25,8 @@ The OIDC path in this package (built on `jose`) does **not** carry these caveats
   include our SP entityID; `SubjectConfirmationData.Recipient` must equal our
   ACS; `InResponseTo` is checked when the request id is available.
 - **Status spoofing** — the response `StatusCode` must be `…:status:Success`.
-- **Transport** — the SAML surface is gated by the `sso` entitlement + the
-  internal-token mesh, and is only reachable via the console BFF; an unconfigured
+- **Transport** — the SAML surface (in the auth worker) is behind the
+  internal-token mesh and is only reachable via the console BFF; an unconfigured
   org has no connection and cannot complete a flow.
 
 ## Residual risks — what the external audit must scrutinize
@@ -67,7 +67,7 @@ The OIDC path in this package (built on `jose`) does **not** carry these caveats
 ## Recommendation
 
 - **OIDC SSO**: production-ready (jose-based).
-- **SAML SSO**: deploy the worker (the surface is gated and unused until an admin
+- **SAML SSO**: the surface ships in the auth worker (unused until an admin
   configures a connection), but **do not enable SAML connections for real
   production orgs until** (a) the canonicalizer is independently reviewed and
   (b) interop is validated against the IdPs you must support. The assertion-replay

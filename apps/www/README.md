@@ -46,5 +46,5 @@ pnpm deploy   # astro build + wrangler deploy        → edgevault.io
 - Literal `{`/`}` in code artifacts must be written as `&lbrace;`/`&rbrace;`
   (Astro parses braces as expressions).
 - Pricing numbers are launch placeholders (Stripe unactivated); tier structure
-  and entitlements are reconciled against `edge/control-plane` — keep it that
-  way.
+  is reconciled against `edge/control-plane` — keep it that way. There is no
+  feature-gating (every feature is core); tiers differ only on usage + support.

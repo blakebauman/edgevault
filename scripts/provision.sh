@@ -12,7 +12,7 @@ w() { echo "+ wrangler $*"; npx wrangler "$@"; }
 echo "== Hyperdrive (Neon) =="
 echo "Provide your Neon DIRECT connection string as NEON_URL, then:"
 echo "  npx wrangler hyperdrive create edgevault-neon --connection-string=\"\$NEON_URL\""
-echo "  → paste the id into apps/api + apps/auth (+ ee/enterprise, edge/control-plane) HYPERDRIVE"
+echo "  → paste the id into apps/api + apps/auth (+ edge/control-plane) HYPERDRIVE"
 echo
 
 echo "== KV namespaces =="

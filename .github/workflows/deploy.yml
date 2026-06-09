@@ -67,13 +67,6 @@ jobs:
             echo "::endgroup::"
           done
 
-          # Commercial EE worker (enterprise SSO/SCIM). Internal-only (no public
-          # route); the console binds it via ENTERPRISE_SERVICE, so deploy it
-          # before console. Secrets (INTERNAL_TOKEN/MASTER_KEK) are set out of band.
-          echo "::group::deploy ee-enterprise"
-          (cd ee/enterprise && pnpm exec wrangler deploy $ENV_ARG)
-          echo "::endgroup::"
-
           # Console is Vite-built; the Cloudflare plugin selects the environment
           # at BUILD time via CLOUDFLARE_ENV (unset = top-level/production).
           echo "::group::deploy console"

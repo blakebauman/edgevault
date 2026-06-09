@@ -7,6 +7,7 @@ import { requireWorkspaceMember } from './middleware/workspace'
 import { invitationRoutes } from './routes/invitations'
 import { machineRoutes } from './routes/machine'
 import { organizationRoutes } from './routes/organizations'
+import { scimRoutes } from './routes/scim'
 import { internalShareRoutes, shareRoutes } from './routes/shares'
 import { workspaceRoutes } from './routes/workspaces'
 
@@ -84,6 +85,11 @@ app.route('/api/v1/shares', shareRoutes)
 app.route('/internal/shares', internalShareRoutes)
 // Machine surface (environment API keys, not JWTs): CLI/CI export incl. secrets.
 app.route('/machine', machineRoutes)
+
+// SCIM 2.0 directory surface, called directly by the customer's IdP and
+// authenticated by the org's SCIM bearer token (not a user session).
+app.use('/scim/*', withDatabase)
+app.route('/scim', scimRoutes)
 
 // Remote MCP server (Streamable HTTP), one per workspace, same auth + membership.
 app.use('/mcp/:workspaceId', withDatabase, requireAuth, requireWorkspaceMember)

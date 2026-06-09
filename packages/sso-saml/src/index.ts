@@ -1,13 +1,10 @@
-import { ENTITLEMENTS, type License, requireEntitlement } from '@edgevault/licensing'
 import * as jose from 'jose'
 
 /**
- * EdgeVault Enterprise Edition — enterprise SSO. Phase A is OIDC (covers most
- * IdPs: Okta, Entra ID, Google Workspace) via the authorization-code + PKCE
- * flow. Phase B (SAML 2.0, XML-DSig) is the hard piece on Workers and is stubbed
- * below. This module is gated by the `sso` entitlement.
- *
- * COMMERCIAL: see ee/LICENSE. The MIT core must not import from here.
+ * Enterprise SSO. Phase A is OIDC (covers most IdPs: Okta, Entra ID, Google
+ * Workspace) via the authorization-code + PKCE flow. Phase B (SAML 2.0,
+ * XML-DSig) is the hard piece on Workers and lives in saml.ts. Core feature —
+ * the SSO/SAML HTTP surface mounts in the auth worker.
  */
 
 /** A per-organization OIDC connection (stored encrypted; clientSecret is sensitive). */
@@ -126,11 +123,6 @@ export async function verifyIdToken(
   })
   if (payload.nonce !== nonce) throw new Error('OIDC nonce mismatch')
   return payload as IdTokenClaims
-}
-
-/** Gate: throws EntitlementError unless the org's license includes SSO. */
-export function assertSsoEntitled(license: License): void {
-  requireEntitlement(license, ENTITLEMENTS.SSO)
 }
 
 // SAML 2.0 (Phase B) — hand-rolled XML-DSig verification on @xmldom/xmldom +

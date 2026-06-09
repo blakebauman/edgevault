@@ -39,20 +39,20 @@ async function main() {
 # Auth signing key (EdDSA JWK) — auth worker
 JWT_PRIVATE_JWK='${jwtPrivateJwk}'
 
-# Envelope-encryption master key (base64, 32 bytes) — auth + api + ee/enterprise
-# (must be IDENTICAL across those workers so secrets decrypt everywhere)
+# Envelope-encryption master key (base64, 32 bytes) — auth + api
+# (must be IDENTICAL across those workers so secrets decrypt everywhere; auth
+# also uses it to encrypt OIDC client secrets for enterprise SSO connections)
 MASTER_KEK='${masterKek}'
 
-# Internal mesh shared secret — console + auth + ee/enterprise
+# Internal mesh shared secret — console + auth + api (+ control-plane if billing)
 INTERNAL_TOKEN='${internalToken}'
 
 # Set them (repeat MASTER_KEK/INTERNAL_TOKEN for each worker that needs them):
 #   echo -n "$JWT_PRIVATE_JWK" | npx wrangler secret put JWT_PRIVATE_JWK --name edgevault-auth
 #   echo -n "$MASTER_KEK"      | npx wrangler secret put MASTER_KEK      --name edgevault-auth
 #   echo -n "$MASTER_KEK"      | npx wrangler secret put MASTER_KEK      --name edgevault-api
-#   echo -n "$MASTER_KEK"      | npx wrangler secret put MASTER_KEK      --name edgevault-enterprise
 #   echo -n "$INTERNAL_TOKEN"  | npx wrangler secret put INTERNAL_TOKEN  --name edgevault-auth
-#   echo -n "$INTERNAL_TOKEN"  | npx wrangler secret put INTERNAL_TOKEN  --name edgevault-enterprise
+#   echo -n "$INTERNAL_TOKEN"  | npx wrangler secret put INTERNAL_TOKEN  --name edgevault-api
 #   echo -n "$INTERNAL_TOKEN"  | npx wrangler secret put INTERNAL_TOKEN  --name edgevault-console
 #
 # Provider/billing secrets (set the ones you use):

@@ -1,12 +1,13 @@
-import { ENTITLEMENTS, type Entitlement, type Plan } from '@edgevault/licensing'
-
 /**
  * Stripe billing logic for Managed Edge (proprietary). Webhook signature
  * verification is done with WebCrypto (no Stripe SDK needed). Subscription
- * events map a plan to the entitlements the control plane writes for an org —
- * the same entitlement model the OSS core reads (cloud sets them automatically;
- * self-host uses signed license keys).
+ * events carry the org's coarse plan tier (free/pro/team/enterprise) in their
+ * metadata, which the control plane records for billing display. There is no
+ * feature-gating attached — every feature is core; the plan is purely a billing
+ * label (the platform monetizes through usage metering + self-serve tiers).
  */
+
+export type Plan = 'free' | 'pro' | 'team' | 'enterprise'
 
 const encoder = new TextEncoder()
 
@@ -52,37 +53,15 @@ export async function verifyStripeWebhook(
   return timingSafeEqual(expected, provided)
 }
 
-export interface EntitlementGrant {
-  plan: Plan
-  entitlements: Entitlement[]
+/** Normalize an arbitrary plan string to a known tier (unknown → free). */
+export function normalizePlan(plan: string): Plan {
+  return plan === 'pro' || plan === 'team' || plan === 'enterprise' ? plan : 'free'
 }
 
-/** Map a subscription plan to the entitlements an org receives. */
-export function planToEntitlements(plan: string): EntitlementGrant {
-  switch (plan) {
-    case 'enterprise':
-      return {
-        plan: 'enterprise',
-        entitlements: [
-          ENTITLEMENTS.SSO,
-          ENTITLEMENTS.SCIM,
-          ENTITLEMENTS.ADVANCED_RBAC,
-          ENTITLEMENTS.AUDIT_RETENTION,
-        ],
-      }
-    case 'team':
-      return { plan: 'team', entitlements: [ENTITLEMENTS.AUDIT_RETENTION] }
-    case 'pro':
-      return { plan: 'pro', entitlements: [] }
-    default:
-      return { plan: 'free', entitlements: [] }
-  }
-}
-
-export interface StripeEntitlementUpdate {
+export interface StripePlanUpdate {
   organizationId: string
-  grant: EntitlementGrant
-  /** true when the subscription was cancelled — revoke to free. */
+  plan: Plan
+  /** true when the subscription was cancelled — revert to free. */
   revoked: boolean
   /** Stripe customer id (`customer` on the subscription) — recorded so the
    * metering cron can attribute usage. Kept on cancellation (final invoices
@@ -96,11 +75,11 @@ interface StripeEvent {
 }
 
 /**
- * Translate a relevant Stripe subscription event into an entitlement update.
- * Returns null for events we don't act on. `organizationId` + `plan` are carried
- * in subscription metadata set at Checkout.
+ * Translate a relevant Stripe subscription event into a plan update. Returns
+ * null for events we don't act on. `organizationId` + `plan` are carried in
+ * subscription metadata set at Checkout.
  */
-export function entitlementUpdateFromEvent(event: StripeEvent): StripeEntitlementUpdate | null {
+export function planUpdateFromEvent(event: StripeEvent): StripePlanUpdate | null {
   if (!event.type?.startsWith('customer.subscription.')) return null
   const subscription = event.data?.object ?? {}
   const metadata = (subscription.metadata as Record<string, string> | undefined) ?? {}
@@ -109,11 +88,11 @@ export function entitlementUpdateFromEvent(event: StripeEvent): StripeEntitlemen
 
   const revoked =
     event.type === 'customer.subscription.deleted' || subscription.status === 'canceled'
-  const plan = revoked ? 'free' : (metadata.plan ?? 'free')
+  const plan = revoked ? 'free' : normalizePlan(metadata.plan ?? 'free')
   const customer = subscription.customer
   return {
     organizationId,
-    grant: planToEntitlements(plan),
+    plan,
     revoked,
     ...(typeof customer === 'string' && customer !== '' ? { stripeCustomerId: customer } : {}),
   }

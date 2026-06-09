@@ -19,9 +19,9 @@ reporters who wish to be named.
 
 ## Scope
 
-In scope: the open-source core (`apps/*`, `packages/*`) and the enterprise
-edition (`ee/*`). The managed-service control plane (`edge/*`) is operated by
-us; report issues there to the same address.
+In scope: the open-source core (`apps/*`, `packages/*`), which includes all
+product features (enterprise SSO/SAML, SCIM). The managed-service control plane
+(`edge/*`) is operated by us; report issues there to the same address.
 
 ## Threat Model
 
@@ -81,24 +81,23 @@ have **not** yet closed. Numbers reflect the current `main`.
 - **Cross-tenant access** — per-workspace SQLite Durable Objects (addressed by
   workspace id) physically separate tenant data; the KEK is workspace-derived,
   so even a leaked DEK is scoped to one workspace.
-- **Privilege escalation into paid features** — `ee/*` features are gated by an
-  `entitlements` row; unknown entitlement strings are dropped at load, so a
-  malformed row can never silently grant an enterprise capability.
 - **SSO attacks** — OIDC uses authorization-code + PKCE with `state`/`nonce`.
   SAML signature verification (XML-DSig) is implemented but **not yet enabled
   for production orgs** — see
-  [`ee/sso-saml/SECURITY-REVIEW.md`](ee/sso-saml/SECURITY-REVIEW.md).
+  [`packages/sso-saml/SECURITY-REVIEW.md`](packages/sso-saml/SECURITY-REVIEW.md).
+  The SCIM directory surface is authenticated by a per-org bearer token whose
+  SHA-256 is compared constant-time; no stored hash means SCIM is denied.
 - **Supply chain** — auth is built on a small set of audited primitives
   (`jose`, `@noble/hashes`, `@oslojs/*`) rather than a large framework; a CI
   boundary check (`pnpm boundary`) enforces that the MIT core never imports
-  `ee/` or `edge/`.
+  `edge/`.
 
 ### Residual risks & non-goals
 
 - **SAML XML-DSig** — the hand-rolled exclusive-c14n needs an external audit and
   an assertion-replay cache before SAML is enabled for real orgs. Tracked in
-  `ee/sso-saml/SECURITY-REVIEW.md`. Until then, OIDC is the supported enterprise
-  SSO path.
+  `packages/sso-saml/SECURITY-REVIEW.md`. Until then, OIDC is the supported
+  enterprise SSO path.
 - **Custom auth ownership** — building auth ourselves means we own every CVE
   class (session fixation, OAuth/OIDC state/PKCE correctness, timing). Mitigated
   by audited primitives and per-change review, but it is an accepted trade-off

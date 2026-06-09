@@ -7,7 +7,7 @@ import type { Route } from './+types/scim'
  * Org SCIM provisioning. Owner/admins generate (or rotate) the bearer token an
  * IdP uses to call EdgeVault's SCIM endpoints. The raw token is returned by the
  * api exactly once — we surface it here and never store it — only its hash lives
- * server-side. The api enforces the real RBAC + entitlement gate; this is the UI.
+ * server-side. The api enforces the real RBAC; this is the UI.
  */
 
 export function meta(_: Route.MetaArgs) {
@@ -35,20 +35,19 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   // Not a member (or no such org) — don't reveal anything; bounce home.
   if (!org) throw redirect('/')
 
-  // Token status: booleans only (entitled / configured), never the value.
+  // Token status: a boolean only (configured), never the value.
   const statusRes = await env.API_SERVICE.fetch(
     `https://api/api/v1/organizations/${params.orgId}/scim-token`,
     { headers: { authorization: `Bearer ${token}` } },
   )
   const status = statusRes.ok
-    ? ((await statusRes.json()) as { entitled: boolean; configured: boolean })
-    : { entitled: false, configured: false }
+    ? ((await statusRes.json()) as { configured: boolean })
+    : { configured: false }
   return { org, status }
 }
 
 /** Map api status codes to a human message for the SCIM token endpoints. */
 function messageForStatus(status: number): string {
-  if (status === 402) return 'This organization’s plan does not include SCIM provisioning.'
   if (status === 403) return 'Only organization owners or admins can manage SCIM tokens.'
   if (status === 401) return 'Your session expired. Please sign in again.'
   return 'Something went wrong. Please try again.'
@@ -109,12 +108,6 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
 
         {error && <ErrorNote>{error}</ErrorNote>}
 
-        {!status.entitled && (
-          <ErrorNote>
-            This organization’s plan does not include SCIM provisioning. Upgrade to enable it.
-          </ErrorNote>
-        )}
-
         {scimToken ? (
           <TokenBox
             note={
@@ -130,17 +123,17 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
           <p className="text-muted-foreground">
             The SCIM token has been revoked. Existing IdP syncs will now fail.
           </p>
-        ) : status.entitled ? (
+        ) : (
           <p className="text-muted-foreground">
             {status.configured
               ? 'A SCIM token is configured for this organization. Rotate it to issue a new one.'
               : 'No SCIM token has been generated yet.'}
           </p>
-        ) : null}
+        )}
 
         <ActionGroup className="mt-6">
           <Form method="post">
-            <Button type="submit" name="intent" value="generate" disabled={!status.entitled}>
+            <Button type="submit" name="intent" value="generate">
               {status.configured ? 'Rotate token' : 'Generate token'}
             </Button>
           </Form>

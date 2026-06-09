@@ -42,16 +42,15 @@ KV for hot edge reads; R2 + Vectorize + Queues for audit, search, and warehouse.
 - **Secrets vault** — envelope encryption (per-secret DEK wrapped by a
   per-workspace KEK; `@edgevault/crypto`).
 - **Audit warehouse** — Queue → R2 NDJSON (Pipelines/R2 SQL on top).
-- **Open-core** — `@edgevault/licensing` signed entitlements; `ee/` SSO (OIDC) +
-  SCIM; `edge/` Stripe billing + metering.
+- **Open-core** — every product feature is MIT core (enterprise SSO OIDC/SAML +
+  SCIM included); only `edge/` Stripe billing + metering is proprietary.
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) to run it on your own Cloudflare account.
 
 ## Open-core layout
 
-- `apps/*`, `packages/*` — **MIT** open-source core (incl. AI + MCP).
-- `ee/*` — **EdgeVault Enterprise Edition** (commercial license): SSO/SAML, SCIM,
-  advanced RBAC, audit retention. Gated by signed license-key entitlements.
+- `apps/*`, `packages/*` — **MIT** open-source core (incl. AI + MCP, enterprise
+  SSO OIDC/SAML, and SCIM — no feature is withheld from the core).
 - `edge/*` — **proprietary** Managed Edge control plane (Stripe billing, metering,
   provisioning). Not part of the OSS distribution.
 

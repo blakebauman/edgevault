@@ -7,8 +7,10 @@ import { organizations } from './organization'
  * (the subscription carries `metadata.organizationId`; `customer` is the Stripe
  * id), and the usage-metering cron reads it to attribute meter events. Orgs
  * without a row are unbilled (free tier / self-host) and are skipped by the
- * cron. Like `entitlements`, the table lives in the shared schema so a single
- * Neon database serves both the OSS core and the proprietary control plane.
+ * cron. `plan` is the org's coarse subscription tier (free/pro/team/enterprise)
+ * for billing display — there is no feature-gating attached to it; every feature
+ * is core. The table lives in the shared schema so a single Neon database serves
+ * both the OSS core and the proprietary control plane.
  */
 export const stripeCustomers = pgTable(
   'stripe_customers',
@@ -17,6 +19,7 @@ export const stripeCustomers = pgTable(
       .primaryKey()
       .references(() => organizations.id, { onDelete: 'cascade' }),
     stripeCustomerId: text('stripe_customer_id').notNull(),
+    plan: text('plan').notNull().default('free'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('stripe_customers_customer_id_key').on(t.stripeCustomerId)],

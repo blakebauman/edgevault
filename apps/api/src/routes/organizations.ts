@@ -1,6 +1,5 @@
 import { generateToken, hashToken } from '@edgevault/auth'
 import type { InvitationEmailJob } from '@edgevault/edge-protocol'
-import { ENTITLEMENTS } from '@edgevault/licensing'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
@@ -119,43 +118,30 @@ export const organizationRoutes = new Hono<AppEnv>()
     )
     return c.json({ workspaces: withCounts })
   })
-  // SCIM token status (owner/admin only). Returns booleans only — never the
-  // token or its hash: `entitled` (org's plan includes SCIM) and `configured`
-  // (a token has been provisioned). Lets the console show state without ever
-  // exposing the secret.
+  // SCIM token status (owner/admin only). Returns `configured` only — never the
+  // token or its hash — so the console can show whether provisioning is set up
+  // without ever exposing the secret.
   .get('/:orgId/scim-token', async (c) => {
     const orgId = c.req.param('orgId')
     const role = await getMemberRole(c.var.database, orgId, c.var.userId)
     if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
 
-    const { getEntitlements, getScimTokenHash } = await import('@edgevault/database')
-    const entitlements = await getEntitlements(c.var.database, orgId)
-    const entitled = entitlements?.entitlements.includes(ENTITLEMENTS.SCIM) ?? false
+    const { getScimTokenHash } = await import('@edgevault/database')
     const configured = (await getScimTokenHash(c.var.database, orgId)) !== null
-    return c.json({ entitled, configured })
+    return c.json({ configured })
   })
-  // Provision (or rotate) the org's SCIM bearer token. Owner/admin only, and
-  // only for orgs entitled to SCIM. The raw token is returned exactly once and
-  // never persisted — only its SHA-256 is stored, which the enterprise worker's
-  // SCIM middleware checks. Re-issuing here rotates: the previous token stops
-  // working as soon as the new hash is written.
+  // Provision (or rotate) the org's SCIM bearer token. Owner/admin only. The raw
+  // token is returned exactly once and never persisted — only its SHA-256 is
+  // stored (in scim_connections), which the SCIM surface checks. Re-issuing here
+  // rotates: the previous token stops working as soon as the new hash is written.
   .post('/:orgId/scim-token', async (c) => {
     const orgId = c.req.param('orgId')
     const role = await getMemberRole(c.var.database, orgId, c.var.userId)
     if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
 
-    const { getEntitlements, setScimTokenHash } = await import('@edgevault/database')
-    const entitlements = await getEntitlements(c.var.database, orgId)
-    if (!entitlements?.entitlements.includes(ENTITLEMENTS.SCIM)) {
-      return c.json({ error: 'entitlement_required', entitlement: ENTITLEMENTS.SCIM }, 402)
-    }
-
+    const { setScimTokenHash } = await import('@edgevault/database')
     const token = `evscim_${generateToken()}`
-    const stored = await setScimTokenHash(c.var.database, orgId, hashToken(token))
-    // No entitlements row to update — treat as un-entitled rather than create one.
-    if (!stored) {
-      return c.json({ error: 'entitlement_required', entitlement: ENTITLEMENTS.SCIM }, 402)
-    }
+    await setScimTokenHash(c.var.database, orgId, hashToken(token))
     return c.json(
       { token, tokenType: 'Bearer', note: 'Store this now — it is shown only once.' },
       201,
@@ -173,8 +159,8 @@ export const organizationRoutes = new Hono<AppEnv>()
 
   // --- Members ---
   // Any member may see the roster; only owners/admins mutate it. Membership
-  // changes go through Neon directly (the SCIM path in ee/ is the automated
-  // equivalent for IdP-provisioned orgs).
+  // changes go through Neon directly (the SCIM path is the automated equivalent
+  // for IdP-provisioned orgs).
   .get('/:orgId/members', async (c) => {
     const orgId = c.req.param('orgId')
     const role = await getMemberRole(c.var.database, orgId, c.var.userId)

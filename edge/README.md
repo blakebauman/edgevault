@@ -6,25 +6,26 @@ for redistribution.
 
 ## Boundary rules
 
-- Neither the MIT **core** (`apps/*`, `packages/*`) nor the **EE** (`ee/*`) may
-  import from `edge/`.
+- The MIT **core** (`apps/*`, `packages/*`) must never import from `edge/`.
 - All billing / Stripe / metering / provisioning logic lives here and **nowhere
-  else** — the OSS distribution ships without it.
+  else** — the OSS distribution ships without it. There is no feature-gating:
+  every product feature is core; this directory only handles *billing*.
 
 ## `control-plane` (`@edgevault/edge-control-plane`)
 
 A separate, proprietary Worker:
 
 - **Stripe webhooks** — WebCrypto HMAC signature verification (no Stripe SDK),
-  subscription events → tenant **entitlement** updates (`planToEntitlements`).
+  subscription events → the org's **billing plan** tier (`planUpdateFromEvent`).
 - **Usage metering** — a cron that aggregates billable counters off the durable
   audit pipeline (Queues→R2 SQL, not sampled Analytics) and reports to Stripe
   Billing Meters (`reportMeterEvents`).
 
-It writes entitlements into the shared Neon database that the OSS `api`/`auth`
-read, so Managed Edge subscriptions and self-host license keys converge on one
-entitlement model (`@edgevault/licensing`).
+It records the org's plan + Stripe customer mapping on the shared Neon
+`stripe_customers` row. The plan is a coarse billing label only — it gates no
+features (the platform monetizes via usage metering + self-serve tiers, not by
+withholding capabilities).
 
-Live Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) + the Neon
-entitlements table + the metering source are wired at deploy; the signature
-verification + plan mapping + reporting logic are complete and tested.
+Live Stripe keys (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) + the metering
+source are wired at deploy; the signature verification + plan mapping + reporting
+logic are complete and tested.

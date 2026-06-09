@@ -1,8 +1,7 @@
 {
-  "name": "@edgevault/ee-sso-saml",
+  "name": "@edgevault/sso-saml",
   "version": "0.0.0",
   "private": true,
-  "license": "SEE ee/LICENSE",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -13,7 +12,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@edgevault/licensing": "workspace:*",
     "@xmldom/xmldom": "^0.9.8",
     "jose": "^6.2.3"
   },

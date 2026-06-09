@@ -1,39 +1,15 @@
 import { and, countDistinct, eq, gte, inArray, lt } from 'drizzle-orm'
 import type { Database } from './client'
 import { accounts, sessions, users } from './schema/auth'
-import { entitlements } from './schema/entitlements'
 import { totpCredentials } from './schema/mfa'
 import { invitations, members, organizations } from './schema/organization'
 import { samlAssertionReplay, samlConnections } from './schema/saml'
+import { scimConnections } from './schema/scim'
 import { ssoConnections } from './schema/sso'
 import { stripeCustomers, stripeMeterWatermarks } from './schema/stripe'
 import { authenticators } from './schema/webauthn'
 import { workspaces } from './schema/workspace'
 
-/** Shared entitlement queries (used by api/auth read paths + the control plane). */
-
-export interface EntitlementRow {
-  plan: string
-  entitlements: string[]
-}
-
-export async function getEntitlements(
-  database: Database,
-  organizationId: string,
-): Promise<EntitlementRow | null> {
-  const [row] = await database
-    .select({ plan: entitlements.plan, entitlements: entitlements.entitlements })
-    .from(entitlements)
-    .where(eq(entitlements.organizationId, organizationId))
-    .limit(1)
-  return row ?? null
-}
-
-/**
- * Read an org's stored SCIM provisioning token hash (SHA-256 hex), or null if
- * SCIM isn't configured. Used by the enterprise worker to authenticate the SCIM
- * surface before serving any directory data.
- */
 /** Resolve an organization's id from its slug (SSO sign-in types the slug). */
 export async function getOrganizationIdBySlug(
   database: Database,
@@ -47,66 +23,75 @@ export async function getOrganizationIdBySlug(
   return row?.id ?? null
 }
 
+/**
+ * Read an org's stored SCIM provisioning token hash (SHA-256 hex), or null if
+ * SCIM isn't configured. The api worker compares this against the IdP's bearer
+ * token before serving any directory data.
+ */
 export async function getScimTokenHash(
   database: Database,
   organizationId: string,
 ): Promise<string | null> {
   const [row] = await database
-    .select({ scimTokenHash: entitlements.scimTokenHash })
-    .from(entitlements)
-    .where(eq(entitlements.organizationId, organizationId))
+    .select({ tokenHash: scimConnections.tokenHash })
+    .from(scimConnections)
+    .where(eq(scimConnections.organizationId, organizationId))
     .limit(1)
-  return row?.scimTokenHash ?? null
+  return row?.tokenHash ?? null
 }
 
 /**
- * Store (or rotate, or clear) an org's SCIM provisioning token hash. Pass null
- * to revoke. Updates the existing entitlements row only — an org without a row
- * has no SCIM entitlement and never reaches this path. Returns true if a row was
- * updated.
+ * Store (or rotate, or clear) an org's SCIM provisioning token hash. Pass a hash
+ * to provision/rotate (upserting the scim_connections row); pass null to revoke
+ * (deleting the row). Returns true if the org now has SCIM configured, false if
+ * it was cleared.
  */
 export async function setScimTokenHash(
   database: Database,
   organizationId: string,
   scimTokenHash: string | null,
 ): Promise<boolean> {
-  const updated = await database
-    .update(entitlements)
-    .set({ scimTokenHash, updatedAt: new Date() })
-    .where(eq(entitlements.organizationId, organizationId))
-    .returning({ organizationId: entitlements.organizationId })
-  return updated.length > 0
-}
-
-export async function upsertEntitlements(
-  database: Database,
-  input: { organizationId: string; plan: string; entitlements: string[] },
-): Promise<void> {
+  if (scimTokenHash === null) {
+    await database.delete(scimConnections).where(eq(scimConnections.organizationId, organizationId))
+    return false
+  }
   await database
-    .insert(entitlements)
-    .values({
-      organizationId: input.organizationId,
-      plan: input.plan,
-      entitlements: input.entitlements,
-    })
+    .insert(scimConnections)
+    .values({ organizationId, tokenHash: scimTokenHash })
     .onConflictDoUpdate({
-      target: entitlements.organizationId,
-      set: { plan: input.plan, entitlements: input.entitlements, updatedAt: new Date() },
+      target: scimConnections.organizationId,
+      set: { tokenHash: scimTokenHash, updatedAt: new Date() },
     })
+  return true
 }
 
-/** Record (or move) the Stripe customer that pays for an org. */
+/** Record (or move) the Stripe customer that pays for an org, with its plan. */
 export async function upsertStripeCustomer(
   database: Database,
-  input: { organizationId: string; stripeCustomerId: string },
+  input: { organizationId: string; stripeCustomerId: string; plan?: string },
 ): Promise<void> {
+  const plan = input.plan ?? 'free'
   await database
     .insert(stripeCustomers)
-    .values(input)
+    .values({
+      organizationId: input.organizationId,
+      stripeCustomerId: input.stripeCustomerId,
+      plan,
+    })
     .onConflictDoUpdate({
       target: stripeCustomers.organizationId,
-      set: { stripeCustomerId: input.stripeCustomerId, updatedAt: new Date() },
+      set: { stripeCustomerId: input.stripeCustomerId, plan, updatedAt: new Date() },
     })
+}
+
+/** An org's coarse billing plan tier, or 'free' if unbilled. No feature-gating. */
+export async function getOrgPlan(database: Database, organizationId: string): Promise<string> {
+  const [row] = await database
+    .select({ plan: stripeCustomers.plan })
+    .from(stripeCustomers)
+    .where(eq(stripeCustomers.organizationId, organizationId))
+    .limit(1)
+  return row?.plan ?? 'free'
 }
 
 export interface StripeCustomerRow {

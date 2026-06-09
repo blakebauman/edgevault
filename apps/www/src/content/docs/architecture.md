@@ -44,7 +44,7 @@ DO).
 
 | Store | Holds |
 | --- | --- |
-| Neon Postgres (via Hyperdrive) | users, orgs, sessions, API-key hashes, workspace metadata, entitlements |
+| Neon Postgres (via Hyperdrive) | users, orgs, sessions, API-key hashes, workspace metadata, SSO/SAML/SCIM connections, billing plan + Stripe customer |
 | Vault DO SQLite | config content, revisions, secret **ciphertext** |
 | Workers KV | pre-resolved edge values (write-through on every change) |
 | Secrets Store | signing keys, the master KEK |

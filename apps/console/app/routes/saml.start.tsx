@@ -3,17 +3,16 @@ import { setSamlCookie } from '../lib/session.server'
 import type { Route } from './+types/saml.start'
 
 /**
- * Begin SP-initiated SAML SSO: ask the ee/enterprise worker for the AuthnRequest
- * + IdP redirect URL, remember the request id (for InResponseTo) in the SAML
+ * Begin SP-initiated SAML SSO: ask the auth worker for the AuthnRequest + IdP
+ * redirect URL, remember the request id (for InResponseTo) in the SAML
  * transaction cookie, and redirect the browser to the IdP. The IdP later POSTs
  * its response to the ACS route.
  */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const env = context.cloudflare.env
   const orgId = params.orgId
-  if (!env.ENTERPRISE_SERVICE) throw redirect('/login?sso=unavailable')
 
-  const res = await env.ENTERPRISE_SERVICE.fetch(`https://enterprise/orgs/${orgId}/saml/start`, {
+  const res = await env.AUTH_SERVICE.fetch(`https://auth/orgs/${orgId}/saml/start`, {
     method: 'POST',
     headers: { 'x-internal-token': env.INTERNAL_TOKEN, 'content-type': 'application/json' },
     body: '{}',

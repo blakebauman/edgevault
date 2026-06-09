@@ -212,8 +212,8 @@ reconcile cron in `apps/api`.
 last error). **Phasing:** framework + cloudflare-workers (M) → github-actions (S) →
 vercel/aws (S each).
 
-**Open-core call:** framework + CF/GitHub providers MIT (adoption driver); enterprise
-destinations (AWS/Azure/GCP) could be EE-gated later if desired — defer the decision.
+**Open-core call:** framework + all providers (CF/GitHub/AWS/Azure/GCP) ship in MIT core
+— no feature-gating. Scale/usage is what's metered, not which destinations you can sync to.
 
 ---
 
@@ -242,12 +242,10 @@ restore emits per-key KV writes; auto-snapshot before promotion.
 
 ---
 
-### 2.8 Change requests for direct edits — L (EE)
+### 2.8 Change requests for direct edits — L
 
-Extends the existing promotion approval gate to *any* write. Gate with
-`requireEntitlement(ENTITLEMENTS.CHANGE_REQUESTS)` — `@edgevault/licensing` is a core
-package reading the shared Neon `entitlements` table, so core enforces without importing
-`ee/` (same pattern as the RBAC-gated secret reveal).
+Extends the existing promotion approval gate to *any* write. Ships in core, available to
+all orgs — no entitlement gate (the `requires_review` policy below is the only switch).
 
 **Build:**
 1. DO tables: `change_requests (id, environment_id, status open|approved|rejected|merged,
@@ -268,19 +266,17 @@ package reading the shared Neon `entitlements` table, so core enforces without i
 5. Console: CR list + review page (diff view, approve/reject); editor shows "your change
    will open a change request" banner when policy applies. MCP `set_config` returns
    `{ changeRequestId }` instead of the item when diverted (agents must handle it).
-6. Licensing: add `CHANGE_REQUESTS` to `ENTITLEMENTS` (`packages/licensing/src/index.ts`)
-   + `edge/control-plane` `planToEntitlements` mapping.
 
 **Risk:** secret proposals sit as ciphertext in `proposed_content` (encrypt on CR
 creation, same as direct writes) — reviewers see "secret changed" + hash, never plaintext.
 
 ---
 
-### 2.9 JIT / temporary access — M (EE)
+### 2.9 JIT / temporary access — M
 
 **Data model (Neon):** `access_grants (id, organizationId, workspaceId?, userId,
 grantedRole, reason, status pending|active|expired|revoked|rejected, expiresAt,
-requestedAt, approvedByUserId, approvedAt)`. Entitlement `JIT_ACCESS`.
+requestedAt, approvedByUserId, approvedAt)`. Core feature — no entitlement gate.
 
 **Enforcement — lazy, no daemon needed:** role resolution in
 `requireWorkspaceMember` (`apps/api/src/middleware/workspace.ts:10`) becomes
@@ -296,11 +292,11 @@ Every grant lifecycle event → audit queue.
 **v1 grants legacy roles** (admin/member); when 2.10 lands, grants reference custom roles.
 
 **Tests:** middleware unit for effective-role merge incl. expiry boundary; route tests
-for request/approve/revoke; entitlement-absent → 402.
+for request/approve/revoke.
 
 ---
 
-### 2.10 Deeper RBAC — L (EE — `ADVANCED_RBAC` entitlement already reserved)
+### 2.10 Deeper RBAC — L
 
 Today: org-level owner/admin/member checked inline in routes. Target: custom roles with
 environment- and key-scoped permissions.
@@ -314,12 +310,11 @@ environment- and key-scoped permissions.
    keyGlob? }`. Neon: `roles (id, organizationId, name, permissions jsonb)` +
    `role_assignments (roleId, userId, workspaceId?)`.
 3. `packages/rbac` (MIT core, pure): `can(permissionSet, action, resource): boolean` —
-   glob matching, deny-by-default, exhaustively unit-tested. Core ships the evaluator;
-   the *ability to define custom roles* is what's entitlement-gated (same open-core shape
-   as licensing itself).
+   glob matching, deny-by-default, exhaustively unit-tested. Core ships the evaluator and
+   custom-role definitions alike — no entitlement gate.
 4. api: `requireWorkspaceMember` loads the principal's permission set (legacy role →
-   synthesized permission set when no custom roles or no entitlement — **zero behavior
-   change for existing users**); replace inline `c.var.role !== 'owner'` checks with
+   synthesized permission set when no custom roles are defined — **zero behavior change
+   for existing users**); replace inline `c.var.role !== 'owner'` checks with
    `can()` calls per the inventory table. Cache permission sets in KV (60s TTL,
    purge on assignment change — same pattern as `AUTH_CACHE` session caching).
 5. Console: role editor, member assignment, and a per-user "effective access" view —
@@ -414,13 +409,13 @@ console code persists revealed values.
 
 ---
 
-### 3.3 End-to-end encrypted workspaces (opt-in) — L (EE)
+### 3.3 End-to-end encrypted workspaces (opt-in) — L
 
 The pattern: the wrapped-vault-key model. A per-workspace symmetric key is wrapped to
 each member's public key; secrets are encrypted client-side; the server stores
-ciphertext it cannot read. Applied to existing workspace secrets, opt-in per workspace,
-gated by a new `WORKSPACE_E2E` entitlement — the trust-model upsell for regulated
-tenants. The shipped share-link crypto (`encryptShareText`/`decryptShareText`,
+ciphertext it cannot read. Applied to existing workspace secrets, opt-in per workspace —
+a core capability (no entitlement gate), the stronger trust model for regulated tenants.
+The shipped share-link crypto (`encryptShareText`/`decryptShareText`,
 `packages/crypto/src/index.ts:226`) proves browser-side WebCrypto round-trips in this
 codebase; this extends a known pattern, not new R&D.
 
@@ -474,12 +469,13 @@ must re-derive and re-wrap the user's private key without a decrypt-everything e
 | Feature | Placement |
 |---|---|
 | 1.1–1.5, 2.7, 2.11 | MIT core (`apps/*`, `packages/*`) |
-| 2.6 syncs | Framework + CF/GitHub providers MIT; enterprise destinations TBD |
-| 2.8 change requests | Core-enforced, `CHANGE_REQUESTS` entitlement (new) |
-| 2.9 JIT access | Core-enforced, `JIT_ACCESS` entitlement (new) |
-| 2.10 advanced RBAC | Core evaluator MIT; custom roles behind `ADVANCED_RBAC` (exists) |
+| 2.6 syncs | MIT core — all providers (CF/GitHub/AWS/Azure/GCP) |
+| 2.8 change requests | MIT core |
+| 2.9 JIT access | MIT core |
+| 2.10 advanced RBAC | MIT core — evaluator + custom roles |
 | 3.1 step-up reveal, 3.2 reveal hygiene | MIT core |
-| 3.3 E2E workspaces + recovery escrow | EE — `WORKSPACE_E2E` entitlement (new) |
+| 3.3 E2E workspaces + recovery escrow | MIT core |
 
-New entitlements ⇒ update `packages/licensing` `ENTITLEMENTS` +
-`edge/control-plane` `planToEntitlements` + pricing page when numbers are real.
+Every product feature is MIT core — there is no feature-gating. The platform monetizes
+through usage metering + self-serve plan tiers in `edge/` (billing only); the plan label
+on `stripe_customers` gates nothing. Pricing numbers on the pricing page are placeholders.

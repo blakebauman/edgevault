@@ -1,7 +1,5 @@
-import { freeLicense } from '@edgevault/licensing'
 import { describe, expect, it } from 'vitest'
 import {
-  assertSsoEntitled,
   buildAuthorizationUrl,
   exchangeCode,
   generatePkce,
@@ -63,11 +61,5 @@ describe('OIDC', () => {
       fetchImpl,
     )
     expect(tokens.id_token).toBe('jwt')
-  })
-})
-
-describe('entitlement gate', () => {
-  it('blocks SSO without the entitlement', () => {
-    expect(() => assertSsoEntitled(freeLicense('org-1'))).toThrow()
   })
 })
