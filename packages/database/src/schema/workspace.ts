@@ -1,4 +1,13 @@
-import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core'
 import { users } from './auth'
 import { organizations } from './organization'
 
@@ -20,6 +29,9 @@ export const workspaces = pgTable(
       .references(() => organizations.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     slug: text('slug').notNull(),
+    // When false, config content is never embedded into Vectorize or sent to
+    // AI search — semantic search degrades to disabled for this workspace.
+    aiIndexingEnabled: boolean('ai_indexing_enabled').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -62,6 +74,8 @@ export const apiKeys = pgTable(
     prefix: text('prefix').notNull(),
     keyHash: text('key_hash').notNull(),
     scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+    // Optional source-IP restriction (CIDR list). Empty/null = any IP.
+    allowedCidrs: jsonb('allowed_cidrs').$type<string[]>(),
     createdByUserId: uuid('created_by_user_id').references(() => users.id, {
       onDelete: 'set null',
     }),

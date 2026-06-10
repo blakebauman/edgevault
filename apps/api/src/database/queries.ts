@@ -103,6 +103,45 @@ export async function setOrgRequireStepUpForReveal(
     .where(eq(organizations.id, organizationId))
 }
 
+export interface OrgSecurityPolicy {
+  requireStepUpForReveal: boolean
+  requireMfa: boolean
+  ssoOnly: boolean
+}
+
+/** All org security policies in one read (transactional — must read fresh). */
+export async function getOrgSecurityPolicy(
+  database: Database,
+  organizationId: string,
+): Promise<OrgSecurityPolicy> {
+  return database.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        requireStepUpForReveal: organizations.requireStepUpForReveal,
+        requireMfa: organizations.requireMfa,
+        ssoOnly: organizations.ssoOnly,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1)
+    return {
+      requireStepUpForReveal: row?.requireStepUpForReveal ?? false,
+      requireMfa: row?.requireMfa ?? false,
+      ssoOnly: row?.ssoOnly ?? false,
+    }
+  })
+}
+
+/** Patch org security policies (only the provided fields change). */
+export async function setOrgSecurityPolicy(
+  database: Database,
+  organizationId: string,
+  patch: Partial<OrgSecurityPolicy>,
+): Promise<void> {
+  if (Object.keys(patch).length === 0) return
+  await database.update(organizations).set(patch).where(eq(organizations.id, organizationId))
+}
+
 export async function createWorkspace(
   database: Database,
   input: { organizationId: string; name: string; slug: string },
@@ -246,6 +285,8 @@ export async function createApiKey(
     keyHash: string
     createdByUserId: string
     scopes?: string[]
+    expiresAt?: Date
+    allowedCidrs?: string[]
   },
 ) {
   const [created] = await database
@@ -258,15 +299,107 @@ export async function createApiKey(
       keyHash: input.keyHash,
       createdByUserId: input.createdByUserId,
       scopes: input.scopes ?? ['read'],
+      expiresAt: input.expiresAt ?? null,
+      allowedCidrs: input.allowedCidrs ?? null,
     })
     .returning({
       id: apiKeys.id,
       prefix: apiKeys.prefix,
       name: apiKeys.name,
       createdAt: apiKeys.createdAt,
+      expiresAt: apiKeys.expiresAt,
     })
   if (!created) throw new Error('Failed to create API key')
   return created
+}
+
+export interface ApiKeyListRow {
+  id: string
+  environmentId: string
+  name: string
+  prefix: string
+  scopes: string[]
+  createdByUserId: string | null
+  createdAt: Date
+  expiresAt: Date | null
+  lastUsedAt: Date | null
+  revokedAt: Date | null
+  allowedCidrs: string[] | null
+}
+
+/** Workspace key inventory for the console (hashes never leave the database). */
+export async function listApiKeys(
+  database: Database,
+  workspaceId: string,
+): Promise<ApiKeyListRow[]> {
+  // Transactional: the console lists right after minting/revoking; Hyperdrive's
+  // query cache must not serve the stale inventory.
+  return database.transaction(async (tx) =>
+    tx
+      .select({
+        id: apiKeys.id,
+        environmentId: apiKeys.environmentId,
+        name: apiKeys.name,
+        prefix: apiKeys.prefix,
+        scopes: apiKeys.scopes,
+        createdByUserId: apiKeys.createdByUserId,
+        createdAt: apiKeys.createdAt,
+        expiresAt: apiKeys.expiresAt,
+        lastUsedAt: apiKeys.lastUsedAt,
+        revokedAt: apiKeys.revokedAt,
+        allowedCidrs: apiKeys.allowedCidrs,
+      })
+      .from(apiKeys)
+      .where(eq(apiKeys.workspaceId, workspaceId)),
+  )
+}
+
+/**
+ * Mark a key revoked, returning its hash for the KV delete. Authorization is
+ * part of the WHERE (admin passes no restriction; non-admins only revoke keys
+ * they minted), so an unauthorized call updates nothing. Null = no such key
+ * for this caller.
+ */
+export async function revokeApiKey(
+  database: Database,
+  workspaceId: string,
+  keyId: string,
+  options: { onlyIfCreatedBy?: string } = {},
+): Promise<string | null> {
+  const conditions = [eq(apiKeys.id, keyId), eq(apiKeys.workspaceId, workspaceId)]
+  if (options.onlyIfCreatedBy) {
+    conditions.push(eq(apiKeys.createdByUserId, options.onlyIfCreatedBy))
+  }
+  const [row] = await database
+    .update(apiKeys)
+    .set({ revokedAt: new Date() })
+    .where(and(...conditions))
+    .returning({ keyHash: apiKeys.keyHash })
+  return row?.keyHash ?? null
+}
+
+/** Per-workspace opt-out: when false, config content never reaches Vectorize. */
+export async function isAiIndexingEnabled(
+  database: Database,
+  workspaceId: string,
+): Promise<boolean> {
+  const [row] = await database
+    .select({ enabled: workspaces.aiIndexingEnabled })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1)
+  return row?.enabled ?? true
+}
+
+export async function setAiIndexingEnabled(
+  database: Database,
+  workspaceId: string,
+  enabled: boolean,
+): Promise<void> {
+  await database
+    .update(workspaces)
+    .set({ aiIndexingEnabled: enabled })
+    .where(eq(workspaces.id, workspaceId))
 }
 
 /**

@@ -70,12 +70,25 @@ export async function action({ request, context }: Route.ActionArgs) {
     method: 'POST',
     headers: { cookie, ...ipHeaders(request) },
   })
-  const token = ((await tokenRes.json()) as { accessToken?: string }).accessToken
+  const tokenBody = (await tokenRes.json()) as { accessToken?: string; error?: string }
+  const token = tokenBody.accessToken
   if (!token) {
     // Signup returns a success-shaped response whether or not the account was
     // new (no enumeration); only a genuinely new account carries a session.
     // The other path means "you already have an account" — the email says so.
     if (intent === 'signup') return redirect('/login?signup=sent')
+    if (tokenBody.error === 'sso_required_by_org') {
+      return {
+        error:
+          'Your organization requires signing in through its identity provider — use Enterprise SSO below.',
+      }
+    }
+    if (tokenBody.error === 'mfa_required_by_org') {
+      return {
+        error:
+          'Your organization requires two-factor authentication. Add it under Account security, then sign in again.',
+      }
+    }
     return { error: 'Could not obtain an access token.' }
   }
 

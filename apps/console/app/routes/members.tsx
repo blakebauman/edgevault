@@ -82,7 +82,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   // Pending invitations are an admin view; members get an empty list (403).
   let invitations: Invitation[] = []
-  let requireStepUpForReveal = false
+  let security = { requireStepUpForReveal: false, requireMfa: false, ssoOnly: false }
   if (body.role === 'owner' || body.role === 'admin') {
     const [invRes, secRes] = await Promise.all([
       env.API_SERVICE.fetch(`https://api/api/v1/organizations/${params.orgId}/invitations`, {
@@ -96,8 +96,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       invitations = ((await invRes.json()) as { invitations: Invitation[] }).invitations
     }
     if (secRes.ok) {
-      requireStepUpForReveal = ((await secRes.json()) as { requireStepUpForReveal: boolean })
-        .requireStepUpForReveal
+      security = (await secRes.json()) as typeof security
     }
   }
 
@@ -107,7 +106,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     role: body.role,
     viewerId: body.viewerId,
     invitations,
-    requireStepUpForReveal,
+    security,
   }
 }
 
@@ -183,18 +182,21 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         headers,
         body: JSON.stringify({
           requireStepUpForReveal: form.get('requireStepUpForReveal') === 'on',
+          requireMfa: form.get('requireMfa') === 'on',
+          ssoOnly: form.get('ssoOnly') === 'on',
         }),
       },
     )
     if (res.ok) return { securitySaved: true as const }
-    return { error: friendlyError(res.status, 'updating the security policy') }
+    const detail = ((await res.json().catch(() => null)) as { detail?: string } | null)?.detail
+    return { error: detail ?? friendlyError(res.status, 'updating the security policy') }
   }
 
   return { error: 'Unknown action' }
 }
 
 export default function Members({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, members, role, viewerId, invitations, requireStepUpForReveal } = loaderData
+  const { org, members, role, viewerId, invitations, security } = loaderData
   const isAdmin = role === 'owner' || role === 'admin'
   const isOwner = role === 'owner'
   const ownerCount = members.filter((m) => m.role === 'owner').length
@@ -368,28 +370,37 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
         {isAdmin && (
           <>
             <h2>Security</h2>
-            {!requireStepUpForReveal && (
+            {!security.requireStepUpForReveal && (
               <StatusNote>
                 Secrets in this organization can currently be revealed without a fresh second
                 factor. New organizations require step-up by default — consider turning it on.
               </StatusNote>
             )}
             <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-              Require a fresh second factor (passkey or authenticator code) before any secret is
-              revealed in this organization. Being signed in won't be enough — revealing a secret
-              will ask for a quick re-check. Machine API keys (CLI / CI) are unaffected.
+              Step-up asks for a fresh second factor (passkey or authenticator code) before any
+              secret is revealed — being signed in isn't enough. Machine API keys (CLI / CI) are
+              unaffected. Require-MFA and SSO-only gate every member's access to this organization
+              at sign-in.
             </p>
-            <Form method="post" className="mt-4 flex flex-wrap items-center gap-3">
+            <Form method="post" className="mt-4 flex flex-col gap-2">
               <input type="hidden" name="intent" value="security" />
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   name="requireStepUpForReveal"
-                  defaultChecked={requireStepUpForReveal}
+                  defaultChecked={security.requireStepUpForReveal}
                 />
                 Require step-up to reveal secrets
               </label>
-              <Button type="submit" variant="secondary" size="compact">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="requireMfa" defaultChecked={security.requireMfa} />
+                Require two-factor auth (TOTP or passkey) for all members
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="ssoOnly" defaultChecked={security.ssoOnly} />
+                SSO-only — members must sign in through this org's identity provider
+              </label>
+              <Button type="submit" variant="secondary" size="compact" className="self-start">
                 Save
               </Button>
             </Form>

@@ -4,6 +4,7 @@ import {
   type Database,
   getAccountByProvider,
   members,
+  organizations,
   sessions,
   users,
   verifications,
@@ -64,10 +65,13 @@ export async function verifyCredentials(
   return toPublicUser(user)
 }
 
+/** How a session was established — drives the org `ssoOnly` policy at /token. */
+export type AuthMethod = 'password' | 'oauth' | 'sso' | 'passkey' | 'recovery'
+
 export async function createSession(
   database: Database,
   userId: string,
-  meta: { ipAddress?: string; userAgent?: string },
+  meta: { ipAddress?: string; userAgent?: string; authMethod?: AuthMethod },
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = generateToken()
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
@@ -77,6 +81,7 @@ export async function createSession(
     expiresAt,
     ipAddress: meta.ipAddress ?? null,
     userAgent: meta.userAgent ?? null,
+    authMethod: meta.authMethod ?? 'password',
   })
   return { token, expiresAt }
 }
@@ -84,6 +89,7 @@ export async function createSession(
 export type ValidatedSession = {
   user: PublicUser
   activeOrganizationId: string | null
+  authMethod: string | null
   expiresAt: Date
 }
 
@@ -107,8 +113,22 @@ export async function validateSessionToken(
   return {
     user: toPublicUser(row.users),
     activeOrganizationId: row.sessions.activeOrganizationId,
+    authMethod: row.sessions.authMethod,
     expiresAt: row.sessions.expiresAt,
   }
+}
+
+/** Org access policies enforced where org context enters a credential (/token). */
+export async function getOrgAccessPolicy(
+  database: Database,
+  organizationId: string,
+): Promise<{ requireMfa: boolean; ssoOnly: boolean }> {
+  const [row] = await database
+    .select({ requireMfa: organizations.requireMfa, ssoOnly: organizations.ssoOnly })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1)
+  return { requireMfa: row?.requireMfa ?? false, ssoOnly: row?.ssoOnly ?? false }
 }
 
 export async function invalidateSession(database: Database, token: string): Promise<void> {

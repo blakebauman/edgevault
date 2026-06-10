@@ -14,7 +14,7 @@ import {
   signAccessToken,
   verifyAccessToken,
 } from '@edgevault/auth'
-import { createDatabase } from '@edgevault/database'
+import { createDatabase, getAuthenticatorsByUser } from '@edgevault/database'
 import type { EmailJob } from '@edgevault/edge-protocol'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono, type MiddlewareHandler } from 'hono'
@@ -45,6 +45,7 @@ import {
   createVerificationToken,
   deleteSessionById,
   deleteSessionsForUser,
+  getOrgAccessPolicy,
   getUserByEmail,
   getUserById,
   listSessionsForUser,
@@ -178,6 +179,7 @@ app.post(
     const { token, expiresAt } = await createSession(c.var.database, user.id, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'password',
     })
     setSessionCookie(c, token, expiresAt)
     return c.json({ ok: true, verificationEmailSent: true }, 201)
@@ -234,6 +236,7 @@ app.post(
     const { token, expiresAt } = await createSession(c.var.database, user.id, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'password',
     })
     setSessionCookie(c, token, expiresAt)
     return c.json({ user })
@@ -258,6 +261,7 @@ app.post(
     const { token, expiresAt } = await createSession(c.var.database, userId, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'password',
     })
     setSessionCookie(c, token, expiresAt)
     return c.json({ ok: true })
@@ -442,6 +446,7 @@ app.post(
     const { token, expiresAt } = await createSession(c.var.database, userId, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'recovery',
     })
     purgeSessionHashes(
       c,
@@ -569,6 +574,7 @@ app.post(
     const { token, expiresAt } = await createSession(c.var.database, userId, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'passkey',
     })
     setSessionCookie(c, token, expiresAt)
     return c.json({ ok: true })
@@ -706,6 +712,7 @@ app.post(
       const { token, expiresAt } = await createSession(c.var.database, user.id, {
         ipAddress: c.req.header('cf-connecting-ip'),
         userAgent: c.req.header('user-agent'),
+        authMethod: 'oauth',
       })
       setSessionCookie(c, token, expiresAt)
       return c.json({ ok: true })
@@ -751,6 +758,23 @@ app.post(
     const session = await validateSessionCached(c, token)
     if (!session) return c.json({ error: 'no_session' }, 401)
 
+    // Org security policies are enforced here — the single point where org
+    // context enters a credential. Members of an SSO-only or require-MFA org
+    // can still password-auth into their personal org; they just can't mint
+    // a token *for this org* without satisfying its policy.
+    if (session.activeOrganizationId) {
+      const policy = await getOrgAccessPolicy(c.var.database, session.activeOrganizationId)
+      if (policy.ssoOnly && (session.authMethod ?? 'password') !== 'sso') {
+        return c.json({ error: 'sso_required_by_org' }, 403)
+      }
+      if (policy.requireMfa) {
+        const hasSecondFactor =
+          (await userHasMfa(c.var.database, session.user.id)) ||
+          (await getAuthenticatorsByUser(c.var.database, session.user.id)).length > 0
+        if (!hasSecondFactor) return c.json({ error: 'mfa_required_by_org' }, 403)
+      }
+    }
+
     const { signing } = await getKeys(c.env)
     const accessToken = await signAccessToken(
       { sub: session.user.id, org: session.activeOrganizationId ?? undefined },
@@ -789,6 +813,7 @@ app.post('/internal/sso/provision', async (c) => {
   const { token, expiresAt } = await createSession(c.var.database, user.id, {
     ipAddress: c.req.header('cf-connecting-ip'),
     userAgent: c.req.header('user-agent'),
+    authMethod: 'sso',
   })
   setSessionCookie(c, token, expiresAt)
   return c.json({ user })

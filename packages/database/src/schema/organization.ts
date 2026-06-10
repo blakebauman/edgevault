@@ -32,6 +32,12 @@ export const organizations = pgTable(
     // new orgs (the secure default a secrets platform should ship); existing
     // orgs keep their stored value and see a console nudge instead.
     requireStepUpForReveal: boolean('require_step_up_for_reveal').notNull().default(true),
+    // Org security policies, enforced where org context enters a credential
+    // (/token in the auth worker): members without a confirmed second factor
+    // are refused org tokens when requireMfa is set; sessions not established
+    // through the org's IdP are refused when ssoOnly is set.
+    requireMfa: boolean('require_mfa').notNull().default(false),
+    ssoOnly: boolean('sso_only').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
