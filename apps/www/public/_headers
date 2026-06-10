@@ -1,0 +1,9 @@
+# Security headers for the static marketing site (Workers Assets honors this
+# file like Pages). The site ships 0 KB of client JS; styles are Astro-inlined
+# plus hashed /_astro/*.css, with webfonts from Google Fonts.
+/*
+  Content-Security-Policy: default-src 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin

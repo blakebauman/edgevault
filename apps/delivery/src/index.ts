@@ -7,6 +7,7 @@ import {
 } from '@edgevault/edge-protocol'
 import { type Context, Hono } from 'hono'
 import { EdgeReadMeter, flushMeter } from './metering'
+import { securityHeaders } from './security-headers'
 
 /**
  * EdgeVault delivery worker — the <10ms edge read path. Serves pre-resolved
@@ -53,6 +54,8 @@ function meterRead(c: Context<AppEnv>, n: number): void {
 }
 
 const app = new Hono<AppEnv>()
+
+app.use('*', securityHeaders)
 
 app.get('/health', (c) =>
   c.json({ status: 'ok', service: c.env.SERVICE_NAME ?? 'edgevault-delivery' }),

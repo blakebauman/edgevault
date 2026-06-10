@@ -29,6 +29,17 @@ describe('GET /health', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ status: 'ok', service: 'edgevault-auth' })
   })
+
+  it('sets baseline security headers on every response', async () => {
+    const res = await call('/health')
+    expect(res.headers.get('Content-Security-Policy')).toBe(
+      "default-src 'none'; frame-ancestors 'none'",
+    )
+    expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains')
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff')
+    expect(res.headers.get('X-Frame-Options')).toBe('DENY')
+    expect(res.headers.get('Referrer-Policy')).toBe('no-referrer')
+  })
 })
 
 describe('GET /session (no cookie)', () => {

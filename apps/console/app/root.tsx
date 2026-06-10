@@ -11,6 +11,7 @@ import {
 } from 'react-router'
 import type { Route } from './+types/root'
 import { TopBar } from './components/brand'
+import { useNonce } from './lib/nonce'
 import { getToken } from './lib/session.server'
 import './app.css'
 
@@ -22,6 +23,7 @@ export function loader({ request }: Route.LoaderArgs) {
 export function Layout({ children }: { children: React.ReactNode }) {
   // Available in both the happy path and the ErrorBoundary render.
   const data = useRouteLoaderData<typeof loader>('root')
+  const nonce = useNonce()
   return (
     <html lang="en" className="dark">
       <head>
@@ -40,8 +42,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body>
         <TopBar authed={data?.authed ?? false} />
         {children}
-        <ScrollRestoration />
-        <Scripts />
+        <ScrollRestoration nonce={nonce} />
+        <Scripts nonce={nonce} />
       </body>
     </html>
   )
@@ -51,21 +53,32 @@ export default function App() {
   return <Outlet />
 }
 
+// Dev-only: Vite statically strips this branch from production builds, so a
+// stack trace can never render in prod even if the surrounding logic changes.
+function DevStack({ error }: { error: unknown }) {
+  if (!import.meta.env.DEV) return null
+  if (!(error instanceof Error) || !error.stack) return null
+  return (
+    <pre className="error">
+      <code>{error.stack}</code>
+    </pre>
+  )
+}
+
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let message = 'Something went wrong'
   let details =
     'An unexpected error occurred. Your data is safe; try again from the workspaces list.'
-  let stack: string | undefined
 
   if (isRouteErrorResponse(error)) {
     message = error.status === 404 ? 'Page not found' : `Error ${error.status}`
     details =
       error.status === 404
         ? 'No key resolves at this address. The link may be stale, or the workspace may have moved.'
-        : error.statusText || details
-  } else if (import.meta.env.DEV && error && error instanceof Error) {
+        : // 5xx statusText can carry internals; keep the generic copy for those.
+          (error.status < 500 && error.statusText) || details
+  } else if (import.meta.env.DEV && error instanceof Error) {
     details = error.message
-    stack = error.stack
   }
 
   return (
@@ -78,11 +91,7 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
         <Button asChild className="mt-4 self-start">
           <Link to="/">← Back to workspaces</Link>
         </Button>
-        {stack && (
-          <pre className="error">
-            <code>{stack}</code>
-          </pre>
-        )}
+        <DevStack error={error} />
       </section>
     </main>
   )

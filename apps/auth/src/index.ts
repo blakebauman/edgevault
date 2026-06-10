@@ -31,6 +31,7 @@ import {
   verifyUserTotp,
 } from './mfa'
 import { enforceRateLimit, rateLimitByIp } from './rate-limit'
+import { securityHeaders } from './security-headers'
 import {
   createSession,
   createUser,
@@ -85,6 +86,8 @@ const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
  */
 
 const app = new Hono<AppEnv>()
+
+app.use('*', securityHeaders)
 
 // Per-request Drizzle client over Hyperdrive. The pool is closed after the
 // response so the request isn't blocked on connection teardown.
