@@ -1,7 +1,7 @@
-import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
+import { Button, ErrorNote, Field, Input, StatusNote } from '@edgevault/ui'
 import { type FormEvent, useState } from 'react'
 import { Form, redirect } from 'react-router'
-import { safeRelativePath, setMfaCookie, setTokenCookie } from '../lib/session.server'
+import { ipHeaders, safeRelativePath, setMfaCookie, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/login'
 
 export function meta(_: Route.MetaArgs) {
@@ -26,9 +26,15 @@ export function loader({ request }: Route.LoaderArgs) {
   const ssoError = reason
     ? (SSO_MESSAGES[reason] ?? 'Single sign-on could not be completed. Please try again.')
     : null
+  const notice =
+    params.get('signup') === 'sent'
+      ? 'Check your email — we sent you what you need to continue.'
+      : params.get('reset') === 'done'
+        ? 'Password updated. Sign in with your new password.'
+        : null
   // Where to land after sign-in (e.g. an invitation accept page). Relative
   // paths only — validated again in the action.
-  return { ssoError, next: safeRelativePath(params.get('next')) }
+  return { ssoError, notice, next: safeRelativePath(params.get('next')) }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -42,7 +48,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const path = intent === 'signup' ? '/sign-up/email' : '/sign-in/email'
   const auth = await env.AUTH_SERVICE.fetch(`https://auth${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...ipHeaders(request) },
     body: JSON.stringify({ email, password }),
   })
   if (!auth.ok) {
@@ -62,10 +68,16 @@ export async function action({ request, context }: Route.ActionArgs) {
   const cookie = (auth.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
   const tokenRes = await env.AUTH_SERVICE.fetch('https://auth/token', {
     method: 'POST',
-    headers: { cookie },
+    headers: { cookie, ...ipHeaders(request) },
   })
   const token = ((await tokenRes.json()) as { accessToken?: string }).accessToken
-  if (!token) return { error: 'Could not obtain an access token.' }
+  if (!token) {
+    // Signup returns a success-shaped response whether or not the account was
+    // new (no enumeration); only a genuinely new account carries a session.
+    // The other path means "you already have an account" — the email says so.
+    if (intent === 'signup') return redirect('/login?signup=sent')
+    return { error: 'Could not obtain an access token.' }
+  }
 
   return redirect(next, { headers: { 'Set-Cookie': setTokenCookie(token, request) } })
 }
@@ -85,6 +97,7 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
             <Input name="password" type="password" placeholder="••••••••" required minLength={8} />
           </Field>
           {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
+          {loaderData.notice && <StatusNote>{loaderData.notice}</StatusNote>}
           <div className="flex flex-wrap gap-3">
             <Button type="submit" name="intent" value="signin">
               Sign in
@@ -99,6 +112,9 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
               New here? Create an account
             </Button>
           </div>
+          <a href="/forgot-password" className="text-xs text-muted-foreground hover:text-accent">
+            Forgot your password?
+          </a>
         </Form>
 
         <details className="more-auth">

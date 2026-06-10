@@ -2,6 +2,7 @@ import {
   clearWebauthnCookie,
   getToken,
   getWebauthnChallenge,
+  ipHeaders,
   setRevealCookie,
   setWebauthnCookie,
 } from '../lib/session.server'
@@ -50,7 +51,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     case 'passkey-options': {
       const res = await env.AUTH_SERVICE.fetch('https://auth/webauthn/auth/options', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...ipHeaders(request) },
         // Reveal step-up requires a verified factor (PIN/biometric), not presence.
         body: JSON.stringify({ rpID, userVerification: 'required' }),
       })
@@ -67,7 +68,11 @@ export async function action({ request, context }: Route.ActionArgs) {
       if (!expectedChallenge) return json({ error: 'no_challenge' }, { status: 400 })
       const res = await env.AUTH_SERVICE.fetch('https://auth/reauth', {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          ...ipHeaders(request),
+        },
         body: JSON.stringify({
           method: 'passkey',
           response: body.response,
@@ -96,7 +101,11 @@ export async function action({ request, context }: Route.ActionArgs) {
       if (!code) return json({ error: 'missing_code' }, { status: 400 })
       const res = await env.AUTH_SERVICE.fetch('https://auth/reauth', {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          ...ipHeaders(request),
+        },
         body: JSON.stringify({ method: 'totp', code, org: await resolveOrg() }),
       })
       if (!res.ok) return json({ error: 'reauth_failed' }, { status: 401 })

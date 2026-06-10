@@ -19,15 +19,29 @@ interface Org {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const token = getToken(request)
-  if (!token) return { authed: false as const, orgs: [] as Org[], joined: null }
+  if (!token) {
+    return { authed: false as const, orgs: [] as Org[], joined: null, emailVerified: true }
+  }
   // ?joined=<orgId> set by the invitation accept flow — resolved to a name below.
   const joinedId = new URL(request.url).searchParams.get('joined')
 
   const env = context.cloudflare.env
-  const res = await env.API_SERVICE.fetch('https://api/api/v1/organizations', {
-    headers: { authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) return { authed: false as const, orgs: [] as Org[], joined: null }
+  const [res, meRes] = await Promise.all([
+    env.API_SERVICE.fetch('https://api/api/v1/organizations', {
+      headers: { authorization: `Bearer ${token}` },
+    }),
+    env.AUTH_SERVICE.fetch('https://auth/me', {
+      headers: { authorization: `Bearer ${token}` },
+    }),
+  ])
+  // Soft gate: unverified accounts can browse, but org create/join is blocked
+  // api-side — the banner explains why before they hit the 403.
+  const emailVerified = meRes.ok
+    ? (((await meRes.json()) as { user?: { emailVerified?: boolean } }).user?.emailVerified ?? true)
+    : true
+  if (!res.ok) {
+    return { authed: false as const, orgs: [] as Org[], joined: null, emailVerified: true }
+  }
 
   const { organizations } = (await res.json()) as {
     organizations: Array<{ id: string; name: string; slug: string; role: string }>
@@ -48,7 +62,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     }),
   )
   const joined = joinedId ? (orgs.find((o) => o.id === joinedId)?.name ?? null) : null
-  return { authed: true as const, orgs, joined }
+  return { authed: true as const, orgs, joined, emailVerified }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -57,6 +71,17 @@ export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env
   const form = await request.formData()
   const intent = String(form.get('intent'))
+
+  if (intent === 'resend-verification') {
+    const res = await env.AUTH_SERVICE.fetch('https://auth/verify-email/resend', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    })
+    return res.ok
+      ? { resent: true }
+      : { error: 'Could not send the verification email. Try again in a minute.' }
+  }
+
   const body = JSON.stringify({
     name: String(form.get('name') ?? '').trim(),
     slug: String(form.get('slug') ?? '').trim(),
@@ -110,6 +135,22 @@ export default function Home({ loaderData, actionData }: Route.ComponentProps) {
           {loaderData.orgs.length > 0 && <NewOrgAction />}
         </header>
         {loaderData.joined && <StatusNote>You're in — welcome to {loaderData.joined}.</StatusNote>}
+        {!loaderData.emailVerified && (
+          <Form
+            method="post"
+            className="flex flex-wrap items-baseline gap-3 rounded-sm border border-border bg-card p-3 text-sm"
+          >
+            <input type="hidden" name="intent" value="resend-verification" />
+            <span className="text-muted-foreground">
+              Verify your email to create organizations and accept invitations — check your inbox.
+            </span>
+            <Button type="submit" variant="secondary" size="compact">
+              {actionData && 'resent' in actionData && actionData.resent
+                ? 'Sent — check again'
+                : 'Resend email'}
+            </Button>
+          </Form>
+        )}
         {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
         {loaderData.orgs.length === 0 && (
           <div className="max-w-xl">

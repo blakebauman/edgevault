@@ -30,6 +30,16 @@ export function safeRelativePath(value: string | null | undefined): string | nul
   return value && /^\/(?!\/)/.test(value) ? value : null
 }
 
+/**
+ * Forward the real client IP on service-binding calls to auth. Bindings don't
+ * carry cf-connecting-ip, so without this every console user shares one
+ * rate-limit bucket ('unknown') and session rows record no IP.
+ */
+export function ipHeaders(request: Request): Record<string, string> {
+  const ip = request.headers.get('cf-connecting-ip')
+  return ip ? { 'cf-connecting-ip': ip } : {}
+}
+
 // --- SSO transaction cookie -------------------------------------------------
 // Holds the short-lived OIDC state/nonce/PKCE verifier between the start and
 // callback legs. httpOnly + SameSite=Lax (the IdP redirect is a top-level GET),

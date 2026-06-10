@@ -3,6 +3,7 @@ import { Form, redirect } from 'react-router'
 import {
   clearMfaCookie,
   getMfaToken,
+  ipHeaders,
   safeRelativePath,
   setTokenCookie,
 } from '../lib/session.server'
@@ -30,7 +31,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   const res = await env.AUTH_SERVICE.fetch('https://auth/mfa/totp/authenticate', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...ipHeaders(request) },
     body: JSON.stringify({ mfaToken, code }),
   })
   if (!res.ok) return { error: 'That code was not valid. Try again.' }
@@ -39,7 +40,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const cookie = (res.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
   const tokenRes = await env.AUTH_SERVICE.fetch('https://auth/token', {
     method: 'POST',
-    headers: { cookie },
+    headers: { cookie, ...ipHeaders(request) },
   })
   const token = ((await tokenRes.json()) as { accessToken?: string }).accessToken
   if (!token) return { error: 'Could not complete sign-in. Please try again.' }
