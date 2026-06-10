@@ -19,6 +19,104 @@ export interface ApiKeyRecord {
   workspaceId: string
   environmentId: string
   scopes: string[]
+  /** Epoch ms; absent = never expires. KV TTL mirrors it, this is the check. */
+  expiresAt?: number
+  /** Optional source-IP restriction (CIDRs). Absent/empty = any IP. */
+  allowedCidrs?: string[]
+}
+
+// --- CIDR matching (shared by delivery + machine auth; no dependencies) -----
+
+function parseIpv4(ip: string): bigint | null {
+  const parts = ip.split('.')
+  if (parts.length !== 4) return null
+  let value = 0n
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null
+    const n = Number(part)
+    if (n > 255) return null
+    value = (value << 8n) | BigInt(n)
+  }
+  return value
+}
+
+function parseIpv6(ip: string): bigint | null {
+  const dc = ip.indexOf('::')
+  if (dc !== ip.lastIndexOf('::')) return null
+  const head = dc === -1 ? ip : ip.slice(0, dc)
+  const tail = dc === -1 ? '' : ip.slice(dc + 2)
+
+  const expand = (s: string): bigint[] | null => {
+    if (s === '') return []
+    const out: bigint[] = []
+    const parts = s.split(':')
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i] ?? ''
+      if (part.includes('.')) {
+        // Embedded IPv4 (e.g. ::ffff:192.0.2.1) — only valid as the last group.
+        if (i !== parts.length - 1) return null
+        const v4 = parseIpv4(part)
+        if (v4 === null) return null
+        out.push((v4 >> 16n) & 0xffffn, v4 & 0xffffn)
+      } else {
+        if (!/^[0-9a-fA-F]{1,4}$/.test(part)) return null
+        out.push(BigInt(Number.parseInt(part, 16)))
+      }
+    }
+    return out
+  }
+
+  const h = expand(head)
+  const t = expand(tail)
+  if (!h || !t) return null
+  // With '::' at least one group is elided; without it, exactly 8 are present.
+  const missing = 8 - h.length - t.length
+  if (dc !== -1 && missing < 1) return null
+  const groups = dc === -1 ? h : [...h, ...Array<bigint>(missing).fill(0n), ...t]
+  if (groups.length !== 8 || (dc === -1 && t.length > 0)) return null
+  let value = 0n
+  for (const g of groups) value = (value << 16n) | g
+  return value
+}
+
+function parseIp(ip: string): { value: bigint; bits: 32 | 128 } | null {
+  if (ip.includes(':')) {
+    const value = parseIpv6(ip)
+    return value === null ? null : { value, bits: 128 }
+  }
+  const value = parseIpv4(ip)
+  return value === null ? null : { value, bits: 32 }
+}
+
+/** Is `cidr` a valid IPv4/IPv6 CIDR (or bare address)? Used at mint time. */
+export function isValidCidr(cidr: string): boolean {
+  const [base, prefix, extra] = cidr.split('/')
+  if (extra !== undefined || !base) return false
+  const addr = parseIp(base)
+  if (!addr) return false
+  if (prefix === undefined) return true
+  if (!/^\d{1,3}$/.test(prefix)) return false
+  return Number(prefix) <= addr.bits
+}
+
+/**
+ * Does `ip` fall inside any of `cidrs`? Unparseable entries are skipped;
+ * an unparseable ip never matches (fail closed for the allowlist check).
+ */
+export function ipMatchesCidrs(ip: string, cidrs: string[]): boolean {
+  const addr = parseIp(ip)
+  if (!addr) return false
+  for (const cidr of cidrs) {
+    const [base, prefixStr] = cidr.split('/')
+    if (!base) continue
+    const baseAddr = parseIp(base)
+    if (!baseAddr || baseAddr.bits !== addr.bits) continue
+    const prefix = prefixStr === undefined ? baseAddr.bits : Number(prefixStr)
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > baseAddr.bits) continue
+    const shift = BigInt(baseAddr.bits - prefix)
+    if (addr.value >> shift === baseAddr.value >> shift) return true
+  }
+  return false
 }
 
 /**

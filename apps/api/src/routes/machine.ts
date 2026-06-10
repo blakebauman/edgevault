@@ -1,5 +1,10 @@
 import { hashToken } from '@edgevault/auth'
-import { type ApiKeyRecord, apiKeyCacheKey, type ResolvedConfig } from '@edgevault/edge-protocol'
+import {
+  type ApiKeyRecord,
+  apiKeyCacheKey,
+  ipMatchesCidrs,
+  type ResolvedConfig,
+} from '@edgevault/edge-protocol'
 import { Hono } from 'hono'
 import { emitAudit } from '../audit'
 import type { VaultDurableObject } from '../durable-objects/vault'
@@ -32,6 +37,15 @@ export const machineRoutes = new Hono<MachineEnv>()
       'json',
     )
     if (!record) return c.json({ error: 'invalid_api_key' }, 401)
+    if (record.expiresAt && record.expiresAt < Date.now()) {
+      return c.json({ error: 'api_key_expired' }, 401)
+    }
+    if (record.allowedCidrs?.length) {
+      const ip = c.req.header('cf-connecting-ip') ?? ''
+      if (!ipMatchesCidrs(ip, record.allowedCidrs)) {
+        return c.json({ error: 'ip_not_allowed' }, 403)
+      }
+    }
     c.set('apiKey', record)
     await next()
   })

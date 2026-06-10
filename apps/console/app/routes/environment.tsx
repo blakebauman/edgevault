@@ -49,6 +49,20 @@ type ConfigRow = {
 
 type DeletedRow = { key: string; kind: string | null; deletedAt: number }
 
+type ApiKeyRow = {
+  id: string
+  environmentId: string
+  name: string
+  prefix: string
+  scopes: string[]
+  createdAt: string
+  expiresAt: string | null
+  lastUsedAt: string | null
+  revokedAt: string | null
+  allowedCidrs: string[]
+  mine: boolean
+}
+
 type Revision = {
   id: string
   key: string
@@ -89,11 +103,12 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const url = new URL(request.url)
   const historyKey = url.searchParams.get('history')
 
-  const [workspaceName, envsRes, configsRes, deletedRes] = await Promise.all([
+  const [workspaceName, envsRes, configsRes, deletedRes, keysRes] = await Promise.all([
     getWorkspaceName(env, token, params.workspaceId),
     api(env, token, `${base}/environments`),
     api(env, token, `${base}/environments/${params.envId}/configs`),
     api(env, token, `${base}/environments/${params.envId}/deleted-configs`),
+    api(env, token, `${base}/api-keys`),
   ])
   if (envsRes.status === 401 || configsRes.status === 401) throw redirect('/login')
 
@@ -110,6 +125,11 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     : []
   const deletedConfigs = deletedRes.ok
     ? ((await deletedRes.json()) as { deleted: DeletedRow[] }).deleted
+    : []
+  const apiKeys = keysRes.ok
+    ? ((await keysRes.json()) as { keys: ApiKeyRow[] }).keys.filter(
+        (k) => k.environmentId === params.envId && !k.revokedAt,
+      )
     : []
 
   let revisions: Revision[] | null = null
@@ -129,6 +149,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     envName: environment ? `${environment.name} /${environment.slug}` : params.envId,
     configs,
     deletedConfigs,
+    apiKeys,
     historyKey,
     revisions,
   }
@@ -180,19 +201,39 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   if (intent === 'mint-key') {
     const scopes = form.getAll('scopes').map(String)
+    const expiresInDays = Number(form.get('expiresInDays') ?? 0)
+    const allowedCidrs = String(form.get('allowedCidrs') ?? '')
+      .split(/[\n,]/)
+      .map((v) => v.trim())
+      .filter(Boolean)
     const res = await api(env, token, `${base}/environments/${params.envId}/api-keys`, {
       method: 'POST',
       body: JSON.stringify({
         name: String(form.get('name') ?? '').trim(),
         scopes: scopes.length ? scopes : ['read'],
+        ...(expiresInDays > 0 ? { expiresInDays } : {}),
+        ...(allowedCidrs.length ? { allowedCidrs } : {}),
       }),
     })
     if (res.status === 403) {
       return { error: 'Keys with secrets:read require an org owner or admin.' }
     }
+    if (res.status === 400) {
+      const body = (await res.json().catch(() => null)) as { detail?: string } | null
+      return { error: body?.detail ?? 'Invalid key options.' }
+    }
     if (!res.ok) return { error: friendlyError(res.status, 'minting the key') }
     const { apiKey } = (await res.json()) as { apiKey: string }
     return { mintedKey: apiKey }
+  }
+
+  if (intent === 'revoke-key') {
+    const res = await api(env, token, `${base}/api-keys/${String(form.get('keyId'))}`, {
+      method: 'DELETE',
+    })
+    return res.ok
+      ? { keyRevoked: true as const }
+      : { error: friendlyError(res.status, 'revoking the key') }
   }
 
   if (intent === 'bulk-delete') {
@@ -347,6 +388,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
     envName,
     configs,
     deletedConfigs,
+    apiKeys,
     historyKey,
     revisions,
   } = loaderData
@@ -689,13 +731,77 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
               <Checkbox name="scopes" value="secrets:read" /> secrets:read
             </label>
           </fieldset>
+          <Field label="Expires after (days, optional)">
+            <Input type="number" name="expiresInDays" min={1} max={365} placeholder="never" />
+          </Field>
+          <Field label="Allowed IPs / CIDRs (optional, comma-separated)">
+            <Input type="text" name="allowedCidrs" placeholder="203.0.113.0/24, 2001:db8::/32" />
+          </Field>
           <Button type="submit" disabled={busy} className="self-start">
             {busy ? 'Minting…' : 'Mint API key'}
           </Button>
         </Form>
+
+        {apiKeys.length > 0 && (
+          <CardTable label="Active API keys" className="mt-6">
+            <thead>
+              <tr>
+                <Th>Name</Th>
+                <Th>Prefix</Th>
+                <Th>Scopes</Th>
+                <Th>Expires</Th>
+                <Th />
+              </tr>
+            </thead>
+            <tbody>
+              {apiKeys.map((k) => (
+                <tr key={k.id}>
+                  <Td>{k.name}</Td>
+                  <Td label="Prefix">
+                    <span className="font-mono text-xs">{k.prefix}…</span>
+                  </Td>
+                  <Td label="Scopes" className="font-mono text-xs">
+                    {k.scopes.join(', ')}
+                    {k.allowedCidrs.length > 0 && (
+                      <span className="text-muted-foreground"> · ip-restricted</span>
+                    )}
+                  </Td>
+                  <Td label="Expires" className="text-muted-foreground">
+                    <KeyExpiry expiresAt={k.expiresAt} />
+                  </Td>
+                  <Td>
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="revoke-key" />
+                      <input type="hidden" name="keyId" value={k.id} />
+                      <Button type="submit" variant="secondary" size="compact" disabled={busy}>
+                        Revoke
+                      </Button>
+                    </Form>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </CardTable>
+        )}
       </section>
     </main>
   )
+}
+
+/** Expiry cell: plain date normally; a nudge once a key is 14 days from death. */
+function KeyExpiry({ expiresAt }: { expiresAt: string | null }) {
+  if (!expiresAt) return <>never</>
+  const ms = Date.parse(expiresAt) - Date.now()
+  const days = Math.ceil(ms / (24 * 60 * 60 * 1000))
+  if (ms <= 0) return <span className="text-destructive">expired</span>
+  if (days <= 14) {
+    return (
+      <span className="text-accent">
+        in {days} day{days === 1 ? '' : 's'} — rotate soon
+      </span>
+    )
+  }
+  return <>{new Date(expiresAt).toLocaleDateString()}</>
 }
 
 function ItemForm({
