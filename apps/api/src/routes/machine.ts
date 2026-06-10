@@ -45,14 +45,14 @@ export const machineRoutes = new Hono<MachineEnv>()
 
     const configs: Record<string, ResolvedConfig> = {}
     const secrets: Record<string, string> = {}
-    let secretCount = 0
+    const secretKeys: string[] = []
     for (const { item, resolvedContent } of targets) {
       if (item.kind === 'secret') {
         if (!includeSecrets) continue
         const value = await revealSecret(c.env, workspaceId, item)
         if (value !== null) {
           secrets[item.key] = value
-          secretCount++
+          secretKeys.push(item.key)
         }
       } else {
         configs[item.key] = {
@@ -64,8 +64,10 @@ export const machineRoutes = new Hono<MachineEnv>()
       }
     }
 
-    // Exports that decrypt secrets always leave an audit trail.
-    if (secretCount > 0) {
+    // Exports that decrypt secrets always leave an audit trail — including
+    // WHICH keys were decrypted (names only, never values), capped to keep the
+    // queue message small.
+    if (secretKeys.length > 0) {
       c.executionCtx.waitUntil(
         emitAudit(c.env, {
           workspaceId,
@@ -73,7 +75,11 @@ export const machineRoutes = new Hono<MachineEnv>()
           action: 'environment.exported',
           resourceType: 'environment',
           userId: 'machine',
-          count: secretCount,
+          count: secretKeys.length,
+          detail: {
+            keys: secretKeys.slice(0, 100).join(','),
+            ...(secretKeys.length > 100 ? { truncated: 'true' } : {}),
+          },
         }),
       )
     }

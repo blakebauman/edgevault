@@ -67,6 +67,11 @@ export interface AuditEvent {
    * one record can stand in for many reads without one event per read.
    */
   count?: number
+  /**
+   * Extra structured context for the warehouse — names/identifiers only,
+   * never secret values (e.g. which secret keys a machine export decrypted).
+   */
+  detail?: Record<string, string>
 }
 
 /**
