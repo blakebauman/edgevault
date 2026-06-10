@@ -6,10 +6,11 @@ import {
   members,
   sessions,
   users,
+  verifications,
 } from '@edgevault/database'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gte, like, ne } from 'drizzle-orm'
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
 /**
  * A valid Argon2id hash (same cost params as live hashes) of a password no one
@@ -112,6 +113,98 @@ export async function validateSessionToken(
 
 export async function invalidateSession(database: Database, token: string): Promise<void> {
   await database.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)))
+}
+
+/**
+ * Revoke every session for a user (optionally sparing the one driving the
+ * request). Returns the deleted token hashes so the caller can purge the KV
+ * session cache too — DB delete alone leaves up to 60s of cached validity.
+ */
+export async function deleteSessionsForUser(
+  database: Database,
+  userId: string,
+  options: { exceptTokenHash?: string } = {},
+): Promise<string[]> {
+  const condition = options.exceptTokenHash
+    ? and(eq(sessions.userId, userId), ne(sessions.tokenHash, options.exceptTokenHash))
+    : eq(sessions.userId, userId)
+  const rows = await database
+    .delete(sessions)
+    .where(condition)
+    .returning({ tokenHash: sessions.tokenHash })
+  return rows.map((r) => r.tokenHash)
+}
+
+// --- One-time verification tokens (email verify, password reset) -----------
+// Stored hashed in the `verifications` table; `identifier` = `${purpose}:${userId}`.
+
+export type VerificationPurpose = 'email-verify' | 'password-reset'
+
+/** Issue a fresh single-use token for a purpose, replacing any outstanding one. */
+export async function createVerificationToken(
+  database: Database,
+  purpose: VerificationPurpose,
+  userId: string,
+  ttlMs: number,
+): Promise<{ token: string; expiresAt: Date }> {
+  const token = generateToken()
+  const identifier = `${purpose}:${userId}`
+  const expiresAt = new Date(Date.now() + ttlMs)
+  await database.delete(verifications).where(eq(verifications.identifier, identifier))
+  await database.insert(verifications).values({ identifier, value: hashToken(token), expiresAt })
+  return { token, expiresAt }
+}
+
+/**
+ * Consume a token: the conditional DELETE … RETURNING makes it single-use by
+ * construction (concurrent submits race to one winner). Returns the userId the
+ * token was issued for, or null if unknown/expired/already used.
+ */
+export async function consumeVerificationToken(
+  database: Database,
+  purpose: VerificationPurpose,
+  token: string,
+): Promise<string | null> {
+  const [row] = await database
+    .delete(verifications)
+    .where(
+      and(
+        eq(verifications.value, hashToken(token)),
+        gte(verifications.expiresAt, new Date()),
+        like(verifications.identifier, `${purpose}:%`),
+      ),
+    )
+    .returning({ identifier: verifications.identifier })
+  return row ? row.identifier.slice(purpose.length + 1) : null
+}
+
+export async function markEmailVerified(database: Database, userId: string): Promise<void> {
+  await database
+    .update(users)
+    .set({ emailVerified: true, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+}
+
+/** Look up a user by email, including whether they have a password credential. */
+export async function getUserByEmail(
+  database: Database,
+  email: string,
+): Promise<(PublicUser & { hasPassword: boolean }) | null> {
+  const [user] = await database.select().from(users).where(eq(users.email, email)).limit(1)
+  return user ? { ...toPublicUser(user), hasPassword: user.passwordHash !== null } : null
+}
+
+/** Set a new password (Argon2id). Callers must revoke sessions afterwards. */
+export async function setUserPassword(
+  database: Database,
+  userId: string,
+  password: string,
+): Promise<void> {
+  const passwordHash = await hashPassword(password)
+  await database
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(users.id, userId))
 }
 
 export async function getUserById(database: Database, userId: string): Promise<PublicUser | null> {

@@ -90,6 +90,40 @@ describe('POST /sign-up/email (validation)', () => {
   })
 })
 
+describe('account-lifecycle routes (validation, no DB)', () => {
+  function post(path: string, body: unknown, headers: Record<string, string> = {}) {
+    return call(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('POST /verify-email rejects a missing token before any database call', async () => {
+    expect((await post('/verify-email', {})).status).toBe(400)
+  })
+
+  it('POST /verify-email/resend requires a bearer token', async () => {
+    expect((await post('/verify-email/resend', {})).status).toBe(401)
+  })
+
+  it('POST /password/forgot validates the email shape', async () => {
+    expect((await post('/password/forgot', { email: 'not-an-email' })).status).toBe(400)
+  })
+
+  it('POST /password/reset rejects a too-short replacement password', async () => {
+    expect((await post('/password/reset', { token: 't', newPassword: 'short' })).status).toBe(400)
+  })
+
+  it('POST /password/change requires a bearer token', async () => {
+    const res = await post('/password/change', {
+      currentPassword: 'old-password',
+      newPassword: 'new-password-1',
+    })
+    expect(res.status).toBe(401)
+  })
+})
+
 describe('rate limiting', () => {
   // A fake limiter that blocks once `key` has been seen `limit` times, mirroring
   // the Workers Rate Limiting binding's { success } contract.

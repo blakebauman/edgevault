@@ -16,6 +16,7 @@
     "@edgevault/auth": "workspace:*",
     "@edgevault/crypto": "workspace:*",
     "@edgevault/database": "workspace:*",
+    "@edgevault/edge-protocol": "workspace:*",
     "@edgevault/sso-saml": "workspace:*",
     "@hono/zod-validator": "^0.7.0",
     "@simplewebauthn/server": "^13.3.1",

@@ -270,6 +270,20 @@ export async function createApiKey(
 }
 
 /**
+ * Soft email-verification gate: collaborative surfaces (org create, invitation
+ * accept) require a verified address; a personal unverified account can still
+ * sign in and look around.
+ */
+export async function isEmailVerified(database: Database, userId: string): Promise<boolean> {
+  const [row] = await database
+    .select({ emailVerified: users.emailVerified })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1)
+  return row?.emailVerified ?? false
+}
+
+/**
  * Resolve user ids to a display identity (name, falling back to email) so
  * activity/revision UIs can show people instead of UUIDs. Batched: one query
  * per response, not per row.

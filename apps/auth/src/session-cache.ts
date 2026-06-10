@@ -63,3 +63,14 @@ export async function invalidateSessionCached(c: Context<AppEnv>, token: string)
   await invalidateSession(c.var.database, token)
   if (c.env.AUTH_CACHE) c.executionCtx.waitUntil(c.env.AUTH_CACHE.delete(keyFor(token)))
 }
+
+/**
+ * Purge cached entries for already-deleted sessions by their stored token
+ * hashes (what `deleteSessionsForUser` returns). Without this, a revoked
+ * session stays valid at the edge for up to the cache TTL.
+ */
+export function purgeSessionHashes(c: Context<AppEnv>, tokenHashes: string[]): void {
+  const cache = c.env.AUTH_CACHE
+  if (!cache || tokenHashes.length === 0) return
+  c.executionCtx.waitUntil(Promise.all(tokenHashes.map((hash) => cache.delete(`session:${hash}`))))
+}

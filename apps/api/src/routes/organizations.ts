@@ -9,6 +9,7 @@ import {
   createWorkspace,
   getMemberRole,
   getOrgRequiresStepUpForReveal,
+  isEmailVerified,
   isOrgMember,
   listOrganizationsForUser,
   listWorkspaces,
@@ -48,6 +49,12 @@ function isDuplicate(error: unknown): boolean {
 export const organizationRoutes = new Hono<AppEnv>()
   .post('/', zValidator('json', nameSlug), async (c) => {
     const { name, slug } = c.req.valid('json')
+    if (!(await isEmailVerified(c.var.database, c.var.userId))) {
+      return c.json(
+        { error: 'email_unverified', detail: 'Verify your email to create an organization.' },
+        403,
+      )
+    }
     try {
       const organization = await createOrganization(c.var.database, {
         name,
