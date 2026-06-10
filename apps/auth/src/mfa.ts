@@ -5,10 +5,11 @@ import {
   REVEAL_TOKEN_AUDIENCE,
   signAccessToken,
   verifyAccessToken,
-  verifyTotp,
+  verifyTotpWithStep,
 } from '@edgevault/auth'
 import { decryptSecret, encryptSecret, isSecretEnvelope } from '@edgevault/crypto'
 import {
+  claimTotpStep,
   confirmTotpCredential,
   type Database,
   deleteTotpCredential,
@@ -27,6 +28,22 @@ import { getKeys } from './keys'
 
 const MFA_AUDIENCE = 'mfa-challenge'
 const ISSUER_NAME = 'EdgeVault'
+
+/**
+ * Verify a code and claim its counter step so the same code can't be accepted
+ * twice (TOTP replay). Every code-checking path goes through this — a code
+ * spent on enrollment/disable can't be replayed at sign-in either.
+ */
+async function verifyAndClaimCode(
+  database: Database,
+  userId: string,
+  secret: string,
+  code: string,
+): Promise<boolean> {
+  const step = verifyTotpWithStep(secret, code)
+  if (step === null) return false
+  return claimTotpStep(database, userId, step)
+}
 
 function decryptStoredSecret(env: Env, userId: string, stored: string): Promise<string> {
   const parsed: unknown = JSON.parse(stored)
@@ -57,7 +74,7 @@ export async function confirmTotpEnrollment(
   const cred = await getTotpCredential(database, userId)
   if (!cred) return false
   const secret = await decryptStoredSecret(env, userId, cred.encryptedSecret)
-  if (!verifyTotp(secret, code)) return false
+  if (!(await verifyAndClaimCode(database, userId, secret, code))) return false
   await confirmTotpCredential(database, userId)
   return true
 }
@@ -72,7 +89,7 @@ export async function disableTotp(
   const cred = await getTotpCredential(database, userId)
   if (!cred?.confirmedAt) return false
   const secret = await decryptStoredSecret(env, userId, cred.encryptedSecret)
-  if (!verifyTotp(secret, code)) return false
+  if (!(await verifyAndClaimCode(database, userId, secret, code))) return false
   await deleteTotpCredential(database, userId)
   return true
 }
@@ -87,7 +104,7 @@ export async function verifyUserTotp(
   const cred = await getTotpCredential(database, userId)
   if (!cred?.confirmedAt) return false
   const secret = await decryptStoredSecret(env, userId, cred.encryptedSecret)
-  return verifyTotp(secret, code)
+  return verifyAndClaimCode(database, userId, secret, code)
 }
 
 export async function totpStatus(

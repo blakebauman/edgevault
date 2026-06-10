@@ -1,4 +1,4 @@
-import { and, countDistinct, eq, gte, inArray, lt } from 'drizzle-orm'
+import { and, countDistinct, eq, gte, inArray, isNull, lt, or } from 'drizzle-orm'
 import type { Database } from './client'
 import { accounts, sessions, users } from './schema/auth'
 import { totpCredentials } from './schema/mfa'
@@ -358,6 +358,31 @@ export async function upsertTotpSecret(
       target: totpCredentials.userId,
       set: { encryptedSecret, confirmedAt: null, createdAt: new Date() },
     })
+}
+
+/**
+ * Replay guard: atomically advance the last accepted TOTP counter step.
+ * Returns false when `step` is not newer than the stored one — i.e. the code
+ * was already used (or an older code is being replayed). The conditional
+ * UPDATE makes concurrent verifications of the same code race-safe: exactly
+ * one wins.
+ */
+export async function claimTotpStep(
+  database: Database,
+  userId: string,
+  step: number,
+): Promise<boolean> {
+  const updated = await database
+    .update(totpCredentials)
+    .set({ lastUsedStep: step })
+    .where(
+      and(
+        eq(totpCredentials.userId, userId),
+        or(isNull(totpCredentials.lastUsedStep), lt(totpCredentials.lastUsedStep, step)),
+      ),
+    )
+    .returning({ userId: totpCredentials.userId })
+  return updated.length > 0
 }
 
 export async function confirmTotpCredential(database: Database, userId: string): Promise<void> {

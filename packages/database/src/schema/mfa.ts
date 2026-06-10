@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
+import { bigint, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core'
 import { users } from './auth'
 
 /**
@@ -13,5 +13,8 @@ export const totpCredentials = pgTable('totp_credentials', {
     .references(() => users.id, { onDelete: 'cascade' }),
   encryptedSecret: text('encrypted_secret').notNull(),
   confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  // Replay guard: the highest RFC 6238 counter step already accepted. A code
+  // verifies once — replays within the ±1-step drift window are rejected.
+  lastUsedStep: bigint('last_used_step', { mode: 'number' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

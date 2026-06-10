@@ -6,6 +6,7 @@ import {
   generateTotpSecret,
   totp,
   verifyTotp,
+  verifyTotpWithStep,
 } from '../src/totp'
 
 // RFC 6238 Appendix B test seed (ASCII "12345678901234567890") as Base32.
@@ -67,6 +68,26 @@ describe('verifyTotp', () => {
     const code = totp(other, { now })
     // 1-in-10^6 chance of a coincidental match; pin the timestamp for determinism.
     expect(verifyTotp(SEED_B32, code, { now })).toBe(false)
+  })
+})
+
+describe('verifyTotpWithStep', () => {
+  it('returns the matched counter step for the current code', () => {
+    const now = 1_000_000 * 1000
+    const code = totp(SEED_B32, { now })
+    expect(verifyTotpWithStep(SEED_B32, code, { now })).toBe(Math.floor(now / 1000 / 30))
+  })
+
+  it('returns the previous step for a drifted code', () => {
+    const now = 1_000_000 * 1000
+    const prev = totp(SEED_B32, { now: now - 30_000 })
+    expect(verifyTotpWithStep(SEED_B32, prev, { now, window: 1 })).toBe(
+      Math.floor(now / 1000 / 30) - 1,
+    )
+  })
+
+  it('returns null for a wrong code', () => {
+    expect(verifyTotpWithStep(SEED_B32, '000000', { now: 1_000_000 * 1000 })).toBeNull()
   })
 })
 

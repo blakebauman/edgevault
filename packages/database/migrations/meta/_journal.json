@@ -106,6 +106,13 @@
       "when": 1780981018318,
       "tag": "0014_stripe_customer_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1781068746269,
+      "tag": "0015_mean_gideon",
+      "breakpoints": true
     }
   ]
 }

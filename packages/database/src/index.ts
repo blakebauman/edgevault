@@ -4,6 +4,7 @@ export {
   type AuthenticatorRow,
   acceptInvitation,
   addOrgMember,
+  claimTotpStep,
   confirmTotpCredential,
   consumeSamlAssertion,
   createAuthenticator,
