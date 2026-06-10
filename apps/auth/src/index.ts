@@ -5,6 +5,7 @@ import {
   fetchOAuthIdentity,
   generatePkce,
   generateToken,
+  hashToken,
   importVerificationKey,
   isOAuthProvider,
   type OAuthProvider,
@@ -22,14 +23,17 @@ import type { AppEnv } from './context'
 import { clearSessionCookie, getSessionToken, setSessionCookie } from './cookies'
 import { getKeys } from './keys'
 import {
+  clearRecoveryCodes,
   confirmTotpEnrollment,
   disableTotp,
+  generateRecoveryCodes,
   signMfaChallenge,
   signRevealToken,
   startTotpEnrollment,
   totpStatus,
   userHasMfa,
   verifyMfaChallenge,
+  verifyRecoveryCode,
   verifyUserTotp,
 } from './mfa'
 import { enforceRateLimit, rateLimitByIp } from './rate-limit'
@@ -39,9 +43,11 @@ import {
   createSession,
   createUser,
   createVerificationToken,
+  deleteSessionById,
   deleteSessionsForUser,
   getUserByEmail,
   getUserById,
+  listSessionsForUser,
   markEmailVerified,
   provisionOauthUser,
   provisionSsoUser,
@@ -403,18 +409,96 @@ app.post('/mfa/totp/confirm', requireUser, zValidator('json', mfaCodeSchema), as
     c.req.valid('json').code,
   )
   if (!ok) return c.json({ error: 'invalid_code' }, 400)
+  // One-time fallback for device loss — plaintext leaves the server only here.
+  const recoveryCodes = await generateRecoveryCodes(c.var.database, c.var.userId)
   // The credential just got stronger; sessions minted before MFA don't inherit it.
   purgeSessionHashes(c, await deleteSessionsForUser(c.var.database, c.var.userId))
-  return c.json({ ok: true })
+  return c.json({ ok: true, recoveryCodes })
 })
 
 app.post('/mfa/totp/disable', requireUser, zValidator('json', mfaCodeSchema), async (c) => {
   const ok = await disableTotp(c.env, c.var.database, c.var.userId, c.req.valid('json').code)
   if (!ok) return c.json({ error: 'invalid_code' }, 400)
+  await clearRecoveryCodes(c.var.database, c.var.userId)
   // Credential change: anything minted under the old posture is revoked.
   purgeSessionHashes(c, await deleteSessionsForUser(c.var.database, c.var.userId))
   return c.json({ ok: true })
 })
+
+// Recovery-code sign-in: same contract as /mfa/totp/authenticate, consuming a
+// one-time code instead. Recovery implies a lost device, so every other
+// session is revoked once the new one is minted.
+app.post(
+  '/mfa/recovery/authenticate',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'mfa-ip'),
+  zValidator('json', z.object({ mfaToken: z.string().min(1), code: z.string().min(8).max(16) })),
+  async (c) => {
+    const { mfaToken, code } = c.req.valid('json')
+    const userId = await verifyMfaChallenge(c.env, mfaToken)
+    if (!userId) return c.json({ error: 'mfa_challenge_invalid' }, 401)
+    if (!(await verifyRecoveryCode(c.var.database, userId, code))) {
+      return c.json({ error: 'invalid_code' }, 401)
+    }
+    const { token, expiresAt } = await createSession(c.var.database, userId, {
+      ipAddress: c.req.header('cf-connecting-ip'),
+      userAgent: c.req.header('user-agent'),
+    })
+    purgeSessionHashes(
+      c,
+      await deleteSessionsForUser(c.var.database, userId, { exceptTokenHash: hashToken(token) }),
+    )
+    setSessionCookie(c, token, expiresAt)
+    return c.json({ ok: true })
+  },
+)
+
+// Re-issue the set (invalidates old codes). Demands a live TOTP code: a held
+// access token alone must not be able to mint fresh recovery codes.
+app.post(
+  '/mfa/recovery/regenerate',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'mfa-ip'),
+  requireUser,
+  zValidator('json', mfaCodeSchema),
+  async (c) => {
+    if (!(await verifyUserTotp(c.env, c.var.database, c.var.userId, c.req.valid('json').code))) {
+      return c.json({ error: 'invalid_code' }, 401)
+    }
+    return c.json({ recoveryCodes: await generateRecoveryCodes(c.var.database, c.var.userId) })
+  },
+)
+
+// --- Session management (device list) ---------------------------------------
+
+app.get('/sessions', requireUser, async (c) => {
+  const rows = await listSessionsForUser(c.var.database, c.var.userId)
+  return c.json({
+    sessions: rows.map((r) => ({
+      id: r.id,
+      ipAddress: r.ipAddress,
+      userAgent: r.userAgent,
+      createdAt: r.createdAt.toISOString(),
+      expiresAt: r.expiresAt.toISOString(),
+    })),
+  })
+})
+
+app.post('/sessions/revoke-all', requireUser, async (c) => {
+  const hashes = await deleteSessionsForUser(c.var.database, c.var.userId)
+  purgeSessionHashes(c, hashes)
+  return c.json({ ok: true, revoked: hashes.length })
+})
+
+app.post(
+  '/sessions/:id/revoke',
+  requireUser,
+  zValidator('param', z.object({ id: z.uuid() })),
+  async (c) => {
+    const hash = await deleteSessionById(c.var.database, c.var.userId, c.req.valid('param').id)
+    if (!hash) return c.json({ error: 'not_found' }, 404)
+    purgeSessionHashes(c, [hash])
+    return c.json({ ok: true })
+  },
+)
 
 // --- WebAuthn / passkeys ---------------------------------------------------
 // The console BFF passes the expected rpID/origin (from its own request) and

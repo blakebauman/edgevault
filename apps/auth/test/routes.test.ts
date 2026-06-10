@@ -122,6 +122,18 @@ describe('account-lifecycle routes (validation, no DB)', () => {
     })
     expect(res.status).toBe(401)
   })
+
+  it('GET /sessions and the revoke routes require a bearer token', async () => {
+    expect((await call('/sessions')).status).toBe(401)
+    expect((await post('/sessions/revoke-all', {})).status).toBe(401)
+  })
+
+  it('POST /mfa/recovery/authenticate validates the body shape', async () => {
+    expect((await post('/mfa/recovery/authenticate', { mfaToken: 'x' })).status).toBe(400)
+    expect((await post('/mfa/recovery/authenticate', { mfaToken: 'x', code: 'a' })).status).toBe(
+      400,
+    )
+  })
 })
 
 describe('rate limiting', () => {

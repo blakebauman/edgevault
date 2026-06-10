@@ -115,6 +115,48 @@ export async function invalidateSession(database: Database, token: string): Prom
   await database.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)))
 }
 
+export interface SessionListRow {
+  id: string
+  ipAddress: string | null
+  userAgent: string | null
+  createdAt: Date
+  expiresAt: Date
+}
+
+/** Active sessions for the device-management UI (never exposes token hashes). */
+export async function listSessionsForUser(
+  database: Database,
+  userId: string,
+): Promise<SessionListRow[]> {
+  const rows = await database
+    .select({
+      id: sessions.id,
+      ipAddress: sessions.ipAddress,
+      userAgent: sessions.userAgent,
+      createdAt: sessions.createdAt,
+      expiresAt: sessions.expiresAt,
+    })
+    .from(sessions)
+    .where(eq(sessions.userId, userId))
+  return rows.filter((r) => r.expiresAt.getTime() > Date.now())
+}
+
+/**
+ * Revoke one session by id, strictly scoped to the owner. Returns the deleted
+ * token hash for KV purging, or null if the id wasn't theirs.
+ */
+export async function deleteSessionById(
+  database: Database,
+  userId: string,
+  sessionId: string,
+): Promise<string | null> {
+  const [row] = await database
+    .delete(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.userId, userId)))
+    .returning({ tokenHash: sessions.tokenHash })
+  return row?.tokenHash ?? null
+}
+
 /**
  * Revoke every session for a user (optionally sparing the one driving the
  * request). Returns the deleted token hashes so the caller can purge the KV

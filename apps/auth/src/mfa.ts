@@ -1,6 +1,7 @@
 import {
   buildOtpauthUri,
   generateTotpSecret,
+  hashToken,
   importVerificationKey,
   REVEAL_TOKEN_AUDIENCE,
   signAccessToken,
@@ -11,9 +12,13 @@ import { decryptSecret, encryptSecret, isSecretEnvelope } from '@edgevault/crypt
 import {
   claimTotpStep,
   confirmTotpCredential,
+  consumeRecoveryCode,
+  countUnusedRecoveryCodes,
   type Database,
+  deleteRecoveryCodes,
   deleteTotpCredential,
   getTotpCredential,
+  replaceRecoveryCodes,
   upsertTotpSecret,
 } from '@edgevault/database'
 import { getKeys } from './keys'
@@ -110,9 +115,58 @@ export async function verifyUserTotp(
 export async function totpStatus(
   database: Database,
   userId: string,
-): Promise<{ enabled: boolean; pending: boolean }> {
+): Promise<{ enabled: boolean; pending: boolean; recoveryCodesRemaining: number }> {
   const cred = await getTotpCredential(database, userId)
-  return { enabled: Boolean(cred?.confirmedAt), pending: Boolean(cred && !cred.confirmedAt) }
+  const enabled = Boolean(cred?.confirmedAt)
+  return {
+    enabled,
+    pending: Boolean(cred && !cred.confirmedAt),
+    recoveryCodesRemaining: enabled ? await countUnusedRecoveryCodes(database, userId) : 0,
+  }
+}
+
+// --- Recovery codes ----------------------------------------------------------
+// One-time fallback when the authenticator device is lost. 10 codes of 40 bits
+// each (hex, xxxxx-xxxxx), hashed at rest, consumed atomically.
+
+const RECOVERY_CODE_COUNT = 10
+
+function newRecoveryCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(5))
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 5)}-${hex.slice(5)}`
+}
+
+/** Lowercase + strip separators so codes survive copy/paste formatting. */
+function normalizeRecoveryCode(input: string): string {
+  return input.toLowerCase().replace(/[^0-9a-f]/g, '')
+}
+
+/** Issue a fresh set, invalidating any previous codes. Plaintext returned once. */
+export async function generateRecoveryCodes(database: Database, userId: string): Promise<string[]> {
+  const codes = Array.from({ length: RECOVERY_CODE_COUNT }, newRecoveryCode)
+  await replaceRecoveryCodes(
+    database,
+    userId,
+    codes.map((code) => hashToken(normalizeRecoveryCode(code))),
+  )
+  return codes
+}
+
+/** Consume a recovery code as the second factor. */
+export async function verifyRecoveryCode(
+  database: Database,
+  userId: string,
+  input: string,
+): Promise<boolean> {
+  const normalized = normalizeRecoveryCode(input)
+  if (normalized.length !== 10) return false
+  return consumeRecoveryCode(database, userId, hashToken(normalized))
+}
+
+/** Remove all recovery codes (TOTP disabled — they'd be an orphaned factor). */
+export async function clearRecoveryCodes(database: Database, userId: string): Promise<void> {
+  await deleteRecoveryCodes(database, userId)
 }
 
 /** Has the user enabled (confirmed) MFA? Used by sign-in to decide on a challenge. */

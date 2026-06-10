@@ -26,10 +26,18 @@ export async function action({ request, context }: Route.ActionArgs) {
   const env = context.cloudflare.env
   const form = await request.formData()
   const code = String(form.get('code') ?? '').trim()
+  const useRecovery = String(form.get('method') ?? '') === 'recovery'
   const next = safeRelativePath(String(form.get('next') ?? '')) ?? '/'
-  if (!code) return { error: 'Enter the 6-digit code from your authenticator.' }
+  if (!code) {
+    return {
+      error: useRecovery
+        ? 'Enter one of your recovery codes.'
+        : 'Enter the 6-digit code from your authenticator.',
+    }
+  }
 
-  const res = await env.AUTH_SERVICE.fetch('https://auth/mfa/totp/authenticate', {
+  const path = useRecovery ? '/mfa/recovery/authenticate' : '/mfa/totp/authenticate'
+  const res = await env.AUTH_SERVICE.fetch(`https://auth${path}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...ipHeaders(request) },
     body: JSON.stringify({ mfaToken, code }),
@@ -73,6 +81,27 @@ export default function LoginMfa({ actionData, loaderData }: Route.ComponentProp
             Verify
           </Button>
         </Form>
+
+        <details className="more-auth">
+          <summary>Lost your authenticator? Use a recovery code</summary>
+          <Form method="post" className="mt-4 flex max-w-sm flex-col gap-3">
+            {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
+            <input type="hidden" name="method" value="recovery" />
+            <Input
+              name="code"
+              autoComplete="off"
+              placeholder="xxxxx-xxxxx"
+              aria-label="Recovery code"
+              required
+            />
+            <p className="m-0 text-xs text-muted-foreground">
+              Each recovery code works once. Signing in this way signs out every other session.
+            </p>
+            <Button type="submit" variant="secondary" className="self-start">
+              Use recovery code
+            </Button>
+          </Form>
+        </details>
       </section>
     </main>
   )

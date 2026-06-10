@@ -368,6 +368,12 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
         {isAdmin && (
           <>
             <h2>Security</h2>
+            {!requireStepUpForReveal && (
+              <StatusNote>
+                Secrets in this organization can currently be revealed without a fresh second
+                factor. New organizations require step-up by default — consider turning it on.
+              </StatusNote>
+            )}
             <p className="mt-2 max-w-prose text-sm text-muted-foreground">
               Require a fresh second factor (passkey or authenticator code) before any secret is
               revealed in this organization. Being signed in won't be enough — revealing a secret
