@@ -135,8 +135,51 @@ export interface InvitationEmailJob {
   expiresAt: number
 }
 
+/** Email-verification link for a fresh password signup. */
+export interface VerificationEmailJob {
+  kind: 'verification-email'
+  to: string
+  /** Console verify link: `${CONSOLE_URL}/verify-email?token=…`. */
+  verifyUrl: string
+  /** Epoch ms — the token stops working after this. */
+  expiresAt: number
+}
+
+/** Password-reset link (only ever sent to accounts that have a password). */
+export interface PasswordResetEmailJob {
+  kind: 'password-reset-email'
+  to: string
+  /** Console reset link: `${CONSOLE_URL}/reset-password?token=…`. */
+  resetUrl: string
+  /** Epoch ms — the token stops working after this. */
+  expiresAt: number
+}
+
+/**
+ * Sent when a signup hits an already-registered email. The HTTP response is
+ * identical to a successful signup (no account enumeration); the owner of the
+ * address learns what happened here instead.
+ */
+export interface SignupExistsEmailJob {
+  kind: 'signup-exists-email'
+  to: string
+  signInUrl: string
+  resetUrl: string
+}
+
+/** Every transactional email the notify worker can send. */
+export type EmailJob =
+  | InvitationEmailJob
+  | VerificationEmailJob
+  | PasswordResetEmailJob
+  | SignupExistsEmailJob
+
 /** Everything the notify worker consumes. NotifyJob predates `kind`. */
-export type NotifyQueueMessage = NotifyJob | InvitationEmailJob
+export type NotifyQueueMessage = NotifyJob | EmailJob
+
+export function isEmailJob(job: NotifyQueueMessage): job is EmailJob {
+  return 'kind' in job
+}
 
 export function isInvitationEmailJob(job: NotifyQueueMessage): job is InvitationEmailJob {
   return 'kind' in job && job.kind === 'invitation-email'
