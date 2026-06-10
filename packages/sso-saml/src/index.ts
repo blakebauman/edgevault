@@ -46,7 +46,7 @@ export async function generatePkce(): Promise<Pkce> {
   return { verifier, challenge: base64url(new Uint8Array(digest)) }
 }
 
-/** Fetch the IdP's OpenID discovery document. */
+/** Fetch the IdP's OpenID discovery document, pinning it to the issuer. */
 export async function fetchDiscovery(
   issuer: string,
   fetchImpl: typeof fetch = fetch,
@@ -54,7 +54,14 @@ export async function fetchDiscovery(
   const url = `${issuer.replace(/\/$/, '')}/.well-known/openid-configuration`
   const res = await fetchImpl(url)
   if (!res.ok) throw new Error(`OIDC discovery failed: ${res.status}`)
-  return (await res.json()) as OidcDiscovery
+  const doc = (await res.json()) as OidcDiscovery
+  // OIDC Discovery §4.3 issuer validation: the document must assert the exact
+  // issuer we asked for. Without this, a hijacked discovery response could
+  // redirect token exchange AND pass its own issuer to ID-token verification.
+  if (doc.issuer?.replace(/\/$/, '') !== issuer.replace(/\/$/, '')) {
+    throw new Error('OIDC discovery issuer mismatch')
+  }
+  return doc
 }
 
 export function buildAuthorizationUrl(

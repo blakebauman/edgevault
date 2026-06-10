@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildAuthorizationUrl,
   exchangeCode,
+  fetchDiscovery,
   generatePkce,
   type OidcConnection,
   type OidcDiscovery,
@@ -61,5 +62,24 @@ describe('OIDC', () => {
       fetchImpl,
     )
     expect(tokens.id_token).toBe('jwt')
+  })
+
+  it('accepts a discovery document whose issuer matches (trailing slash tolerated)', async () => {
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify({ ...discovery, issuer: 'https://idp.example.com/' }), {
+        headers: { 'content-type': 'application/json' },
+      })) as typeof fetch
+    const doc = await fetchDiscovery('https://idp.example.com', fetchImpl)
+    expect(doc.authorization_endpoint).toBe('https://idp.example.com/authorize')
+  })
+
+  it('rejects a discovery document asserting a different issuer (pinning)', async () => {
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify({ ...discovery, issuer: 'https://evil.example.com' }), {
+        headers: { 'content-type': 'application/json' },
+      })) as typeof fetch
+    await expect(fetchDiscovery('https://idp.example.com', fetchImpl)).rejects.toThrow(
+      /issuer mismatch/,
+    )
   })
 })
