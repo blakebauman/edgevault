@@ -239,6 +239,110 @@ export class VaultDurableObject extends DurableObject<Env> {
       `CREATE INDEX IF NOT EXISTS idx_revisions_env_key ON config_revisions(environment_id, config_key)`,
     )
     this.sql.exec(`CREATE INDEX IF NOT EXISTS idx_activity_created ON activity_log(created_at)`)
+
+    // Anomaly detection: raw signal timestamps for sliding-window counts, and
+    // per-(alert,actor) cooldowns so a sustained spike alerts once an hour,
+    // not once per reveal.
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS anomaly_signals (
+      action TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      at INTEGER NOT NULL
+    )`)
+    this.sql.exec(`CREATE INDEX IF NOT EXISTS idx_anomaly_at ON anomaly_signals(action, at)`)
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS anomaly_cooldowns (
+      key TEXT PRIMARY KEY,
+      until INTEGER NOT NULL
+    )`)
+  }
+
+  // --- Anomaly detection ----------------------------------------------------
+  // Sliding-window thresholds over high-sensitivity signals. Fixed constants
+  // for the MVP; per-org tuning can come when someone needs it.
+
+  private static readonly ANOMALY_RULES = [
+    // One actor revealing many secrets quickly — token theft / exfil shape.
+    {
+      alert: 'reveal_spike',
+      action: 'secret.reveal',
+      perActor: true,
+      windowMs: 5 * 60_000,
+      threshold: 10,
+    },
+    // Workspace-wide reveal volume — several actors, or one rotating tokens.
+    {
+      alert: 'reveal_spike',
+      action: 'secret.reveal',
+      perActor: false,
+      windowMs: 15 * 60_000,
+      threshold: 25,
+    },
+  ] as const
+
+  private static readonly ANOMALY_COOLDOWN_MS = 60 * 60_000
+  private static readonly BULK_EXPORT_THRESHOLD = 100
+
+  /**
+   * Record one occurrence of a sensitive action and evaluate the thresholds.
+   * Returns the alert names that just crossed (deduplicated by cooldown) —
+   * the api worker turns them into notifications + audit events. `count`
+   * lets a single bulk operation (machine export) carry its size.
+   */
+  recordAnomalySignal(input: {
+    action: 'secret.reveal' | 'environment.export'
+    actor: string
+    count?: number
+  }): string[] {
+    const now = Date.now()
+    const alerts: string[] = []
+    this.sql.exec(
+      `INSERT INTO anomaly_signals (action, actor, at) VALUES (?, ?, ?)`,
+      input.action,
+      input.actor,
+      now,
+    )
+    // Bounded table: nothing looks back further than the widest window.
+    this.sql.exec(`DELETE FROM anomaly_signals WHERE at < ?`, now - 15 * 60_000)
+
+    if (
+      input.action === 'environment.export' &&
+      (input.count ?? 0) > VaultDurableObject.BULK_EXPORT_THRESHOLD &&
+      this.claimAnomalyCooldown(`bulk_export:${input.actor}`, now)
+    ) {
+      alerts.push('bulk_export')
+    }
+
+    for (const rule of VaultDurableObject.ANOMALY_RULES) {
+      if (rule.action !== input.action) continue
+      const row = this.sql
+        .exec<{ n: number }>(
+          rule.perActor
+            ? `SELECT COUNT(*) AS n FROM anomaly_signals WHERE action = ? AND actor = ? AND at >= ?`
+            : `SELECT COUNT(*) AS n FROM anomaly_signals WHERE action = ? AND at >= ?`,
+          ...(rule.perActor
+            ? [rule.action, input.actor, now - rule.windowMs]
+            : [rule.action, now - rule.windowMs]),
+        )
+        .toArray()[0]
+      if (!row || row.n <= rule.threshold) continue
+      const cooldownKey = `${rule.alert}:${rule.perActor ? input.actor : '*'}`
+      if (this.claimAnomalyCooldown(cooldownKey, now)) alerts.push(rule.alert)
+    }
+    return [...new Set(alerts)]
+  }
+
+  /** True exactly once per cooldown window for a given key. */
+  private claimAnomalyCooldown(key: string, now: number): boolean {
+    const row = this.sql
+      .exec<{ until: number }>(`SELECT until FROM anomaly_cooldowns WHERE key = ?`, key)
+      .toArray()[0]
+    if (row && row.until > now) return false
+    this.sql.exec(
+      `INSERT INTO anomaly_cooldowns (key, until) VALUES (?, ?)
+       ON CONFLICT(key) DO UPDATE SET until = excluded.until`,
+      key,
+      now + VaultDurableObject.ANOMALY_COOLDOWN_MS,
+    )
+    return true
   }
 
   // --- Workspace metadata -------------------------------------------------

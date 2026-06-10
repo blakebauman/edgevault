@@ -492,3 +492,27 @@ describe('VaultDurableObject', () => {
     })
   })
 })
+
+describe('anomaly detection', () => {
+  it('alerts once on a per-actor reveal spike, then stays quiet (cooldown)', async () => {
+    const ws = workspace('ws-anomaly')
+    const fired: string[] = []
+    for (let i = 0; i < 12; i++) {
+      const alerts = await ws.recordAnomalySignal({ action: 'secret.reveal', actor: 'u-spike' })
+      fired.push(...alerts)
+    }
+    expect(fired).toEqual(['reveal_spike'])
+    // Still inside the cooldown — more reveals do not re-alert.
+    expect(await ws.recordAnomalySignal({ action: 'secret.reveal', actor: 'u-spike' })).toEqual([])
+  })
+
+  it('alerts on a bulk export over the threshold and not under it', async () => {
+    const ws = workspace('ws-anomaly-export')
+    expect(
+      await ws.recordAnomalySignal({ action: 'environment.export', actor: 'machine', count: 5 }),
+    ).toEqual([])
+    expect(
+      await ws.recordAnomalySignal({ action: 'environment.export', actor: 'machine', count: 500 }),
+    ).toEqual(['bulk_export'])
+  })
+})

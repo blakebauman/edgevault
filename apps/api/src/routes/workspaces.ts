@@ -123,6 +123,32 @@ function isRefError(error: unknown): error is Error {
  * Republish an item AND everything that references it (transitively) to the
  * edge cache, with ${...} references expanded. Runs in waitUntil after writes.
  */
+/**
+ * Off-path anomaly evaluation: feed the signal to the workspace DO's
+ * sliding-window counters and fan any crossed thresholds out as alert
+ * notifications + audit events. Runs in waitUntil; never blocks the reveal.
+ */
+async function raiseAnomalyAlerts(
+  c: Context<AppEnv>,
+  workspaceId: string,
+  action: 'secret.reveal' | 'environment.export',
+  actor: string,
+  count?: number,
+): Promise<void> {
+  const alerts = await stubFor(c, workspaceId).recordAnomalySignal({ action, actor, count })
+  for (const alert of alerts) {
+    const event = {
+      workspaceId,
+      action: `alert.${alert}`,
+      resourceType: 'workspace',
+      userId: actor,
+      ...(count !== undefined ? { count } : {}),
+    }
+    await emitAudit(c.env, event)
+    await dispatchNotifications(c.env, event)
+  }
+}
+
 async function publishWithDependents(
   c: Context<AppEnv>,
   workspaceId: string,
@@ -357,6 +383,10 @@ export const workspaceRoutes = new Hono<AppEnv>()
     if (c.var.role !== 'owner' && c.var.role !== 'admin') {
       return c.json({ error: 'forbidden', detail: 'revealing secrets requires admin' }, 403)
     }
+    // Hard ceiling: a compromised admin token can pull at most N secrets/min,
+    // and every one of those still lands in audit + notifications.
+    const capped = await enforceRateLimit(c, c.env.REVEAL_LIMITER, `reveal:${c.var.userId}`)
+    if (capped) return capped
     // Step-up: when the org requires it, a fresh second factor (proven by a
     // reveal token minted at auth's /reauth) is needed on top of being signed
     // in. The token is verified by its `secret-reveal` audience and must belong
@@ -399,6 +429,9 @@ export const workspaceRoutes = new Hono<AppEnv>()
     })
     c.executionCtx.waitUntil(emitAudit(c.env, revealed))
     c.executionCtx.waitUntil(dispatchNotifications(c.env, revealed))
+    c.executionCtx.waitUntil(
+      raiseAnomalyAlerts(c, c.req.param('workspaceId'), 'secret.reveal', c.var.userId),
+    )
     return c.json({ key: item.key, kind: item.kind, content: value })
   })
   .get('/:workspaceId/environments/:envId/configs/:key/revisions', async (c) => {

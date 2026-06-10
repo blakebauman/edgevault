@@ -8,6 +8,7 @@ import {
 import { Hono } from 'hono'
 import { emitAudit } from '../audit'
 import type { VaultDurableObject } from '../durable-objects/vault'
+import { dispatchNotifications } from '../notify'
 import { rateLimitByIp } from '../rate-limit'
 import { revealSecret } from '../secrets'
 
@@ -95,6 +96,28 @@ export const machineRoutes = new Hono<MachineEnv>()
             ...(secretKeys.length > 100 ? { truncated: 'true' } : {}),
           },
         }),
+      )
+      // Anomaly check: an unusually large export alerts (cooldown-deduplicated).
+      c.executionCtx.waitUntil(
+        (async () => {
+          const alerts = await stub.recordAnomalySignal({
+            action: 'environment.export',
+            actor: 'machine',
+            count: secretKeys.length,
+          })
+          for (const alert of alerts) {
+            const event = {
+              workspaceId,
+              environmentId,
+              action: `alert.${alert}`,
+              resourceType: 'workspace',
+              userId: 'machine',
+              count: secretKeys.length,
+            }
+            await emitAudit(c.env, event)
+            await dispatchNotifications(c.env, event)
+          }
+        })(),
       )
     }
 

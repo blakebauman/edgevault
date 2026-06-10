@@ -23,6 +23,15 @@ type Pages = {
   "/logout": {
     params: {};
   };
+  "/verify-email": {
+    params: {};
+  };
+  "/forgot-password": {
+    params: {};
+  };
+  "/reset-password": {
+    params: {};
+  };
   "/account/mfa": {
     params: {};
   };
@@ -136,7 +145,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/account/mfa" | "/api/passkey" | "/api/reveal-token" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/invite/:id" | "/orgs/:orgId/members" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/verify-email" | "/forgot-password" | "/reset-password" | "/account/mfa" | "/api/passkey" | "/api/reveal-token" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/invite/:id" | "/orgs/:orgId/members" | "/orgs/:orgId/billing" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -153,6 +162,18 @@ type RouteFiles = {
   "routes/logout.tsx": {
     id: "routes/logout";
     page: "/logout";
+  };
+  "routes/verify-email.tsx": {
+    id: "routes/verify-email";
+    page: "/verify-email";
+  };
+  "routes/forgot-password.tsx": {
+    id: "routes/forgot-password";
+    page: "/forgot-password";
+  };
+  "routes/reset-password.tsx": {
+    id: "routes/reset-password";
+    page: "/reset-password";
   };
   "routes/account-mfa.tsx": {
     id: "routes/account-mfa";
@@ -254,6 +275,9 @@ type RouteModules = {
   "routes/login": typeof import("./app/routes/login.tsx");
   "routes/login.mfa": typeof import("./app/routes/login.mfa.tsx");
   "routes/logout": typeof import("./app/routes/logout.tsx");
+  "routes/verify-email": typeof import("./app/routes/verify-email.tsx");
+  "routes/forgot-password": typeof import("./app/routes/forgot-password.tsx");
+  "routes/reset-password": typeof import("./app/routes/reset-password.tsx");
   "routes/account-mfa": typeof import("./app/routes/account-mfa.tsx");
   "routes/api.passkey": typeof import("./app/routes/api.passkey.tsx");
   "routes/api.reveal-token": typeof import("./app/routes/api.reveal-token.tsx");

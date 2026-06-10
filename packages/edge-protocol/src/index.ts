@@ -187,6 +187,9 @@ export const NOTIFY_ACTIONS = [
   'config.promoted',
   'promotion.awaiting_approval',
   'secret.revealed',
+  // Anomaly alerts emitted by the workspace DO's sliding-window counters.
+  'alert.reveal_spike',
+  'alert.bulk_export',
 ] as const
 
 export type NotifyAction = (typeof NOTIFY_ACTIONS)[number]

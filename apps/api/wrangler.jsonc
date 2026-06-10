@@ -32,7 +32,10 @@
       "simple": { "limit": 60, "period": 60 }
     },
     { "name": "SHARE_IP_LIMITER", "namespace_id": "4002", "simple": { "limit": 30, "period": 60 } },
-    { "name": "AI_USER_LIMITER", "namespace_id": "4003", "simple": { "limit": 20, "period": 60 } }
+    { "name": "AI_USER_LIMITER", "namespace_id": "4003", "simple": { "limit": 20, "period": 60 } },
+    // Hard cap on secret reveals per user — a compromised admin token can pull
+    // at most this many secrets a minute, and every one still lands in audit.
+    { "name": "REVEAL_LIMITER", "namespace_id": "4004", "simple": { "limit": 30, "period": 60 } }
   ],
   "ai": { "binding": "AI" },
   "vectorize": [{ "binding": "VECTORIZE", "index_name": "edgevault-configs" }],
@@ -110,6 +113,11 @@
           "name": "AI_USER_LIMITER",
           "namespace_id": "5003",
           "simple": { "limit": 20, "period": 60 }
+        },
+        {
+          "name": "REVEAL_LIMITER",
+          "namespace_id": "5004",
+          "simple": { "limit": 30, "period": 60 }
         }
       ],
       "ai": { "binding": "AI" },
