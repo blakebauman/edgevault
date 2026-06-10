@@ -37,17 +37,14 @@ export async function createUser(
   database: Database,
   input: { email: string; password: string; name?: string },
 ): Promise<PublicUser | null> {
-  const existing = await database
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, input.email))
-    .limit(1)
-  if (existing.length > 0) return null
-
+  // Hash before any uniqueness check so the duplicate-email path costs the same
+  // as the success path (no timing oracle), and let the unique index arbitrate
+  // concurrent signups instead of a racy select-then-insert.
   const passwordHash = await hashPassword(input.password)
   const [created] = await database
     .insert(users)
     .values({ email: input.email, name: input.name ?? null, passwordHash })
+    .onConflictDoNothing({ target: users.email })
     .returning()
   return created ? toPublicUser(created) : null
 }
