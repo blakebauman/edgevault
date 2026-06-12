@@ -18,7 +18,7 @@ import { EdgeVault } from '@edgevault/sdk'
 
 const edgevault = new EdgeVault({
   apiKey: process.env.EDGE_KEY, // required — environment-scoped, shown once at creation
-  baseUrl: 'https://cdn.edgevault.io', // default
+  baseUrl: 'https://delivery.edgevault.io', // default
   cacheTtlMs: 15_000, // in-process cache (hits AND misses); 0 disables
   timeoutMs: 5_000, // per-request timeout
   fetch: globalThis.fetch, // injectable for tests

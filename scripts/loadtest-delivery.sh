@@ -7,11 +7,11 @@
 # Usage:
 #   # True config-hit path (needs a real environment API key + an existing key):
 #   EDGEVAULT_API_KEY=ek_... scripts/loadtest-delivery.sh \
-#       https://cdn.edgevault.io/v1/configs/<your-key> [N] [CONCURRENCY]
+#       https://delivery.edgevault.io/v1/configs/<your-key> [N] [CONCURRENCY]
 #
 #   # No key: probes a URL directly (e.g. /health, 200, no auth) for a clean
 #   # worker+edge baseline.
-#   scripts/loadtest-delivery.sh https://cdn-staging.edgevault.io/health 200 20
+#   scripts/loadtest-delivery.sh https://delivery-staging.edgevault.io/health 200 20
 #
 # Total latency below is dominated by client->edge network RTT + TLS handshake,
 # NOT worker compute. The <10ms target is server-side: read it from the
@@ -20,7 +20,7 @@
 # the 401 path skip the config read, so they carry no resolve timing.
 set -uo pipefail
 
-URL="${1:-https://cdn.edgevault.io/health}"
+URL="${1:-https://delivery.edgevault.io/health}"
 N="${2:-200}"
 CONCURRENCY="${3:-20}"
 KEY="${EDGEVAULT_API_KEY:-}"

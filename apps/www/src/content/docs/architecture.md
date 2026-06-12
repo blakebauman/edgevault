@@ -13,9 +13,9 @@ no CORS, no cross-site cookies.
 | Worker | Domain | Role |
 | --- | --- | --- |
 | `api` | api.edgevault.io | Control plane: authz, all writes, AI, promotions, MCP |
-| `delivery` | cdn.edgevault.io | Data plane: <10 ms reads, no business logic, cannot decrypt |
+| `delivery` | delivery.edgevault.io | Data plane: <10 ms reads, no business logic, cannot decrypt |
 | `auth` | auth.edgevault.io | Argon2id passwords, opaque sessions, EdDSA JWT/JWKS, MFA, passkeys |
-| `console` | app.edgevault.io | The UI + BFF — the only origin a browser sees |
+| `console` | console.edgevault.io | The UI + BFF — the only origin a browser sees |
 | `audit` | — | Queue consumer → append-only NDJSON warehouse in R2 |
 
 ## The system of record

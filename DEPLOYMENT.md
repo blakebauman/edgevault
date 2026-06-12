@@ -103,7 +103,7 @@ bash scripts/smoke.sh production
 ```
 
 It checks auth/api health, console `/login`, JWKS (proves the signing secret
-loaded), and that *EdgeVault's* delivery worker owns the `cdn` host (`/v1/*` →
+loaded), and that *EdgeVault's* delivery worker owns the `delivery` host (`/v1/*` →
 401). CI runs it automatically after every deploy.
 
 **Rollback** — each `wrangler deploy` creates a version:

@@ -2,7 +2,7 @@
 import { getCollection } from 'astro:content'
 import Base from '../layouts/Base.astro'
 
-const CONSOLE = 'https://app.edgevault.io'
+const CONSOLE = 'https://console.edgevault.io'
 const GITHUB = 'https://github.com/blakebauman/edgevault'
 const guides = (await getCollection('docs')).sort((a, b) => a.data.order - b.data.order)
 ---

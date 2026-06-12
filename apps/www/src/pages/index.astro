@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro'
 
-const CONSOLE = 'https://app.edgevault.io'
+const CONSOLE = 'https://console.edgevault.io'
 const GITHUB = 'https://github.com/blakebauman/edgevault'
 ---
 
@@ -33,7 +33,7 @@ $ edgevault run -- node server.js
 <span class="ok">edgevault: injected 14 values</span>
 <span class="c">[server] ready on :8787</span>
 
-$ curl -s cdn.edgevault.io/v1/flags/checkout-v2 \
+$ curl -s delivery.edgevault.io/v1/flags/checkout-v2 \
     -H "authorization: Bearer $EDGEVAULT_API_KEY" | jq -r .content
 <span class="hl">&lbrace;"enabled":true,"rollout":0.25&rbrace;</span> <span class="c"># 6 ms, L1</span></pre>
         </div>
@@ -128,7 +128,7 @@ $ curl -s cdn.edgevault.io/v1/flags/checkout-v2 \
           Each secret gets its own AES-GCM-256 data key, wrapped by a workspace key derived via
           HKDF from a master key that lives in Secrets Store. Decryption happens inside the API
           boundary; plaintext exists for microseconds, inside one worker, then it's gone. The edge
-          serves ciphertext-resolved config only — a popped CDN node has nothing to give up.
+          serves ciphertext-resolved config only — a popped edge node has nothing to give up.
         </p>
         <p class="cta-after"><a class="btn-text" href="/security#blast-radius">Read the threat model →</a></p>
       </div>

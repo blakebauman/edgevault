@@ -37,7 +37,7 @@ const many = await ev.batch(['a', 'b', 'c']) // { a: record | null, b: ..., c: .
 ```ts
 new EdgeVault({
   apiKey,                          // required — environment-scoped API key
-  baseUrl: 'https://cdn.edgevault.io', // default; set to your own delivery host
+  baseUrl: 'https://delivery.edgevault.io', // default; set to your own delivery host
   cacheTtlMs: 15_000,              // in-process cache for hits + misses; 0 disables
   timeoutMs: 5_000,                // per-request timeout
   fetch,                           // inject a fetch (defaults to global fetch)

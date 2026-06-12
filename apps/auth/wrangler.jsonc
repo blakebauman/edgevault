@@ -13,7 +13,7 @@
     "ENVIRONMENT": "production",
     "SERVICE_NAME": "edgevault-auth",
     "AUTH_ISSUER": "https://auth.edgevault.io",
-    "CONSOLE_URL": "https://app.edgevault.io"
+    "CONSOLE_URL": "https://console.edgevault.io"
   },
   // Account-lifecycle emails (verification, password reset, signup-exists) ride
   // the same notify queue + consumer the api worker uses for invitations.
@@ -58,7 +58,7 @@
         "ENVIRONMENT": "staging",
         "SERVICE_NAME": "edgevault-auth-staging",
         "AUTH_ISSUER": "https://auth-staging.edgevault.io",
-        "CONSOLE_URL": "https://app-staging.edgevault.io"
+        "CONSOLE_URL": "https://console-staging.edgevault.io"
       },
       "queues": {
         "producers": [{ "queue": "edgevault-notify-staging", "binding": "NOTIFY_QUEUE" }]

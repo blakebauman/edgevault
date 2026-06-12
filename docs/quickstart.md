@@ -7,7 +7,7 @@ swap in your own.
 
 ## 1. Create an account and a workspace
 
-Sign in at `https://app.edgevault.io`, create an organization, then a workspace.
+Sign in at `https://console.edgevault.io`, create an organization, then a workspace.
 A workspace owns one or more **environments** (e.g. `development`, `production`).
 
 ## 2. Add a config
@@ -43,11 +43,11 @@ React bindings live under `@edgevault/sdk/react` (`useValue`, `useFlag`).
 
 ### With raw HTTP
 
-The delivery plane lives at `cdn.edgevault.io` and authenticates with the API
+The delivery plane lives at `delivery.edgevault.io` and authenticates with the API
 key (either header form works):
 
 ```sh
-curl https://cdn.edgevault.io/v1/configs/feature.checkout.theme \
+curl https://delivery.edgevault.io/v1/configs/feature.checkout.theme \
   -H "authorization: Bearer $EDGEVAULT_API_KEY"
 # { "key": "feature.checkout.theme", "content": "midnight", ... }
 ```

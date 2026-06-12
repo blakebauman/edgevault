@@ -46,7 +46,7 @@ edgevault get checkout-timeout-ms
 # 5000
 ```
 
-Reads a single config from the delivery plane (`cdn.edgevault.io`) — the same sub-10 ms path
+Reads a single config from the delivery plane (`delivery.edgevault.io`) — the same sub-10 ms path
 your SDK uses — and prints the raw content. Missing keys print `not found: <key>` on stderr and
 exit `1`.
 
@@ -63,5 +63,5 @@ Point the CLI at your own workers:
 
 ```sh
 export EDGEVAULT_API_URL=https://api.your-domain.dev
-export EDGEVAULT_CDN_URL=https://cdn.your-domain.dev
+export EDGEVAULT_DELIVERY_URL=https://delivery.your-domain.dev
 ```

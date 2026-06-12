@@ -5,15 +5,15 @@ set -uo pipefail
 
 ENVNAME="${1:-staging}"
 case "$ENVNAME" in
-  production) S="" ;;            # app.edgevault.io
-  staging)    S="-staging" ;;    # app-staging.edgevault.io
+  production) S="" ;;            # console.edgevault.io
+  staging)    S="-staging" ;;    # console-staging.edgevault.io
   *) echo "usage: smoke.sh [staging|production]"; exit 2 ;;
 esac
 
-APP="https://app${S}.edgevault.io"
+APP="https://console${S}.edgevault.io"
 AUTH="https://auth${S}.edgevault.io"
 API="https://api${S}.edgevault.io"
-CDN="https://cdn${S}.edgevault.io"
+DELIVERY="https://delivery${S}.edgevault.io"
 # Proprietary Managed-Edge control plane (public for Stripe webhooks). Optional
 # for self-hosters — skip with SKIP_CONTROL_PLANE=1.
 CTL="https://billing${S}.edgevault.io"
@@ -32,8 +32,8 @@ check "api /health"    "$API/health" 200
 check "console /login" "$APP/login" 200
 # The delivery worker gates /v1/* behind API-key auth, so an unauthenticated
 # request returns 401. This both proves the worker is up AND that *EdgeVault's*
-# delivery worker (not some other worker) owns the cdn hostname.
-check "cdn (delivery /v1 auth)" "$CDN/v1/configs/_smoke" 401
+# delivery worker (not some other worker) owns the delivery hostname.
+check "delivery /v1 auth" "$DELIVERY/v1/configs/_smoke" 401
 [ "${SKIP_CONTROL_PLANE:-0}" = 1 ] || check "control-plane /health" "$CTL/health" 200
 
 # JWKS must publish at least one verification key (proves the signing secret loaded).

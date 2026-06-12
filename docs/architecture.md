@@ -8,10 +8,10 @@ plane.
 
 | Worker | Role |
 |---|---|
-| `console` (`app.edgevault.io`) | React Router 7 UI + BFF. The browser only talks here; it proxies to the others over service bindings (no CORS, no cross-site cookies). |
+| `console` (`console.edgevault.io`) | React Router 7 UI + BFF. The browser only talks here; it proxies to the others over service bindings (no CORS, no cross-site cookies). |
 | `auth` (`auth.edgevault.io`) | Custom auth — sessions, JWT/JWKS, API keys, social OAuth, MFA/passkeys, enterprise SSO (OIDC/SAML). Built on audited primitives (`jose`, `@noble/hashes`, `@oslojs/*`), no framework, no telemetry. |
 | `api` (`api.edgevault.io`) | Control plane — authz, metadata in Neon (via Hyperdrive), routes all config/secret writes through the Vault DO, hosts AI + MCP, SCIM 2.0 directory surface. |
-| `delivery` (`cdn.edgevault.io`) | Data plane — serves **pre-resolved** configs/flags from KV with an in-memory L1, gated by environment-scoped API keys. No business logic; cannot decrypt secrets. |
+| `delivery` (`delivery.edgevault.io`) | Data plane — serves **pre-resolved** configs/flags from KV with an in-memory L1, gated by environment-scoped API keys. No business logic; cannot decrypt secrets. |
 | `control-plane` (`edge/`, proprietary) | Stripe billing/metering + tenant provisioning. SaaS-only, excluded from OSS. |
 
 ## Durable Objects

@@ -8,7 +8,7 @@
 export interface CliOptions {
   apiKey: string
   apiUrl: string
-  cdnUrl: string
+  deliveryUrl: string
   fetchImpl?: typeof fetch
 }
 
@@ -51,7 +51,11 @@ export async function fetchConfig(
   options: CliOptions,
   key: string,
 ): Promise<{ key: string; content: string } | null> {
-  const response = await request(options, options.cdnUrl, `/v1/configs/${encodeURIComponent(key)}`)
+  const response = await request(
+    options,
+    options.deliveryUrl,
+    `/v1/configs/${encodeURIComponent(key)}`,
+  )
   if (response.status === 404) return null
   if (!response.ok) throw new CliError(`Read failed: HTTP ${response.status}`)
   return (await response.json()) as { key: string; content: string }

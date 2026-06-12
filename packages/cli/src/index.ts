@@ -12,7 +12,7 @@ import { buildEnv, formatDotenv } from './envmap'
  *
  * Auth: EDGEVAULT_API_KEY (an environment-scoped key from the console). Keys
  * need the `secrets:read` scope for secrets to be included. Self-hosters point
- * EDGEVAULT_API_URL / EDGEVAULT_CDN_URL at their own workers.
+ * EDGEVAULT_API_URL / EDGEVAULT_DELIVERY_URL at their own workers.
  */
 
 const HELP = `edgevault — EdgeVault CLI
@@ -23,9 +23,9 @@ Usage:
   edgevault get <key>
 
 Environment:
-  EDGEVAULT_API_KEY   environment-scoped API key (required)
-  EDGEVAULT_API_URL   control plane   (default https://api.edgevault.io)
-  EDGEVAULT_CDN_URL   delivery plane  (default https://cdn.edgevault.io)
+  EDGEVAULT_API_KEY        environment-scoped API key (required)
+  EDGEVAULT_API_URL        control plane   (default https://api.edgevault.io)
+  EDGEVAULT_DELIVERY_URL   delivery plane  (default https://delivery.edgevault.io)
 `
 
 export interface CliIo {
@@ -42,7 +42,7 @@ function optionsFrom(io: CliIo): CliOptions {
   return {
     apiKey,
     apiUrl: io.env.EDGEVAULT_API_URL ?? 'https://api.edgevault.io',
-    cdnUrl: io.env.EDGEVAULT_CDN_URL ?? 'https://cdn.edgevault.io',
+    deliveryUrl: io.env.EDGEVAULT_DELIVERY_URL ?? 'https://delivery.edgevault.io',
     fetchImpl: io.fetchImpl,
   }
 }

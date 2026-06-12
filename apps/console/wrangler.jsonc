@@ -7,7 +7,7 @@
   "observability": {
     "enabled": true
   },
-  "routes": [{ "pattern": "app.edgevault.io", "custom_domain": true }],
+  "routes": [{ "pattern": "console.edgevault.io", "custom_domain": true }],
   "vars": {
     "ENVIRONMENT": "production",
     // Public api base for browser WebSocket connections (BFF proxies HTTP).
@@ -23,7 +23,7 @@
   ],
   "env": {
     "staging": {
-      "routes": [{ "pattern": "app-staging.edgevault.io", "custom_domain": true }],
+      "routes": [{ "pattern": "console-staging.edgevault.io", "custom_domain": true }],
       "vars": {
         "ENVIRONMENT": "staging",
         "API_WS_BASE": "wss://api-staging.edgevault.io"
