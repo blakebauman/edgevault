@@ -22,8 +22,10 @@
     "DELIVERY_HOST": "delivery.edgevault.io",
     // Empty = intentional sentinel: custom delivery domains off. Set to the
     // zone id serving DELIVERY_HOST (plus the CF_SAAS_API_TOKEN secret) to
-    // enable the /domains routes (ROADMAP 2.12).
-    "CF_ZONE_ID": "",
+    // enable the /domains routes (ROADMAP 2.12). edgevault.io zone — the zone's
+    // single fallback origin is delivery.edgevault.io, so custom hostnames route
+    // to this (prod) delivery worker; staging stays "" (one fallback per zone).
+    "CF_ZONE_ID": "807fdd06a44801b3aa8ad8a5f4f77399",
     "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
     "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
     // Empty = intentional sentinel: AI binding is called directly, no AI Gateway
