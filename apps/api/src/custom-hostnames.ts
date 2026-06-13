@@ -146,8 +146,18 @@ async function cfRequest<T>(
 export function createCustomHostname(
   config: SaasConfig,
   hostname: string,
+  originServer: string,
 ): Promise<CfResult<CfCustomHostname>> {
-  return cfRequest(config, 'POST', '', { hostname, ssl: { method: 'http', type: 'dv' } })
+  // Pin the origin per-hostname so each environment routes to its own delivery
+  // worker. A zone has exactly one fallback origin, so without this every custom
+  // hostname (whichever env created it) would route to that single origin —
+  // staging-created domains would land on prod delivery. custom_origin_server
+  // overrides the fallback per hostname (= this env's DELIVERY_HOST).
+  return cfRequest(config, 'POST', '', {
+    hostname,
+    ssl: { method: 'http', type: 'dv' },
+    custom_origin_server: originServer,
+  })
 }
 
 export function getCustomHostname(

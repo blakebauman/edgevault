@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest'
-import { mapCfErrors, mapCfToDomainStatus, validateCustomHostname } from '../src/custom-hostnames'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  createCustomHostname,
+  mapCfErrors,
+  mapCfToDomainStatus,
+  validateCustomHostname,
+} from '../src/custom-hostnames'
 
 // Route handlers sit behind withDatabase (Neon), which the vitest pool can't
 // provide (CI has no Postgres) — the testable surface here is the pure logic;
@@ -37,6 +42,35 @@ describe('validateCustomHostname', () => {
     bad('sp ace.acme.com')
     bad(`${'a'.repeat(64)}.acme.com`)
     bad(`${'a.'.repeat(130)}com`)
+  })
+})
+
+describe('createCustomHostname', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('pins custom_origin_server so each env routes to its own delivery worker', async () => {
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = []
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      calls.push({ url, body: JSON.parse(String(init.body)) })
+      return new Response(
+        JSON.stringify({
+          success: true,
+          result: { id: 'ch1', hostname: 'config.acme.com', status: 'pending' },
+        }),
+        { status: 200 },
+      )
+    })
+
+    await createCustomHostname(
+      { zoneId: 'zone1', apiToken: 'tok' },
+      'config.acme.com',
+      'delivery-staging.edgevault.io',
+    )
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0]?.url).toContain('/zones/zone1/custom_hostnames')
+    expect(calls[0]?.body.custom_origin_server).toBe('delivery-staging.edgevault.io')
+    expect(calls[0]?.body.ssl).toEqual({ method: 'http', type: 'dv' })
   })
 })
 
