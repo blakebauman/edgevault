@@ -12,6 +12,7 @@
   "vars": {
     "ENVIRONMENT": "test",
     "SERVICE_NAME": "edgevault-api",
+    "INTERNAL_TOKEN": "test-internal-token",
     "AUTH_ISSUER": "https://auth.test",
     "CONSOLE_URL": "https://app.test",
     "DELIVERY_HOST": "delivery.test",
