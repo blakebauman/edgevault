@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro'
 
-const CONSOLE = 'https://app.edgevault.io'
+const CONSOLE = 'https://console.edgevault.io'
 const GITHUB = 'https://github.com/blakebauman/edgevault'
 ---
 
@@ -73,7 +73,7 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
         <span class="tick tl"></span><span class="tick tr"></span><span class="tick bl"></span><span class="tick br"></span>
         <table class="score">
           <tr><th>component</th><th>an attacker gets</th><th>why it stops there</th></tr>
-          <tr><td>delivery worker (cdn)</td><td class="v">resolved configs and flags, zero secrets</td><td>holds no key material — cannot decrypt by construction</td></tr>
+          <tr><td>delivery worker</td><td class="v">resolved configs and flags, zero secrets</td><td>holds no key material — cannot decrypt by construction</td></tr>
           <tr><td>edge KV</td><td class="v">the same resolved values, secret ciphertext</td><td>DEKs are never written to KV</td></tr>
           <tr><td>api worker</td><td class="v">microseconds of in-flight plaintext</td><td>plaintext is never persisted and never logged</td></tr>
           <tr><td>workspace DO</td><td class="v">ciphertext plus revision history</td><td>DEKs stored wrapped; KEK derived on demand, never stored</td></tr>

@@ -103,7 +103,7 @@ bash scripts/smoke.sh production
 ```
 
 It checks auth/api health, console `/login`, JWKS (proves the signing secret
-loaded), and that *EdgeVault's* delivery worker owns the `cdn` host (`/v1/*` →
+loaded), and that *EdgeVault's* delivery worker owns the `delivery` host (`/v1/*` →
 401). CI runs it automatically after every deploy.
 
 **Rollback** — each `wrangler deploy` creates a version:
@@ -119,6 +119,25 @@ is special**: customer secrets are envelope-encrypted under it, so you cannot
 just swap it — rotate by re-wrapping each envelope (`@edgevault/crypto`
 `rewrapEnvelope`) under the new key, then deploy. Plan a migration job before
 rotating `MASTER_KEK` in production.
+
+**`INTERNAL_TOKEN` rotation runbook** — the token is verified independently by
+auth, api, console, and control-plane, and `wrangler secret put` updates one
+worker at a time, so a rotation has an unavoidable window where senders and
+verifiers disagree. Procedure:
+
+1. Generate the new value (`node scripts/gen-secrets.mjs` prints one).
+2. `wrangler secret put INTERNAL_TOKEN` on **all four workers back-to-back**
+   (auth, api, console, control-plane; staging first, then production).
+3. During the fan-out (≤ a minute), internal calls between an updated and a
+   not-yet-updated worker fail with 401: SSO/SAML logins, SCIM provisioning,
+   share-link consume, and billing proxy calls. All are retry-safe — the
+   affected user action just fails once and succeeds on retry. No data is at
+   risk; nothing needs cleanup afterward.
+4. Verify with a console login + a share-link open against staging before
+   rotating production.
+
+Rotate immediately if the token may have leaked; otherwise on the same cadence
+as `JWT_PRIVATE_JWK`.
 
 **Scaling notes** — `api` uses Smart Placement (near the Neon region) + Hyperdrive
 pooling; `delivery` runs at the edge with a KV + 15s in-memory L1 cache. Vectorize

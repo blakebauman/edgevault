@@ -1,3 +1,4 @@
+import { redactCredentials } from './redact'
 import type { EmbeddingRunner } from './types'
 
 export async function embedTexts(
@@ -19,7 +20,12 @@ export async function embedText(
   return vector
 }
 
-/** The text we embed for a config item: key + kind + a content excerpt. */
+/**
+ * The text we embed for a config item: key + kind + a content excerpt.
+ * Credential-looking substrings are redacted before the excerpt ever reaches
+ * the embedding model or Vectorize (secrets proper are excluded upstream;
+ * this catches credentials living inside plain config values).
+ */
 export function configEmbeddingText(item: {
   key: string
   kind: string
@@ -27,5 +33,5 @@ export function configEmbeddingText(item: {
   contentType: string
 }): string {
   const excerpt = item.content.length > 800 ? item.content.slice(0, 800) : item.content
-  return `${item.kind} ${item.key} (${item.contentType})\n${excerpt}`
+  return `${item.kind} ${item.key} (${item.contentType})\n${redactCredentials(excerpt).text}`
 }

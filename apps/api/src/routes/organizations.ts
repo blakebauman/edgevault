@@ -8,11 +8,12 @@ import {
   createOrganization,
   createWorkspace,
   getMemberRole,
-  getOrgRequiresStepUpForReveal,
+  getOrgSecurityPolicy,
+  isEmailVerified,
   isOrgMember,
   listOrganizationsForUser,
   listWorkspaces,
-  setOrgRequireStepUpForReveal,
+  setOrgSecurityPolicy,
 } from '../database/queries'
 import type { VaultDurableObject } from '../durable-objects/vault'
 
@@ -48,6 +49,12 @@ function isDuplicate(error: unknown): boolean {
 export const organizationRoutes = new Hono<AppEnv>()
   .post('/', zValidator('json', nameSlug), async (c) => {
     const { name, slug } = c.req.valid('json')
+    if (!(await isEmailVerified(c.var.database, c.var.userId))) {
+      return c.json(
+        { error: 'email_unverified', detail: 'Verify your email to create an organization.' },
+        403,
+      )
+    }
     try {
       const organization = await createOrganization(c.var.database, {
         name,
@@ -304,27 +311,48 @@ export const organizationRoutes = new Hono<AppEnv>()
     }
     return c.json({ ok: true })
   })
-  // --- Security policy (step-up before reveal) ---
+  // --- Security policies (step-up before reveal, require-MFA, SSO-only) ---
   .get('/:orgId/security', async (c) => {
     const orgId = c.req.param('orgId')
     const role = await getMemberRole(c.var.database, orgId, c.var.userId)
     if (!role) return c.json({ error: 'forbidden' }, 403)
-    return c.json({
-      requireStepUpForReveal: await getOrgRequiresStepUpForReveal(c.var.database, orgId),
-    })
+    return c.json(await getOrgSecurityPolicy(c.var.database, orgId))
   })
   .patch(
     '/:orgId/security',
-    zValidator('json', z.object({ requireStepUpForReveal: z.boolean() })),
+    zValidator(
+      'json',
+      z.object({
+        requireStepUpForReveal: z.boolean().optional(),
+        requireMfa: z.boolean().optional(),
+        ssoOnly: z.boolean().optional(),
+      }),
+    ),
     async (c) => {
       const orgId = c.req.param('orgId')
       const role = await getMemberRole(c.var.database, orgId, c.var.userId)
       if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
-      await setOrgRequireStepUpForReveal(
-        c.var.database,
-        orgId,
-        c.req.valid('json').requireStepUpForReveal,
-      )
-      return c.json({ ok: true })
+      const patch = c.req.valid('json')
+
+      // SSO-only without a working IdP connection would lock the whole org out.
+      if (patch.ssoOnly === true) {
+        const { getSamlConnection, getSsoConnection } = await import('@edgevault/database')
+        const [oidc, saml] = await Promise.all([
+          getSsoConnection(c.var.database, orgId),
+          getSamlConnection(c.var.database, orgId),
+        ])
+        if (!oidc && !saml) {
+          return c.json(
+            {
+              error: 'sso_not_configured',
+              detail: 'Connect an identity provider before requiring SSO-only sign-in.',
+            },
+            409,
+          )
+        }
+      }
+
+      await setOrgSecurityPolicy(c.var.database, orgId, patch)
+      return c.json(await getOrgSecurityPolicy(c.var.database, orgId))
     },
   )

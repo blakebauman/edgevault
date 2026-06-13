@@ -34,7 +34,7 @@ function io(overrides: Partial<CliIo> = {}): CliIo & { out: string[]; err: strin
     env: {
       EDGEVAULT_API_KEY: 'evk_live_test',
       EDGEVAULT_API_URL: 'https://api.test',
-      EDGEVAULT_CDN_URL: 'https://cdn.test',
+      EDGEVAULT_DELIVERY_URL: 'https://delivery.test',
     },
     fetchImpl: fakeFetch({
       '/machine/v1/export': () => Response.json(EXPORT),

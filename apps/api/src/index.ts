@@ -10,6 +10,7 @@ import { organizationRoutes } from './routes/organizations'
 import { scimRoutes } from './routes/scim'
 import { internalShareRoutes, shareRoutes } from './routes/shares'
 import { workspaceRoutes } from './routes/workspaces'
+import { securityHeaders } from './security-headers'
 
 export { EdgeVaultAgent } from './agent/agent'
 export { ShareDurableObject } from './durable-objects/share'
@@ -26,6 +27,8 @@ export { PromotionWorkflow } from './workflows/promotion'
  */
 
 const app = new OpenAPIHono<AppEnv>()
+
+app.use('*', securityHeaders)
 
 const HealthResponse = z
   .object({

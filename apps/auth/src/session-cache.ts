@@ -21,6 +21,7 @@ const TTL_SECONDS = 60
 interface CachedSession {
   user: PublicUser
   activeOrganizationId: string | null
+  authMethod: string | null
   expiresAt: string
 }
 
@@ -40,7 +41,12 @@ export async function validateSessionCached(
     if (hit) {
       const expiresAt = new Date(hit.expiresAt)
       if (expiresAt.getTime() > Date.now()) {
-        return { user: hit.user, activeOrganizationId: hit.activeOrganizationId, expiresAt }
+        return {
+          user: hit.user,
+          activeOrganizationId: hit.activeOrganizationId,
+          authMethod: hit.authMethod ?? null,
+          expiresAt,
+        }
       }
     }
   }
@@ -50,6 +56,7 @@ export async function validateSessionCached(
     const payload: CachedSession = {
       user: session.user,
       activeOrganizationId: session.activeOrganizationId,
+      authMethod: session.authMethod,
       expiresAt: session.expiresAt.toISOString(),
     }
     c.executionCtx.waitUntil(
@@ -62,4 +69,15 @@ export async function validateSessionCached(
 export async function invalidateSessionCached(c: Context<AppEnv>, token: string): Promise<void> {
   await invalidateSession(c.var.database, token)
   if (c.env.AUTH_CACHE) c.executionCtx.waitUntil(c.env.AUTH_CACHE.delete(keyFor(token)))
+}
+
+/**
+ * Purge cached entries for already-deleted sessions by their stored token
+ * hashes (what `deleteSessionsForUser` returns). Without this, a revoked
+ * session stays valid at the edge for up to the cache TTL.
+ */
+export function purgeSessionHashes(c: Context<AppEnv>, tokenHashes: string[]): void {
+  const cache = c.env.AUTH_CACHE
+  if (!cache || tokenHashes.length === 0) return
+  c.executionCtx.waitUntil(Promise.all(tokenHashes.map((hash) => cache.delete(`session:${hash}`))))
 }

@@ -4,6 +4,8 @@ import {
   exchangeOAuthCode,
   fetchOAuthIdentity,
   generatePkce,
+  generateToken,
+  hashToken,
   importVerificationKey,
   isOAuthProvider,
   type OAuthProvider,
@@ -12,34 +14,49 @@ import {
   signAccessToken,
   verifyAccessToken,
 } from '@edgevault/auth'
-import { createDatabase } from '@edgevault/database'
+import { createDatabase, getAuthenticatorsByUser } from '@edgevault/database'
+import type { EmailJob } from '@edgevault/edge-protocol'
 import { zValidator } from '@hono/zod-validator'
-import { Hono, type MiddlewareHandler } from 'hono'
+import { type Context, Hono, type MiddlewareHandler } from 'hono'
 import { z } from 'zod'
 import type { AppEnv } from './context'
 import { clearSessionCookie, getSessionToken, setSessionCookie } from './cookies'
 import { getKeys } from './keys'
 import {
+  clearRecoveryCodes,
   confirmTotpEnrollment,
   disableTotp,
+  generateRecoveryCodes,
   signMfaChallenge,
   signRevealToken,
   startTotpEnrollment,
   totpStatus,
   userHasMfa,
   verifyMfaChallenge,
+  verifyRecoveryCode,
   verifyUserTotp,
 } from './mfa'
 import { enforceRateLimit, rateLimitByIp } from './rate-limit'
+import { securityHeaders } from './security-headers'
 import {
+  consumeVerificationToken,
   createSession,
   createUser,
+  createVerificationToken,
+  deleteSessionById,
+  deleteSessionsForUser,
+  getOrgAccessPolicy,
+  getUserByEmail,
   getUserById,
+  listSessionsForUser,
+  markEmailVerified,
   provisionOauthUser,
   provisionSsoUser,
+  SESSION_TTL_MS,
+  setUserPassword,
   verifyCredentials,
 } from './services'
-import { invalidateSessionCached, validateSessionCached } from './session-cache'
+import { invalidateSessionCached, purgeSessionHashes, validateSessionCached } from './session-cache'
 import { ssoRoutes } from './sso'
 import {
   buildAuthenticationOptions,
@@ -86,6 +103,8 @@ const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
 
 const app = new Hono<AppEnv>()
 
+app.use('*', securityHeaders)
+
 // Per-request Drizzle client over Hyperdrive. The pool is closed after the
 // response so the request isn't blocked on connection teardown.
 app.use('*', async (c, next) => {
@@ -111,6 +130,15 @@ const signUpSchema = z.object({
   name: z.string().min(1).max(120).optional(),
 })
 
+const VERIFY_TTL_MS = 24 * 60 * 60 * 1000 // 24h
+const RESET_TTL_MS = 30 * 60 * 1000 // 30m
+
+/** Enqueue a transactional email off the request path; absent binding = dev/test. */
+function enqueueEmail(c: Context<AppEnv>, job: EmailJob): void {
+  const queue = c.env.NOTIFY_QUEUE as Queue | undefined
+  if (queue) c.executionCtx.waitUntil(queue.send(job))
+}
+
 app.post(
   '/sign-up/email',
   rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'signup-ip'),
@@ -118,14 +146,61 @@ app.post(
   async (c) => {
     const input = c.req.valid('json')
     const user = await createUser(c.var.database, input)
-    if (!user) return c.json({ error: 'email_taken' }, 409)
+
+    if (!user) {
+      // Existing account. The owner of the address learns what happened by
+      // email; the HTTP response is shaped exactly like success (status, body,
+      // Set-Cookie with an unbacked decoy token) so the response alone never
+      // confirms an account exists. Residual: probing the cookie via /session
+      // distinguishes the paths — that's an active, rate-limited second step.
+      enqueueEmail(c, {
+        kind: 'signup-exists-email',
+        to: input.email,
+        signInUrl: `${c.env.CONSOLE_URL}/login`,
+        resetUrl: `${c.env.CONSOLE_URL}/forgot-password`,
+      })
+      setSessionCookie(c, generateToken(), new Date(Date.now() + SESSION_TTL_MS))
+      return c.json({ ok: true, verificationEmailSent: true }, 201)
+    }
+
+    const verification = await createVerificationToken(
+      c.var.database,
+      'email-verify',
+      user.id,
+      VERIFY_TTL_MS,
+    )
+    enqueueEmail(c, {
+      kind: 'verification-email',
+      to: user.email,
+      verifyUrl: `${c.env.CONSOLE_URL}/verify-email?token=${verification.token}`,
+      expiresAt: +verification.expiresAt,
+    })
 
     const { token, expiresAt } = await createSession(c.var.database, user.id, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'password',
     })
     setSessionCookie(c, token, expiresAt)
-    return c.json({ user }, 201)
+    return c.json({ ok: true, verificationEmailSent: true }, 201)
+  },
+)
+
+// Consume an email-verification token (single-use, 24h). Public: the token is
+// the credential.
+app.post(
+  '/verify-email',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'verify-ip'),
+  zValidator('json', z.object({ token: z.string().min(1).max(512) })),
+  async (c) => {
+    const userId = await consumeVerificationToken(
+      c.var.database,
+      'email-verify',
+      c.req.valid('json').token,
+    )
+    if (!userId) return c.json({ error: 'invalid_token' }, 400)
+    await markEmailVerified(c.var.database, userId)
+    return c.json({ ok: true })
   },
 )
 
@@ -161,6 +236,7 @@ app.post(
     const { token, expiresAt } = await createSession(c.var.database, user.id, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'password',
     })
     setSessionCookie(c, token, expiresAt)
     return c.json({ user })
@@ -185,6 +261,7 @@ app.post(
     const { token, expiresAt } = await createSession(c.var.database, userId, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'password',
     })
     setSessionCookie(c, token, expiresAt)
     return c.json({ ok: true })
@@ -198,6 +275,122 @@ app.get('/me', requireUser, async (c) => {
   if (!user) return c.json({ error: 'not_found' }, 404)
   return c.json({ user })
 })
+
+// Re-send the verification email for the signed-in (soft-gated) user.
+app.post(
+  '/verify-email/resend',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'verify-ip'),
+  requireUser,
+  async (c) => {
+    const user = await getUserById(c.var.database, c.var.userId)
+    if (!user) return c.json({ error: 'not_found' }, 404)
+    if (user.emailVerified) return c.json({ ok: true })
+    const blocked = await enforceRateLimit(
+      c,
+      c.env.AUTH_ACCOUNT_LIMITER,
+      `verify-resend:${user.email.toLowerCase()}`,
+    )
+    if (blocked) return blocked
+
+    const verification = await createVerificationToken(
+      c.var.database,
+      'email-verify',
+      user.id,
+      VERIFY_TTL_MS,
+    )
+    enqueueEmail(c, {
+      kind: 'verification-email',
+      to: user.email,
+      verifyUrl: `${c.env.CONSOLE_URL}/verify-email?token=${verification.token}`,
+      expiresAt: +verification.expiresAt,
+    })
+    return c.json({ ok: true })
+  },
+)
+
+// --- Password reset / change ------------------------------------------------
+
+// Request a reset link. Always 200 with the same body — the response never
+// reveals whether the email has an account (the inbox does). OAuth/SSO-only
+// users (no password credential) get nothing: a reset must never *add* a
+// password to an account whose only factor is a stronger external IdP.
+app.post(
+  '/password/forgot',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'pw-forgot-ip'),
+  zValidator('json', z.object({ email: z.email() })),
+  async (c) => {
+    const email = c.req.valid('json').email
+    const blocked = await enforceRateLimit(
+      c,
+      c.env.AUTH_ACCOUNT_LIMITER,
+      `pw-forgot:${email.toLowerCase()}`,
+    )
+    if (blocked) return blocked
+
+    const user = await getUserByEmail(c.var.database, email)
+    if (user?.hasPassword) {
+      const verification = await createVerificationToken(
+        c.var.database,
+        'password-reset',
+        user.id,
+        RESET_TTL_MS,
+      )
+      enqueueEmail(c, {
+        kind: 'password-reset-email',
+        to: user.email,
+        resetUrl: `${c.env.CONSOLE_URL}/reset-password?token=${verification.token}`,
+        expiresAt: +verification.expiresAt,
+      })
+    }
+    return c.json({ ok: true })
+  },
+)
+
+// Complete a reset: consume the token, set the password, revoke every session
+// (DB + KV cache) — a new credential invalidates everything minted before it.
+// No auto-session: the user signs in fresh, and MFA still gates that sign-in.
+app.post(
+  '/password/reset',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'pw-reset-ip'),
+  zValidator(
+    'json',
+    z.object({ token: z.string().min(1).max(512), newPassword: z.string().min(8).max(256) }),
+  ),
+  async (c) => {
+    const { token, newPassword } = c.req.valid('json')
+    const userId = await consumeVerificationToken(c.var.database, 'password-reset', token)
+    if (!userId) return c.json({ error: 'invalid_token' }, 400)
+    await setUserPassword(c.var.database, userId, newPassword)
+    purgeSessionHashes(c, await deleteSessionsForUser(c.var.database, userId))
+    return c.json({ ok: true })
+  },
+)
+
+// Change the password from a signed-in console session. Requires the current
+// password (a held access token alone must not be able to rotate the
+// credential) and revokes all sessions afterwards.
+app.post(
+  '/password/change',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'pw-change-ip'),
+  requireUser,
+  zValidator(
+    'json',
+    z.object({
+      currentPassword: z.string().min(1).max(256),
+      newPassword: z.string().min(8).max(256),
+    }),
+  ),
+  async (c) => {
+    const { currentPassword, newPassword } = c.req.valid('json')
+    const user = await getUserById(c.var.database, c.var.userId)
+    if (!user) return c.json({ error: 'not_found' }, 404)
+    const verified = await verifyCredentials(c.var.database, user.email, currentPassword)
+    if (!verified) return c.json({ error: 'invalid_credentials' }, 401)
+    await setUserPassword(c.var.database, user.id, newPassword)
+    purgeSessionHashes(c, await deleteSessionsForUser(c.var.database, user.id))
+    return c.json({ ok: true })
+  },
+)
 
 // --- MFA management (access-token authenticated; the console BFF acts for the user) ---
 
@@ -219,13 +412,98 @@ app.post('/mfa/totp/confirm', requireUser, zValidator('json', mfaCodeSchema), as
     c.var.userId,
     c.req.valid('json').code,
   )
-  return ok ? c.json({ ok: true }) : c.json({ error: 'invalid_code' }, 400)
+  if (!ok) return c.json({ error: 'invalid_code' }, 400)
+  // One-time fallback for device loss — plaintext leaves the server only here.
+  const recoveryCodes = await generateRecoveryCodes(c.var.database, c.var.userId)
+  // The credential just got stronger; sessions minted before MFA don't inherit it.
+  purgeSessionHashes(c, await deleteSessionsForUser(c.var.database, c.var.userId))
+  return c.json({ ok: true, recoveryCodes })
 })
 
 app.post('/mfa/totp/disable', requireUser, zValidator('json', mfaCodeSchema), async (c) => {
   const ok = await disableTotp(c.env, c.var.database, c.var.userId, c.req.valid('json').code)
-  return ok ? c.json({ ok: true }) : c.json({ error: 'invalid_code' }, 400)
+  if (!ok) return c.json({ error: 'invalid_code' }, 400)
+  await clearRecoveryCodes(c.var.database, c.var.userId)
+  // Credential change: anything minted under the old posture is revoked.
+  purgeSessionHashes(c, await deleteSessionsForUser(c.var.database, c.var.userId))
+  return c.json({ ok: true })
 })
+
+// Recovery-code sign-in: same contract as /mfa/totp/authenticate, consuming a
+// one-time code instead. Recovery implies a lost device, so every other
+// session is revoked once the new one is minted.
+app.post(
+  '/mfa/recovery/authenticate',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'mfa-ip'),
+  zValidator('json', z.object({ mfaToken: z.string().min(1), code: z.string().min(8).max(16) })),
+  async (c) => {
+    const { mfaToken, code } = c.req.valid('json')
+    const userId = await verifyMfaChallenge(c.env, mfaToken)
+    if (!userId) return c.json({ error: 'mfa_challenge_invalid' }, 401)
+    if (!(await verifyRecoveryCode(c.var.database, userId, code))) {
+      return c.json({ error: 'invalid_code' }, 401)
+    }
+    const { token, expiresAt } = await createSession(c.var.database, userId, {
+      ipAddress: c.req.header('cf-connecting-ip'),
+      userAgent: c.req.header('user-agent'),
+      authMethod: 'recovery',
+    })
+    purgeSessionHashes(
+      c,
+      await deleteSessionsForUser(c.var.database, userId, { exceptTokenHash: hashToken(token) }),
+    )
+    setSessionCookie(c, token, expiresAt)
+    return c.json({ ok: true })
+  },
+)
+
+// Re-issue the set (invalidates old codes). Demands a live TOTP code: a held
+// access token alone must not be able to mint fresh recovery codes.
+app.post(
+  '/mfa/recovery/regenerate',
+  rateLimitByIp((e) => e.AUTH_IP_LIMITER, 'mfa-ip'),
+  requireUser,
+  zValidator('json', mfaCodeSchema),
+  async (c) => {
+    if (!(await verifyUserTotp(c.env, c.var.database, c.var.userId, c.req.valid('json').code))) {
+      return c.json({ error: 'invalid_code' }, 401)
+    }
+    return c.json({ recoveryCodes: await generateRecoveryCodes(c.var.database, c.var.userId) })
+  },
+)
+
+// --- Session management (device list) ---------------------------------------
+
+app.get('/sessions', requireUser, async (c) => {
+  const rows = await listSessionsForUser(c.var.database, c.var.userId)
+  return c.json({
+    sessions: rows.map((r) => ({
+      id: r.id,
+      ipAddress: r.ipAddress,
+      userAgent: r.userAgent,
+      createdAt: r.createdAt.toISOString(),
+      expiresAt: r.expiresAt.toISOString(),
+    })),
+  })
+})
+
+app.post('/sessions/revoke-all', requireUser, async (c) => {
+  const hashes = await deleteSessionsForUser(c.var.database, c.var.userId)
+  purgeSessionHashes(c, hashes)
+  return c.json({ ok: true, revoked: hashes.length })
+})
+
+app.post(
+  '/sessions/:id/revoke',
+  requireUser,
+  zValidator('param', z.object({ id: z.uuid() })),
+  async (c) => {
+    const hash = await deleteSessionById(c.var.database, c.var.userId, c.req.valid('param').id)
+    if (!hash) return c.json({ error: 'not_found' }, 404)
+    purgeSessionHashes(c, [hash])
+    return c.json({ ok: true })
+  },
+)
 
 // --- WebAuthn / passkeys ---------------------------------------------------
 // The console BFF passes the expected rpID/origin (from its own request) and
@@ -296,6 +574,7 @@ app.post(
     const { token, expiresAt } = await createSession(c.var.database, userId, {
       ipAddress: c.req.header('cf-connecting-ip'),
       userAgent: c.req.header('user-agent'),
+      authMethod: 'passkey',
     })
     setSessionCookie(c, token, expiresAt)
     return c.json({ ok: true })
@@ -433,6 +712,7 @@ app.post(
       const { token, expiresAt } = await createSession(c.var.database, user.id, {
         ipAddress: c.req.header('cf-connecting-ip'),
         userAgent: c.req.header('user-agent'),
+        authMethod: 'oauth',
       })
       setSessionCookie(c, token, expiresAt)
       return c.json({ ok: true })
@@ -478,6 +758,23 @@ app.post(
     const session = await validateSessionCached(c, token)
     if (!session) return c.json({ error: 'no_session' }, 401)
 
+    // Org security policies are enforced here — the single point where org
+    // context enters a credential. Members of an SSO-only or require-MFA org
+    // can still password-auth into their personal org; they just can't mint
+    // a token *for this org* without satisfying its policy.
+    if (session.activeOrganizationId) {
+      const policy = await getOrgAccessPolicy(c.var.database, session.activeOrganizationId)
+      if (policy.ssoOnly && (session.authMethod ?? 'password') !== 'sso') {
+        return c.json({ error: 'sso_required_by_org' }, 403)
+      }
+      if (policy.requireMfa) {
+        const hasSecondFactor =
+          (await userHasMfa(c.var.database, session.user.id)) ||
+          (await getAuthenticatorsByUser(c.var.database, session.user.id)).length > 0
+        if (!hasSecondFactor) return c.json({ error: 'mfa_required_by_org' }, 403)
+      }
+    }
+
     const { signing } = await getKeys(c.env)
     const accessToken = await signAccessToken(
       { sub: session.user.id, org: session.activeOrganizationId ?? undefined },
@@ -516,6 +813,7 @@ app.post('/internal/sso/provision', async (c) => {
   const { token, expiresAt } = await createSession(c.var.database, user.id, {
     ipAddress: c.req.header('cf-connecting-ip'),
     userAgent: c.req.header('user-agent'),
+    authMethod: 'sso',
   })
   setSessionCookie(c, token, expiresAt)
   return c.json({ user })

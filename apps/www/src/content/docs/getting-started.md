@@ -9,7 +9,7 @@ from nothing to a working read.
 
 ## 1. Create a workspace
 
-Sign in at [app.edgevault.io](https://app.edgevault.io) and create an organization and a
+Sign in at [console.edgevault.io](https://console.edgevault.io) and create an organization and a
 workspace. Every workspace gets its own Durable Object — the strongly-consistent system of record
 for everything you store in it.
 
@@ -39,7 +39,7 @@ const timeout = await edgevault.value<number>('timeout-ms')
 const checkout = await edgevault.flag('checkout-v2', false)
 ```
 
-Reads go to the delivery plane (`cdn.edgevault.io`) — an in-memory L1 over KV in 300+ cities,
+Reads go to the delivery plane (`delivery.edgevault.io`) — an in-memory L1 over KV in 300+ cities,
 typically under 10 ms. The client also keeps a small in-process cache (15 s by default) so hot
 keys never leave your worker.
 

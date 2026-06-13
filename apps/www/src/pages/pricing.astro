@@ -1,7 +1,7 @@
 ---
 import Base from '../layouts/Base.astro'
 
-const CONSOLE = 'https://app.edgevault.io'
+const CONSOLE = 'https://console.edgevault.io'
 const GITHUB = 'https://github.com/blakebauman/edgevault'
 ---
 
@@ -149,7 +149,7 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
         <h2>The questions you were going to ask.</h2>
       </div>
       <div class="faq">
-        <div class="card qa"><h3>What counts as an edge read?</h3><p>One GET against the delivery plane (cdn.edgevault.io). L1 cache hits count; your origin reads don't exist because there is no origin.</p></div>
+        <div class="card qa"><h3>What counts as an edge read?</h3><p>One GET against the delivery plane (delivery.edgevault.io). L1 cache hits count; your origin reads don't exist because there is no origin.</p></div>
         <div class="card qa"><h3>What's an MAU?</h3><p>A unique end-user identity evaluated for flags in a calendar month. Anonymous percentage rollouts don't create MAUs.</p></div>
         <div class="card qa"><h3>What's the catch in the free tier?</h3><p>An allowance, stated above. When you outgrow it, the Pro meter starts. That's the catch.</p></div>
         <div class="card qa"><h3>Is self-hosting feature-crippled?</h3><p>No. The MIT core is the same code path the managed edge runs, and it includes every feature — SSO/SAML, SCIM, RBAC, all of it. There is no feature-gating; the paid tiers buy usage allowance, support, and scale.</p></div>

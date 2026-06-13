@@ -59,6 +59,10 @@ export const sessions = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     tokenHash: text('token_hash').notNull(),
     activeOrganizationId: uuid('active_organization_id'),
+    // How the session was established: password | oauth | sso | passkey |
+    // recovery. Null (pre-migration rows) reads as 'password' — conservative
+    // for the sso_only org policy. Enforced at /token, not at sign-in.
+    authMethod: text('auth_method'),
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),

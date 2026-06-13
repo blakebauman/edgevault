@@ -1,3 +1,4 @@
+import { redactCredentials } from './redact'
 import type { TextRunner } from './types'
 
 export type RiskLevel = 'low' | 'medium' | 'high'
@@ -76,11 +77,13 @@ export async function scoreConfigRisk(
 ): Promise<RiskScore> {
   const floor = heuristicRisk(input)
   try {
+    // Values are redacted before they reach the model: a credential pasted
+    // into a plain config must not transit LLM inference verbatim.
     const prompt = `You are a configuration-change risk reviewer. Respond with strict JSON {"level":"low|medium|high","reasons":["..."]}.
 Key: ${input.key} (${input.kind})
 Target environment: ${input.targetEnvironmentSlug}
-Old value: ${input.oldContent ?? '(none)'}
-New value: ${input.newContent}`
+Old value: ${input.oldContent ? redactCredentials(input.oldContent).text : '(none)'}
+New value: ${redactCredentials(input.newContent).text}`
     const result = await ai.run(model, {
       messages: [
         { role: 'system', content: 'Score the risk of a configuration change. JSON only.' },

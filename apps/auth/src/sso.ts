@@ -1,3 +1,4 @@
+import { hashToken } from '@edgevault/auth'
 import { decryptSecret, encryptSecret } from '@edgevault/crypto'
 import {
   consumeSamlAssertion,
@@ -15,6 +16,7 @@ import {
   generatePkce,
   importCertPublicKey,
   type OidcConnection,
+  type OidcDiscovery,
   randomToken,
   verifyIdToken,
   verifySamlResponse,
@@ -54,12 +56,29 @@ function str(v: unknown): string | null {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+/** Reject IdP assertions valid for longer than this, whatever the IdP says. */
+const MAX_ASSERTION_TTL_MS = 60 * 60 * 1000
+
 const requireInternalToken: MiddlewareHandler<SsoEnv> = async (c, next) => {
   const presented = c.req.header('x-internal-token') ?? ''
   if (!c.env.INTERNAL_TOKEN || !timingSafeEqual(presented, c.env.INTERNAL_TOKEN)) {
     return c.json({ error: 'unauthorized' }, 401)
   }
   await next()
+}
+
+// Per-isolate discovery cache (same pattern as the api worker's JWKS cache).
+// fetchDiscovery pins doc.issuer to the configured issuer; the cache just
+// avoids refetching metadata on every login leg.
+const DISCOVERY_TTL_MS = 15 * 60 * 1000
+const discoveryCache = new Map<string, { doc: OidcDiscovery; expires: number }>()
+
+async function cachedDiscovery(issuer: string): Promise<OidcDiscovery> {
+  const hit = discoveryCache.get(issuer)
+  if (hit && hit.expires > Date.now()) return hit.doc
+  const doc = await fetchDiscovery(issuer)
+  discoveryCache.set(issuer, { doc, expires: Date.now() + DISCOVERY_TTL_MS })
+  return doc
 }
 
 /** Load + decrypt the org's OIDC connection into the sso-saml shape. */
@@ -153,7 +172,7 @@ ssoRoutes.post('/orgs/:orgId/sso/start', async (c) => {
   const conn = await loadOidcConnection(c, c.var.orgId)
   if (!conn) return c.json({ error: 'sso_not_configured' }, 409)
 
-  const discovery = await fetchDiscovery(conn.issuer)
+  const discovery = await cachedDiscovery(conn.issuer)
   const pkce = await generatePkce()
   const state = randomToken()
   const nonce = randomToken()
@@ -185,9 +204,21 @@ ssoRoutes.post('/orgs/:orgId/sso/callback', async (c) => {
   const conn = await loadOidcConnection(c, c.var.orgId)
   if (!conn) return c.json({ error: 'sso_not_configured' }, 409)
 
-  const discovery = await fetchDiscovery(conn.issuer)
+  const discovery = await cachedDiscovery(conn.issuer)
   const tokens = await exchangeCode(conn, discovery, { code, codeVerifier })
   const claims = await verifyIdToken(tokens.id_token, conn, discovery, nonce)
+
+  // Single-use nonce: the cookie round-trip proves the browser leg, but a
+  // captured authorization response could otherwise be replayed within the
+  // ID token's validity. Claim the nonce atomically (same one-time table the
+  // SAML assertions use; prefixed so the namespaces can't collide).
+  const fresh = await consumeSamlAssertion(c.var.database, {
+    assertionId: `oidc:${hashToken(nonce)}`,
+    organizationId: c.var.orgId,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  })
+  if (!fresh) return c.json({ error: 'nonce_replayed' }, 401)
+
   const email = str(claims.email)
   if (!email) return c.json({ error: 'no_email_claim' }, 400)
   return c.json({ email, name: str(claims.name), subject: claims.sub })
@@ -282,6 +313,12 @@ ssoRoutes.post('/orgs/:orgId/saml/acs', async (c) => {
     // claim the assertion ID. A missing ID can't be replay-protected, and a
     // second claim of the same ID (within its validity window) is a replay.
     if (!identity.assertionId) return c.json({ error: 'assertion_missing_id' }, 400)
+    // Cap how long an assertion (and its replay record) can live, regardless
+    // of what the IdP asserts — typical IdP validity is ~5 minutes; an hour+
+    // NotOnOrAfter would stretch the replay window unboundedly.
+    if (identity.notOnOrAfter && identity.notOnOrAfter > Date.now() + MAX_ASSERTION_TTL_MS) {
+      return c.json({ error: 'assertion_ttl_too_long' }, 401)
+    }
     // Bound the replay window if the IdP gave no NotOnOrAfter (assertions normally
     // do); 10 minutes comfortably covers the 3-minute clock-skew allowance.
     const expiresAt = new Date(identity.notOnOrAfter ?? Date.now() + 10 * 60 * 1000)

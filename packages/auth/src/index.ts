@@ -52,4 +52,5 @@ export {
   hotp,
   totp,
   verifyTotp,
+  verifyTotpWithStep,
 } from './totp'

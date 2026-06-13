@@ -94,10 +94,24 @@ have **not** yet closed. Numbers reflect the current `main`.
 
 ### Residual risks & non-goals
 
-- **SAML XML-DSig** — the hand-rolled exclusive-c14n needs an external audit and
-  an assertion-replay cache before SAML is enabled for real orgs. Tracked in
+- **SAML XML-DSig** — the hand-rolled exclusive-c14n needs an external audit
+  before SAML is enabled for real orgs (assertion replay, signature-wrapping,
+  and TTL caps are implemented). Tracked in
   `packages/sso-saml/SECURITY-REVIEW.md`. Until then, OIDC is the supported
   enterprise SSO path.
+- **Access-token revocation lag (≤15 min)** — session revocation (sign-out,
+  password change/reset, MFA change, device revoke) deletes the session and
+  purges the KV cache immediately, but an access JWT already minted from that
+  session stays valid until its 15-minute expiry: JWT verification is
+  stateless by design (api/delivery verify against the JWKS without a network
+  hop). Accepted trade-off; a denylist would reintroduce the lookup the JWT
+  exists to avoid.
+- **Signup enumeration via active probing** — the signup response is identical
+  whether or not the email already has an account (the address owner is told
+  by email), but an attacker who *probes* the returned cookie against
+  `/session` can still distinguish the cases. That probe is an authenticated,
+  per-IP rate-limited second step rather than a passive read; full elimination
+  would require dropping signup auto-login.
 - **Custom auth ownership** — building auth ourselves means we own every CVE
   class (session fixation, OAuth/OIDC state/PKCE correctness, timing). Mitigated
   by audited primitives and per-change review, but it is an accepted trade-off

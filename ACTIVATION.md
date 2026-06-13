@@ -4,7 +4,7 @@ The platform deploys and runs without any of these. Each is opt-in and needs
 credentials you own. Set secrets per environment with
 `wrangler secret put <NAME> --name <worker>` (worker names are `edgevault-<app>`
 for production and `edgevault-<app>-staging` for staging). Redirect/callback URLs
-below use `app.edgevault.io` (production) — swap to `app-staging.edgevault.io`
+below use `console.edgevault.io` (production) — swap to `console-staging.edgevault.io`
 for staging.
 
 ---
@@ -15,14 +15,14 @@ Sign-in with GitHub/Google. **Optional:** an empty client id disables that
 provider (the button just won't function); nothing else is affected.
 
 The flow is `console → AUTH_SERVICE`; the console supplies its own callback as
-the redirect URI: **`https://app.edgevault.io/oauth/<provider>/callback`**.
+the redirect URI: **`https://console.edgevault.io/oauth/<provider>/callback`**.
 
 ### GitHub
 1. GitHub → Settings → Developer settings → **OAuth Apps → New OAuth App**
    (register one app per environment).
-   - Homepage URL: `https://app.edgevault.io`
-   - Authorization callback URL: `https://app.edgevault.io/oauth/github/callback`
-   - (staging) a second app with `…app-staging.edgevault.io/oauth/github/callback`
+   - Homepage URL: `https://console.edgevault.io`
+   - Authorization callback URL: `https://console.edgevault.io/oauth/github/callback`
+   - (staging) a second app with `…console-staging.edgevault.io/oauth/github/callback`
 2. Set the secrets on the **auth** worker:
    ```sh
    wrangler secret put GITHUB_CLIENT_ID     --name edgevault-auth   # + edgevault-auth-staging
@@ -32,7 +32,7 @@ the redirect URI: **`https://app.edgevault.io/oauth/<provider>/callback`**.
 ### Google
 1. Google Cloud Console → APIs & Services → **Credentials → Create OAuth client
    ID → Web application**.
-   - Authorized redirect URI: `https://app.edgevault.io/oauth/google/callback`
+   - Authorized redirect URI: `https://console.edgevault.io/oauth/google/callback`
    (+ the `app-staging…` URI for staging).
 2. Set the secrets on the **auth** worker:
    ```sh

@@ -1,4 +1,5 @@
 export { configEmbeddingText, embedText, embedTexts } from './embeddings'
+export { type RedactionResult, redactCredentials } from './redact'
 export {
   heuristicRisk,
   type RiskInput,

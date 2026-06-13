@@ -1,7 +1,7 @@
-import { and, countDistinct, eq, gte, inArray, lt } from 'drizzle-orm'
+import { and, countDistinct, eq, gte, inArray, isNull, lt, or } from 'drizzle-orm'
 import type { Database } from './client'
 import { accounts, sessions, users } from './schema/auth'
-import { totpCredentials } from './schema/mfa'
+import { recoveryCodes, totpCredentials } from './schema/mfa'
 import { invitations, members, organizations } from './schema/organization'
 import { samlAssertionReplay, samlConnections } from './schema/saml'
 import { scimConnections } from './schema/scim'
@@ -360,6 +360,31 @@ export async function upsertTotpSecret(
     })
 }
 
+/**
+ * Replay guard: atomically advance the last accepted TOTP counter step.
+ * Returns false when `step` is not newer than the stored one — i.e. the code
+ * was already used (or an older code is being replayed). The conditional
+ * UPDATE makes concurrent verifications of the same code race-safe: exactly
+ * one wins.
+ */
+export async function claimTotpStep(
+  database: Database,
+  userId: string,
+  step: number,
+): Promise<boolean> {
+  const updated = await database
+    .update(totpCredentials)
+    .set({ lastUsedStep: step })
+    .where(
+      and(
+        eq(totpCredentials.userId, userId),
+        or(isNull(totpCredentials.lastUsedStep), lt(totpCredentials.lastUsedStep, step)),
+      ),
+    )
+    .returning({ userId: totpCredentials.userId })
+  return updated.length > 0
+}
+
 export async function confirmTotpCredential(database: Database, userId: string): Promise<void> {
   await database
     .update(totpCredentials)
@@ -369,6 +394,60 @@ export async function confirmTotpCredential(database: Database, userId: string):
 
 export async function deleteTotpCredential(database: Database, userId: string): Promise<void> {
   await database.delete(totpCredentials).where(eq(totpCredentials.userId, userId))
+}
+
+// --- MFA recovery codes ------------------------------------------------------
+
+/** Replace a user's recovery codes with a fresh set (hashes only). */
+export async function replaceRecoveryCodes(
+  database: Database,
+  userId: string,
+  codeHashes: string[],
+): Promise<void> {
+  await database.delete(recoveryCodes).where(eq(recoveryCodes.userId, userId))
+  if (codeHashes.length > 0) {
+    await database
+      .insert(recoveryCodes)
+      .values(codeHashes.map((codeHash) => ({ userId, codeHash })))
+  }
+}
+
+/**
+ * Consume one unused recovery code. The conditional UPDATE is the atomic
+ * guard: concurrent submissions of the same code admit exactly one.
+ */
+export async function consumeRecoveryCode(
+  database: Database,
+  userId: string,
+  codeHash: string,
+): Promise<boolean> {
+  const rows = await database
+    .update(recoveryCodes)
+    .set({ usedAt: new Date() })
+    .where(
+      and(
+        eq(recoveryCodes.userId, userId),
+        eq(recoveryCodes.codeHash, codeHash),
+        isNull(recoveryCodes.usedAt),
+      ),
+    )
+    .returning({ id: recoveryCodes.id })
+  return rows.length > 0
+}
+
+export async function countUnusedRecoveryCodes(
+  database: Database,
+  userId: string,
+): Promise<number> {
+  const rows = await database
+    .select({ id: recoveryCodes.id })
+    .from(recoveryCodes)
+    .where(and(eq(recoveryCodes.userId, userId), isNull(recoveryCodes.usedAt)))
+  return rows.length
+}
+
+export async function deleteRecoveryCodes(database: Database, userId: string): Promise<void> {
+  await database.delete(recoveryCodes).where(eq(recoveryCodes.userId, userId))
 }
 
 /** A registered WebAuthn authenticator (publicKey is Base64URL of the COSE key). */

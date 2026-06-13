@@ -1,18 +1,24 @@
 import {
   buildOtpauthUri,
   generateTotpSecret,
+  hashToken,
   importVerificationKey,
   REVEAL_TOKEN_AUDIENCE,
   signAccessToken,
   verifyAccessToken,
-  verifyTotp,
+  verifyTotpWithStep,
 } from '@edgevault/auth'
 import { decryptSecret, encryptSecret, isSecretEnvelope } from '@edgevault/crypto'
 import {
+  claimTotpStep,
   confirmTotpCredential,
+  consumeRecoveryCode,
+  countUnusedRecoveryCodes,
   type Database,
+  deleteRecoveryCodes,
   deleteTotpCredential,
   getTotpCredential,
+  replaceRecoveryCodes,
   upsertTotpSecret,
 } from '@edgevault/database'
 import { getKeys } from './keys'
@@ -27,6 +33,22 @@ import { getKeys } from './keys'
 
 const MFA_AUDIENCE = 'mfa-challenge'
 const ISSUER_NAME = 'EdgeVault'
+
+/**
+ * Verify a code and claim its counter step so the same code can't be accepted
+ * twice (TOTP replay). Every code-checking path goes through this — a code
+ * spent on enrollment/disable can't be replayed at sign-in either.
+ */
+async function verifyAndClaimCode(
+  database: Database,
+  userId: string,
+  secret: string,
+  code: string,
+): Promise<boolean> {
+  const step = verifyTotpWithStep(secret, code)
+  if (step === null) return false
+  return claimTotpStep(database, userId, step)
+}
 
 function decryptStoredSecret(env: Env, userId: string, stored: string): Promise<string> {
   const parsed: unknown = JSON.parse(stored)
@@ -57,7 +79,7 @@ export async function confirmTotpEnrollment(
   const cred = await getTotpCredential(database, userId)
   if (!cred) return false
   const secret = await decryptStoredSecret(env, userId, cred.encryptedSecret)
-  if (!verifyTotp(secret, code)) return false
+  if (!(await verifyAndClaimCode(database, userId, secret, code))) return false
   await confirmTotpCredential(database, userId)
   return true
 }
@@ -72,7 +94,7 @@ export async function disableTotp(
   const cred = await getTotpCredential(database, userId)
   if (!cred?.confirmedAt) return false
   const secret = await decryptStoredSecret(env, userId, cred.encryptedSecret)
-  if (!verifyTotp(secret, code)) return false
+  if (!(await verifyAndClaimCode(database, userId, secret, code))) return false
   await deleteTotpCredential(database, userId)
   return true
 }
@@ -87,15 +109,64 @@ export async function verifyUserTotp(
   const cred = await getTotpCredential(database, userId)
   if (!cred?.confirmedAt) return false
   const secret = await decryptStoredSecret(env, userId, cred.encryptedSecret)
-  return verifyTotp(secret, code)
+  return verifyAndClaimCode(database, userId, secret, code)
 }
 
 export async function totpStatus(
   database: Database,
   userId: string,
-): Promise<{ enabled: boolean; pending: boolean }> {
+): Promise<{ enabled: boolean; pending: boolean; recoveryCodesRemaining: number }> {
   const cred = await getTotpCredential(database, userId)
-  return { enabled: Boolean(cred?.confirmedAt), pending: Boolean(cred && !cred.confirmedAt) }
+  const enabled = Boolean(cred?.confirmedAt)
+  return {
+    enabled,
+    pending: Boolean(cred && !cred.confirmedAt),
+    recoveryCodesRemaining: enabled ? await countUnusedRecoveryCodes(database, userId) : 0,
+  }
+}
+
+// --- Recovery codes ----------------------------------------------------------
+// One-time fallback when the authenticator device is lost. 10 codes of 40 bits
+// each (hex, xxxxx-xxxxx), hashed at rest, consumed atomically.
+
+const RECOVERY_CODE_COUNT = 10
+
+function newRecoveryCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(5))
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 5)}-${hex.slice(5)}`
+}
+
+/** Lowercase + strip separators so codes survive copy/paste formatting. */
+function normalizeRecoveryCode(input: string): string {
+  return input.toLowerCase().replace(/[^0-9a-f]/g, '')
+}
+
+/** Issue a fresh set, invalidating any previous codes. Plaintext returned once. */
+export async function generateRecoveryCodes(database: Database, userId: string): Promise<string[]> {
+  const codes = Array.from({ length: RECOVERY_CODE_COUNT }, newRecoveryCode)
+  await replaceRecoveryCodes(
+    database,
+    userId,
+    codes.map((code) => hashToken(normalizeRecoveryCode(code))),
+  )
+  return codes
+}
+
+/** Consume a recovery code as the second factor. */
+export async function verifyRecoveryCode(
+  database: Database,
+  userId: string,
+  input: string,
+): Promise<boolean> {
+  const normalized = normalizeRecoveryCode(input)
+  if (normalized.length !== 10) return false
+  return consumeRecoveryCode(database, userId, hashToken(normalized))
+}
+
+/** Remove all recovery codes (TOTP disabled — they'd be an orphaned factor). */
+export async function clearRecoveryCodes(database: Database, userId: string): Promise<void> {
+  await deleteRecoveryCodes(database, userId)
 }
 
 /** Has the user enabled (confirmed) MFA? Used by sign-in to decide on a challenge. */

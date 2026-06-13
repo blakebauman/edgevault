@@ -3,10 +3,12 @@ import {
   type ApiKeyRecord,
   apiKeyCacheKey,
   configCacheKey,
+  ipMatchesCidrs,
   type ResolvedConfig,
 } from '@edgevault/edge-protocol'
 import { type Context, Hono } from 'hono'
 import { EdgeReadMeter, flushMeter } from './metering'
+import { securityHeaders } from './security-headers'
 
 /**
  * EdgeVault delivery worker — the <10ms edge read path. Serves pre-resolved
@@ -54,6 +56,8 @@ function meterRead(c: Context<AppEnv>, n: number): void {
 
 const app = new Hono<AppEnv>()
 
+app.use('*', securityHeaders)
+
 app.get('/health', (c) =>
   c.json({ status: 'ok', service: c.env.SERVICE_NAME ?? 'edgevault-delivery' }),
 )
@@ -72,6 +76,16 @@ app.use('/v1/*', async (c, next) => {
     'json',
   )
   if (!record) return c.json({ error: 'invalid_api_key' }, 401)
+  // KV TTL self-deletes expired records, but isn't millisecond-precise.
+  if (record.expiresAt && record.expiresAt < Date.now()) {
+    return c.json({ error: 'api_key_expired' }, 401)
+  }
+  if (record.allowedCidrs?.length) {
+    const ip = c.req.header('cf-connecting-ip') ?? ''
+    if (!ipMatchesCidrs(ip, record.allowedCidrs)) {
+      return c.json({ error: 'ip_not_allowed' }, 403)
+    }
+  }
   c.set('apiKey', record)
   await next()
 })

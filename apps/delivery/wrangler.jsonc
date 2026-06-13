@@ -8,7 +8,7 @@
     "enabled": true,
     "head_sampling_rate": 1
   },
-  "routes": [{ "pattern": "cdn.edgevault.io", "custom_domain": true }],
+  "routes": [{ "pattern": "delivery.edgevault.io", "custom_domain": true }],
   "vars": {
     "ENVIRONMENT": "production",
     "SERVICE_NAME": "edgevault-delivery"
@@ -28,7 +28,7 @@
   // No Smart Placement: the delivery worker must run close to the user.
   "env": {
     "staging": {
-      "routes": [{ "pattern": "cdn-staging.edgevault.io", "custom_domain": true }],
+      "routes": [{ "pattern": "delivery-staging.edgevault.io", "custom_domain": true }],
       "vars": {
         "ENVIRONMENT": "staging",
         "SERVICE_NAME": "edgevault-delivery-staging"

@@ -124,6 +124,9 @@ importers:
       '@edgevault/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@edgevault/edge-protocol':
+        specifier: workspace:*
+        version: link:../../packages/edge-protocol
       '@edgevault/sso-saml':
         specifier: workspace:*
         version: link:../../packages/sso-saml

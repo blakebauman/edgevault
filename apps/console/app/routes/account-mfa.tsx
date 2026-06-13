@@ -2,38 +2,58 @@ import { Button, ErrorNote, Field, Input, StatusNote, TokenBox, TokenValue } fro
 import { useState } from 'react'
 import { Form, Link, redirect } from 'react-router'
 import { CopyButton } from '../components/copy-button'
-import { getToken } from '../lib/session.server'
+import { getToken, ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/account-mfa'
 
 /**
- * User MFA (TOTP) management. Authenticated by the console access token, which
- * the BFF forwards as a Bearer to the auth worker's MFA endpoints. The secret is
- * shown once at setup (for the authenticator app) and confirmed with a code.
+ * Account security: TOTP management (with one-time recovery codes), passkeys,
+ * and the active-session (device) list. Authenticated by the console access
+ * token, which the BFF forwards as a Bearer to the auth worker.
  */
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: 'Two-factor authentication · EdgeVault' }]
+  return [{ title: 'Account security · EdgeVault' }]
 }
 
-async function authFetch(env: Env, token: string, path: string, body?: unknown) {
+async function authFetch(env: Env, request: Request, token: string, path: string, body?: unknown) {
   return env.AUTH_SERVICE.fetch(`https://auth${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers: {
       authorization: `Bearer ${token}`,
       ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+      ...ipHeaders(request),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 }
 
+interface SessionRow {
+  id: string
+  ipAddress: string | null
+  userAgent: string | null
+  createdAt: string
+  expiresAt: string
+}
+
 export async function loader({ request, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const res = await authFetch(context.cloudflare.env, token, '/mfa/status')
-  const status = res.ok
-    ? ((await res.json()) as { enabled: boolean; pending: boolean })
-    : { enabled: false, pending: false }
-  return { status }
+  const env = context.cloudflare.env
+  const [statusRes, sessionsRes] = await Promise.all([
+    authFetch(env, request, token, '/mfa/status'),
+    authFetch(env, request, token, '/sessions'),
+  ])
+  const status = statusRes.ok
+    ? ((await statusRes.json()) as {
+        enabled: boolean
+        pending: boolean
+        recoveryCodesRemaining: number
+      })
+    : { enabled: false, pending: false, recoveryCodesRemaining: 0 }
+  const sessions = sessionsRes.ok
+    ? ((await sessionsRes.json()) as { sessions: SessionRow[] }).sessions
+    : []
+  return { status, sessions }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -44,7 +64,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const intent = String(form.get('intent') ?? '')
 
   if (intent === 'setup') {
-    const res = await authFetch(env, token, '/mfa/totp/setup', {})
+    const res = await authFetch(env, request, token, '/mfa/totp/setup', {})
     if (!res.ok) return { error: 'Could not start setup.' }
     const { secret, otpauthUri } = (await res.json()) as { secret: string; otpauthUri: string }
     // Render the provisioning QR server-side (zero client JS).
@@ -53,28 +73,49 @@ export async function action({ request, context }: Route.ActionArgs) {
     return { secret, otpauthUri, qrSvg }
   }
   if (intent === 'confirm') {
-    const res = await authFetch(env, token, '/mfa/totp/confirm', {
+    const res = await authFetch(env, request, token, '/mfa/totp/confirm', {
       code: String(form.get('code') ?? '').trim(),
     })
-    return res.ok ? { confirmed: true as const } : { error: 'That code was not valid.' }
+    if (!res.ok) return { error: 'That code was not valid.' }
+    const { recoveryCodes } = (await res.json()) as { recoveryCodes?: string[] }
+    return { confirmed: true as const, recoveryCodes: recoveryCodes ?? [] }
   }
   if (intent === 'disable') {
-    const res = await authFetch(env, token, '/mfa/totp/disable', {
+    const res = await authFetch(env, request, token, '/mfa/totp/disable', {
       code: String(form.get('code') ?? '').trim(),
     })
     return res.ok ? { disabled: true as const } : { error: 'Enter a valid code to disable MFA.' }
+  }
+  if (intent === 'regenerate-codes') {
+    const res = await authFetch(env, request, token, '/mfa/recovery/regenerate', {
+      code: String(form.get('code') ?? '').trim(),
+    })
+    if (!res.ok) return { error: 'Enter a valid code to regenerate recovery codes.' }
+    const { recoveryCodes } = (await res.json()) as { recoveryCodes: string[] }
+    return { regenerated: true as const, recoveryCodes }
+  }
+  if (intent === 'revoke-session') {
+    const id = String(form.get('sessionId') ?? '')
+    const res = await authFetch(env, request, token, `/sessions/${id}/revoke`, {})
+    return res.ok ? { revoked: true as const } : { error: 'Could not revoke that session.' }
+  }
+  if (intent === 'revoke-all-sessions') {
+    const res = await authFetch(env, request, token, '/sessions/revoke-all', {})
+    return res.ok ? { revoked: true as const } : { error: 'Could not revoke sessions.' }
   }
   return { error: 'Unknown action.' }
 }
 
 export default function AccountMfa({ loaderData, actionData }: Route.ComponentProps) {
-  const { status } = loaderData
+  const { status, sessions } = loaderData
   const secret = actionData && 'secret' in actionData ? actionData.secret : null
   const otpauthUri = actionData && 'otpauthUri' in actionData ? actionData.otpauthUri : null
   const qrSvg = actionData && 'qrSvg' in actionData ? actionData.qrSvg : null
   const error = actionData && 'error' in actionData ? actionData.error : null
   const confirmed = actionData && 'confirmed' in actionData ? actionData.confirmed : false
   const disabled = actionData && 'disabled' in actionData ? actionData.disabled : false
+  const recoveryCodes =
+    actionData && 'recoveryCodes' in actionData ? (actionData.recoveryCodes ?? []) : []
   const enabled = (status.enabled || confirmed) && !disabled
 
   return (
@@ -94,23 +135,47 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
         {confirmed && <StatusNote>Two-factor authentication is now enabled.</StatusNote>}
         {disabled && <StatusNote>Two-factor authentication has been disabled.</StatusNote>}
 
+        {recoveryCodes.length > 0 && <RecoveryCodes codes={recoveryCodes} />}
+
         {enabled ? (
           <>
             <p className="lede">Two-factor authentication is active on your account.</p>
-            <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
-              <Field label="Enter a current code to disable">
-                <Input name="code" inputMode="numeric" placeholder="123456" required />
-              </Field>
-              <Button
-                type="submit"
-                name="intent"
-                value="disable"
-                variant="secondary"
-                className="self-start"
-              >
-                Disable 2FA
-              </Button>
-            </Form>
+            {status.recoveryCodesRemaining > 0 && recoveryCodes.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                {status.recoveryCodesRemaining} recovery code
+                {status.recoveryCodesRemaining === 1 ? '' : 's'} remaining.
+              </p>
+            )}
+            <div className="mt-6 flex flex-wrap gap-8">
+              <Form method="post" className="flex max-w-sm flex-col gap-3">
+                <Field label="Enter a current code to disable">
+                  <Input name="code" inputMode="numeric" placeholder="123456" required />
+                </Field>
+                <Button
+                  type="submit"
+                  name="intent"
+                  value="disable"
+                  variant="secondary"
+                  className="self-start"
+                >
+                  Disable 2FA
+                </Button>
+              </Form>
+              <Form method="post" className="flex max-w-sm flex-col gap-3">
+                <Field label="Enter a current code for fresh recovery codes">
+                  <Input name="code" inputMode="numeric" placeholder="123456" required />
+                </Field>
+                <Button
+                  type="submit"
+                  name="intent"
+                  value="regenerate-codes"
+                  variant="secondary"
+                  className="self-start"
+                >
+                  Regenerate recovery codes
+                </Button>
+              </Form>
+            </div>
           </>
         ) : secret ? (
           <>
@@ -165,9 +230,93 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
         )}
 
         <PasskeySection />
+        <SessionsSection sessions={sessions} />
       </section>
     </main>
   )
+}
+
+/** Shown exactly once after enable/regenerate — the server keeps only hashes. */
+function RecoveryCodes({ codes }: { codes: string[] }) {
+  return (
+    <div className="assistant">
+      <h2>Recovery codes</h2>
+      <p className="text-muted-foreground">
+        Store these somewhere safe (a password manager, a printout). Each works once if you lose
+        your authenticator. This is the only time they're shown.
+      </p>
+      <TokenBox note="One use each:">
+        <TokenValue>
+          <span className="grid grid-cols-2 gap-x-8 gap-y-1 font-mono">
+            {codes.map((code) => (
+              <span key={code}>{code}</span>
+            ))}
+          </span>
+        </TokenValue>
+        <CopyButton value={codes.join('\n')} label="Copy all" />
+      </TokenBox>
+    </div>
+  )
+}
+
+function SessionsSection({
+  sessions,
+}: {
+  sessions: Array<{
+    id: string
+    ipAddress: string | null
+    userAgent: string | null
+    createdAt: string
+  }>
+}) {
+  return (
+    <div className="assistant">
+      <h2>Active sessions</h2>
+      <p className="text-muted-foreground">
+        Sign-ins that can still mint access tokens. Revoke anything you don't recognize.
+      </p>
+      {sessions.length === 0 && (
+        <p className="text-sm text-muted-foreground">No active sessions.</p>
+      )}
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {sessions.map((s) => (
+          <li
+            key={s.id}
+            className="flex flex-wrap items-baseline justify-between gap-3 rounded-sm border border-border bg-card p-3"
+          >
+            <span className="flex flex-col">
+              <span className="text-sm">{describeUserAgent(s.userAgent)}</span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {s.ipAddress ?? 'unknown IP'} · since {new Date(s.createdAt).toLocaleDateString()}
+              </span>
+            </span>
+            <Form method="post">
+              <input type="hidden" name="intent" value="revoke-session" />
+              <input type="hidden" name="sessionId" value={s.id} />
+              <Button type="submit" variant="secondary" size="compact">
+                Revoke
+              </Button>
+            </Form>
+          </li>
+        ))}
+      </ul>
+      {sessions.length > 0 && (
+        <Form method="post">
+          <input type="hidden" name="intent" value="revoke-all-sessions" />
+          <Button type="submit" variant="secondary">
+            Sign out everywhere
+          </Button>
+        </Form>
+      )}
+    </div>
+  )
+}
+
+function describeUserAgent(userAgent: string | null): string {
+  if (!userAgent) return 'Unknown device'
+  const browser = userAgent.match(/(Firefox|Edg|Chrome|Safari)\/[\d.]+/)?.[1] ?? 'Browser'
+  const os = userAgent.match(/\((Macintosh|Windows|Linux|iPhone|iPad|Android)/)?.[1] ?? ''
+  return [browser === 'Edg' ? 'Edge' : browser, os && `on ${os}`].filter(Boolean).join(' ')
 }
 
 function PasskeySection() {

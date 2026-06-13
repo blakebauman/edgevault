@@ -1,9 +1,5 @@
-import {
-  isInvitationEmailJob,
-  type NotifyJob,
-  type NotifyQueueMessage,
-} from '@edgevault/edge-protocol'
-import { type EmailSender, sendInvitationEmail } from './email'
+import { isEmailJob, type NotifyJob, type NotifyQueueMessage } from '@edgevault/edge-protocol'
+import { type EmailSender, sendEmail } from './email'
 import { formatSlackMessage } from './slack'
 import { buildWebhookRequest } from './webhook'
 
@@ -38,17 +34,17 @@ export default {
   async queue(batch: MessageBatch<NotifyQueueMessage>, env: Env): Promise<void> {
     for (const message of batch.messages) {
       try {
-        if (isInvitationEmailJob(message.body)) {
+        if (isEmailJob(message.body)) {
           // A missing binding is a config error: retry → DLQ, never a silent drop.
           const sender = (env as { SEND_EMAIL?: EmailSender }).SEND_EMAIL
           if (!sender) throw new Error('SEND_EMAIL binding missing')
-          await sendInvitationEmail(sender, message.body)
+          await sendEmail(sender, message.body)
         } else {
           await deliver(message.body)
         }
         message.ack()
       } catch (error) {
-        const id = isInvitationEmailJob(message.body) ? message.body.to : message.body.channelId
+        const id = isEmailJob(message.body) ? message.body.to : message.body.channelId
         console.error('notification delivery failed', id, error)
         message.retry()
       }

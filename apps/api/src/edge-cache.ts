@@ -55,5 +55,17 @@ export function deleteThrough(
 
 /** Publish an API key -> environment mapping for the delivery worker to validate. */
 export function publishApiKey(env: Env, keyHash: string, record: ApiKeyRecord): Promise<void> {
-  return env.ENVIRONMENT_API_KEYS.put(apiKeyCacheKey(keyHash), JSON.stringify(record))
+  // Expiring keys also self-delete from KV; the record's expiresAt stays the
+  // authoritative check (KV TTL is not millisecond-precise).
+  const expirationTtl = record.expiresAt
+    ? Math.max(60, Math.ceil((record.expiresAt - Date.now()) / 1000))
+    : undefined
+  return env.ENVIRONMENT_API_KEYS.put(apiKeyCacheKey(keyHash), JSON.stringify(record), {
+    expirationTtl,
+  })
+}
+
+/** Revocation: removing the KV record is what takes a key out of service. */
+export function unpublishApiKey(env: Env, keyHash: string): Promise<void> {
+  return env.ENVIRONMENT_API_KEYS.delete(apiKeyCacheKey(keyHash))
 }

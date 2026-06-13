@@ -4,12 +4,14 @@ import {
   type Database,
   getAccountByProvider,
   members,
+  organizations,
   sessions,
   users,
+  verifications,
 } from '@edgevault/database'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, gte, like, ne } from 'drizzle-orm'
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
 /**
  * A valid Argon2id hash (same cost params as live hashes) of a password no one
@@ -37,17 +39,14 @@ export async function createUser(
   database: Database,
   input: { email: string; password: string; name?: string },
 ): Promise<PublicUser | null> {
-  const existing = await database
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, input.email))
-    .limit(1)
-  if (existing.length > 0) return null
-
+  // Hash before any uniqueness check so the duplicate-email path costs the same
+  // as the success path (no timing oracle), and let the unique index arbitrate
+  // concurrent signups instead of a racy select-then-insert.
   const passwordHash = await hashPassword(input.password)
   const [created] = await database
     .insert(users)
     .values({ email: input.email, name: input.name ?? null, passwordHash })
+    .onConflictDoNothing({ target: users.email })
     .returning()
   return created ? toPublicUser(created) : null
 }
@@ -66,10 +65,13 @@ export async function verifyCredentials(
   return toPublicUser(user)
 }
 
+/** How a session was established — drives the org `ssoOnly` policy at /token. */
+export type AuthMethod = 'password' | 'oauth' | 'sso' | 'passkey' | 'recovery'
+
 export async function createSession(
   database: Database,
   userId: string,
-  meta: { ipAddress?: string; userAgent?: string },
+  meta: { ipAddress?: string; userAgent?: string; authMethod?: AuthMethod },
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = generateToken()
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS)
@@ -79,6 +81,7 @@ export async function createSession(
     expiresAt,
     ipAddress: meta.ipAddress ?? null,
     userAgent: meta.userAgent ?? null,
+    authMethod: meta.authMethod ?? 'password',
   })
   return { token, expiresAt }
 }
@@ -86,6 +89,7 @@ export async function createSession(
 export type ValidatedSession = {
   user: PublicUser
   activeOrganizationId: string | null
+  authMethod: string | null
   expiresAt: Date
 }
 
@@ -109,12 +113,160 @@ export async function validateSessionToken(
   return {
     user: toPublicUser(row.users),
     activeOrganizationId: row.sessions.activeOrganizationId,
+    authMethod: row.sessions.authMethod,
     expiresAt: row.sessions.expiresAt,
   }
 }
 
+/** Org access policies enforced where org context enters a credential (/token). */
+export async function getOrgAccessPolicy(
+  database: Database,
+  organizationId: string,
+): Promise<{ requireMfa: boolean; ssoOnly: boolean }> {
+  const [row] = await database
+    .select({ requireMfa: organizations.requireMfa, ssoOnly: organizations.ssoOnly })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId))
+    .limit(1)
+  return { requireMfa: row?.requireMfa ?? false, ssoOnly: row?.ssoOnly ?? false }
+}
+
 export async function invalidateSession(database: Database, token: string): Promise<void> {
   await database.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)))
+}
+
+export interface SessionListRow {
+  id: string
+  ipAddress: string | null
+  userAgent: string | null
+  createdAt: Date
+  expiresAt: Date
+}
+
+/** Active sessions for the device-management UI (never exposes token hashes). */
+export async function listSessionsForUser(
+  database: Database,
+  userId: string,
+): Promise<SessionListRow[]> {
+  const rows = await database
+    .select({
+      id: sessions.id,
+      ipAddress: sessions.ipAddress,
+      userAgent: sessions.userAgent,
+      createdAt: sessions.createdAt,
+      expiresAt: sessions.expiresAt,
+    })
+    .from(sessions)
+    .where(eq(sessions.userId, userId))
+  return rows.filter((r) => r.expiresAt.getTime() > Date.now())
+}
+
+/**
+ * Revoke one session by id, strictly scoped to the owner. Returns the deleted
+ * token hash for KV purging, or null if the id wasn't theirs.
+ */
+export async function deleteSessionById(
+  database: Database,
+  userId: string,
+  sessionId: string,
+): Promise<string | null> {
+  const [row] = await database
+    .delete(sessions)
+    .where(and(eq(sessions.id, sessionId), eq(sessions.userId, userId)))
+    .returning({ tokenHash: sessions.tokenHash })
+  return row?.tokenHash ?? null
+}
+
+/**
+ * Revoke every session for a user (optionally sparing the one driving the
+ * request). Returns the deleted token hashes so the caller can purge the KV
+ * session cache too — DB delete alone leaves up to 60s of cached validity.
+ */
+export async function deleteSessionsForUser(
+  database: Database,
+  userId: string,
+  options: { exceptTokenHash?: string } = {},
+): Promise<string[]> {
+  const condition = options.exceptTokenHash
+    ? and(eq(sessions.userId, userId), ne(sessions.tokenHash, options.exceptTokenHash))
+    : eq(sessions.userId, userId)
+  const rows = await database
+    .delete(sessions)
+    .where(condition)
+    .returning({ tokenHash: sessions.tokenHash })
+  return rows.map((r) => r.tokenHash)
+}
+
+// --- One-time verification tokens (email verify, password reset) -----------
+// Stored hashed in the `verifications` table; `identifier` = `${purpose}:${userId}`.
+
+export type VerificationPurpose = 'email-verify' | 'password-reset'
+
+/** Issue a fresh single-use token for a purpose, replacing any outstanding one. */
+export async function createVerificationToken(
+  database: Database,
+  purpose: VerificationPurpose,
+  userId: string,
+  ttlMs: number,
+): Promise<{ token: string; expiresAt: Date }> {
+  const token = generateToken()
+  const identifier = `${purpose}:${userId}`
+  const expiresAt = new Date(Date.now() + ttlMs)
+  await database.delete(verifications).where(eq(verifications.identifier, identifier))
+  await database.insert(verifications).values({ identifier, value: hashToken(token), expiresAt })
+  return { token, expiresAt }
+}
+
+/**
+ * Consume a token: the conditional DELETE … RETURNING makes it single-use by
+ * construction (concurrent submits race to one winner). Returns the userId the
+ * token was issued for, or null if unknown/expired/already used.
+ */
+export async function consumeVerificationToken(
+  database: Database,
+  purpose: VerificationPurpose,
+  token: string,
+): Promise<string | null> {
+  const [row] = await database
+    .delete(verifications)
+    .where(
+      and(
+        eq(verifications.value, hashToken(token)),
+        gte(verifications.expiresAt, new Date()),
+        like(verifications.identifier, `${purpose}:%`),
+      ),
+    )
+    .returning({ identifier: verifications.identifier })
+  return row ? row.identifier.slice(purpose.length + 1) : null
+}
+
+export async function markEmailVerified(database: Database, userId: string): Promise<void> {
+  await database
+    .update(users)
+    .set({ emailVerified: true, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+}
+
+/** Look up a user by email, including whether they have a password credential. */
+export async function getUserByEmail(
+  database: Database,
+  email: string,
+): Promise<(PublicUser & { hasPassword: boolean }) | null> {
+  const [user] = await database.select().from(users).where(eq(users.email, email)).limit(1)
+  return user ? { ...toPublicUser(user), hasPassword: user.passwordHash !== null } : null
+}
+
+/** Set a new password (Argon2id). Callers must revoke sessions afterwards. */
+export async function setUserPassword(
+  database: Database,
+  userId: string,
+  password: string,
+): Promise<void> {
+  const passwordHash = await hashPassword(password)
+  await database
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(users.id, userId))
 }
 
 export async function getUserById(database: Database, userId: string): Promise<PublicUser | null> {

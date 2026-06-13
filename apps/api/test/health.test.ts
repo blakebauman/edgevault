@@ -13,6 +13,20 @@ describe('GET /health', () => {
     expect(body.status).toBe('ok')
     expect(body.service).toBe('edgevault-api')
   })
+
+  it('sets baseline security headers on every response', async () => {
+    const ctx = createExecutionContext()
+    const res = await app.fetch(new Request('https://api.test/health'), env, ctx)
+    await waitOnExecutionContext(ctx)
+
+    expect(res.headers.get('Content-Security-Policy')).toBe(
+      "default-src 'none'; frame-ancestors 'none'",
+    )
+    expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains')
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff')
+    expect(res.headers.get('X-Frame-Options')).toBe('DENY')
+    expect(res.headers.get('Referrer-Policy')).toBe('no-referrer')
+  })
 })
 
 describe('GET /openapi.json', () => {

@@ -32,6 +32,13 @@ export const invitationRoutes = new Hono<AppEnv>()
   })
   .post('/:id/accept', async (c) => {
     const { acceptInvitation, getUserEmail } = await import('@edgevault/database')
+    const { isEmailVerified } = await import('../database/queries')
+    if (!(await isEmailVerified(c.var.database, c.var.userId))) {
+      return c.json(
+        { error: 'email_unverified', detail: 'Verify your email to accept this invitation.' },
+        403,
+      )
+    }
     const userEmail = await getUserEmail(c.var.database, c.var.userId)
     if (!userEmail) return c.json({ error: 'not_found' }, 404)
     const result = await acceptInvitation(c.var.database, {

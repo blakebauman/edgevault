@@ -16,7 +16,7 @@
     "SERVICE_NAME": "edgevault-api",
     "AUTH_ISSUER": "https://auth.edgevault.io",
     // Base URL for links the api mints into emails (invitation accept links).
-    "CONSOLE_URL": "https://app.edgevault.io",
+    "CONSOLE_URL": "https://console.edgevault.io",
     "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
     "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
     // Empty = intentional sentinel: AI binding is called directly, no AI Gateway
@@ -32,7 +32,10 @@
       "simple": { "limit": 60, "period": 60 }
     },
     { "name": "SHARE_IP_LIMITER", "namespace_id": "4002", "simple": { "limit": 30, "period": 60 } },
-    { "name": "AI_USER_LIMITER", "namespace_id": "4003", "simple": { "limit": 20, "period": 60 } }
+    { "name": "AI_USER_LIMITER", "namespace_id": "4003", "simple": { "limit": 20, "period": 60 } },
+    // Hard cap on secret reveals per user — a compromised admin token can pull
+    // at most this many secrets a minute, and every one still lands in audit.
+    { "name": "REVEAL_LIMITER", "namespace_id": "4004", "simple": { "limit": 30, "period": 60 } }
   ],
   "ai": { "binding": "AI" },
   "vectorize": [{ "binding": "VECTORIZE", "index_name": "edgevault-configs" }],
@@ -89,7 +92,7 @@
         "ENVIRONMENT": "staging",
         "SERVICE_NAME": "edgevault-api-staging",
         "AUTH_ISSUER": "https://auth-staging.edgevault.io",
-        "CONSOLE_URL": "https://app-staging.edgevault.io",
+        "CONSOLE_URL": "https://console-staging.edgevault.io",
         "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
         "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
         // Empty = intentional sentinel: no AI Gateway (see production vars).
@@ -110,6 +113,11 @@
           "name": "AI_USER_LIMITER",
           "namespace_id": "5003",
           "simple": { "limit": 20, "period": 60 }
+        },
+        {
+          "name": "REVEAL_LIMITER",
+          "namespace_id": "5004",
+          "simple": { "limit": 30, "period": 60 }
         }
       ],
       "ai": { "binding": "AI" },

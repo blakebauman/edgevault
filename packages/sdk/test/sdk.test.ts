@@ -32,10 +32,10 @@ describe('EdgeVault client', () => {
 
   it('strips a trailing slash from baseUrl and sends the bearer token', async () => {
     const f = fakeFetch({ '/v1/configs/k': () => config('k', '"v"') })
-    const ev = new EdgeVault({ apiKey: KEY, baseUrl: 'https://cdn.example.com/', fetch: f })
+    const ev = new EdgeVault({ apiKey: KEY, baseUrl: 'https://delivery.example.com/', fetch: f })
     await ev.config('k')
     const [url, init] = (f as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
-    expect(url).toBe('https://cdn.example.com/v1/configs/k')
+    expect(url).toBe('https://delivery.example.com/v1/configs/k')
     expect((init as RequestInit).headers).toMatchObject({ authorization: `Bearer ${KEY}` })
   })
 

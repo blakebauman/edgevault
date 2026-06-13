@@ -1,7 +1,13 @@
-import type { InvitationEmailJob } from '@edgevault/edge-protocol'
+import type {
+  EmailJob,
+  InvitationEmailJob,
+  PasswordResetEmailJob,
+  SignupExistsEmailJob,
+  VerificationEmailJob,
+} from '@edgevault/edge-protocol'
 
 /**
- * Invitation email rendering + send. The sender is the `send_email` binding,
+ * Transactional email rendering + send. The sender is the `send_email` binding,
  * typed structurally so tests can inject a fake without the binding existing
  * in the test runtime.
  */
@@ -63,4 +69,88 @@ export async function sendInvitationEmail(
 ): Promise<void> {
   const { subject, html, text } = buildInvitationEmail(job)
   await sender.send({ to: job.to, from: FROM, subject, html, text })
+}
+
+/** Shared shell for the short account-lifecycle emails: one message, one link. */
+function buildLinkEmail(input: {
+  subject: string
+  intro: string
+  cta: string
+  url: string
+  outro: string
+}): { subject: string; html: string; text: string } {
+  const text = [input.intro, '', `${input.cta}:`, input.url, '', input.outro].join('\n')
+  const html = [
+    '<div style="font-family: ui-sans-serif, system-ui, sans-serif; max-width: 36rem; margin: 0 auto; color: #0f172a;">',
+    `<p>${escapeHtml(input.intro)}</p>`,
+    `<p><a href="${escapeHtml(input.url)}" style="display: inline-block; padding: 0.6rem 1.2rem; background: #0f172a; color: #ffffff; text-decoration: none; border-radius: 2px;">${escapeHtml(input.cta)}</a></p>`,
+    `<p style="color: #475569; font-size: 0.875rem;">Or paste this link into your browser:<br>${escapeHtml(input.url)}</p>`,
+    `<p style="color: #475569; font-size: 0.875rem;">${escapeHtml(input.outro)}</p>`,
+    '</div>',
+  ].join('\n')
+  return { subject: input.subject, html, text }
+}
+
+export function buildVerificationEmail(job: VerificationEmailJob): {
+  subject: string
+  html: string
+  text: string
+} {
+  return buildLinkEmail({
+    subject: 'Verify your email for EdgeVault',
+    intro: 'Confirm this address to finish setting up your EdgeVault account.',
+    cta: 'Verify email',
+    url: job.verifyUrl,
+    outro: `This link works until ${new Date(job.expiresAt).toUTCString()} and only for ${job.to}. If you didn't create an account, ignore this — nothing happens without you.`,
+  })
+}
+
+export function buildPasswordResetEmail(job: PasswordResetEmailJob): {
+  subject: string
+  html: string
+  text: string
+} {
+  return buildLinkEmail({
+    subject: 'Reset your EdgeVault password',
+    intro: 'Someone asked to reset the password for this EdgeVault account.',
+    cta: 'Reset password',
+    url: job.resetUrl,
+    outro: `This link works until ${new Date(job.expiresAt).toUTCString()}. Using it signs you out everywhere. If this wasn't you, ignore it — your password stays as it is.`,
+  })
+}
+
+export function buildSignupExistsEmail(job: SignupExistsEmailJob): {
+  subject: string
+  html: string
+  text: string
+} {
+  const text = [
+    'Someone just tried to create an EdgeVault account with this email address — but you already have one.',
+    '',
+    `If that was you, sign in instead: ${job.signInUrl}`,
+    `Forgot your password? Reset it: ${job.resetUrl}`,
+    '',
+    "If it wasn't you, no action is needed — no account was created and nothing changed.",
+  ].join('\n')
+  const html = [
+    '<div style="font-family: ui-sans-serif, system-ui, sans-serif; max-width: 36rem; margin: 0 auto; color: #0f172a;">',
+    '<p>Someone just tried to create an EdgeVault account with this email address — but you already have one.</p>',
+    `<p>If that was you, <a href="${escapeHtml(job.signInUrl)}">sign in instead</a>. Forgot your password? <a href="${escapeHtml(job.resetUrl)}">Reset it</a>.</p>`,
+    `<p style="color: #475569; font-size: 0.875rem;">If it wasn't you, no action is needed — no account was created and nothing changed.</p>`,
+    '</div>',
+  ].join('\n')
+  return { subject: 'You already have an EdgeVault account', html, text }
+}
+
+/** Render + send any transactional email job (routed by `kind`). */
+export async function sendEmail(sender: EmailSender, job: EmailJob): Promise<void> {
+  const message =
+    job.kind === 'invitation-email'
+      ? buildInvitationEmail(job)
+      : job.kind === 'verification-email'
+        ? buildVerificationEmail(job)
+        : job.kind === 'password-reset-email'
+          ? buildPasswordResetEmail(job)
+          : buildSignupExistsEmail(job)
+  await sender.send({ to: job.to, from: FROM, ...message })
 }

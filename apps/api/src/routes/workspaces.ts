@@ -2,7 +2,12 @@ import { searchConfigs } from '@edgevault/ai'
 import { generateApiKey, generateToken } from '@edgevault/auth'
 import { type ConfigFormat, isConfigFormat, validateContent } from '@edgevault/config-formats'
 import { encryptSecret } from '@edgevault/crypto'
-import { CONFIG_KEY_PATTERN, MAX_CONFIG_KEY_LENGTH, NOTIFY_ACTIONS } from '@edgevault/edge-protocol'
+import {
+  CONFIG_KEY_PATTERN,
+  isValidCidr,
+  MAX_CONFIG_KEY_LENGTH,
+  NOTIFY_ACTIONS,
+} from '@edgevault/edge-protocol'
 import { hasRefs } from '@edgevault/refs'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono } from 'hono'
@@ -19,11 +24,15 @@ import {
   getOrgRequiresStepUpForReveal,
   getUserDisplayNames,
   getWorkspaceWithOrg,
+  isAiIndexingEnabled,
+  listApiKeys,
   listNotificationChannels,
+  revokeApiKey,
+  setAiIndexingEnabled,
 } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
 import type { VaultDurableObject } from '../durable-objects/vault'
-import { deleteThrough, publishApiKey, publishTargets } from '../edge-cache'
+import { deleteThrough, publishApiKey, publishTargets, unpublishApiKey } from '../edge-cache'
 import { verifyRevealToken } from '../middleware/auth'
 import { buildNotifyJob, dispatchNotifications, invalidateChannelCache } from '../notify'
 import { enforceRateLimit } from '../rate-limit'
@@ -114,6 +123,32 @@ function isRefError(error: unknown): error is Error {
  * Republish an item AND everything that references it (transitively) to the
  * edge cache, with ${...} references expanded. Runs in waitUntil after writes.
  */
+/**
+ * Off-path anomaly evaluation: feed the signal to the workspace DO's
+ * sliding-window counters and fan any crossed thresholds out as alert
+ * notifications + audit events. Runs in waitUntil; never blocks the reveal.
+ */
+async function raiseAnomalyAlerts(
+  c: Context<AppEnv>,
+  workspaceId: string,
+  action: 'secret.reveal' | 'environment.export',
+  actor: string,
+  count?: number,
+): Promise<void> {
+  const alerts = await stubFor(c, workspaceId).recordAnomalySignal({ action, actor, count })
+  for (const alert of alerts) {
+    const event = {
+      workspaceId,
+      action: `alert.${alert}`,
+      resourceType: 'workspace',
+      userId: actor,
+      ...(count !== undefined ? { count } : {}),
+    }
+    await emitAudit(c.env, event)
+    await dispatchNotifications(c.env, event)
+  }
+}
+
 async function publishWithDependents(
   c: Context<AppEnv>,
   workspaceId: string,
@@ -230,8 +265,9 @@ export const workspaceRoutes = new Hono<AppEnv>()
       }
       // Write-through to the edge cache (KV) — the item plus anything referencing it.
       c.executionCtx.waitUntil(publishWithDependents(c, workspaceId, config))
-      // Index for semantic search (never index secret plaintext).
-      if (config.kind !== 'secret') {
+      // Index for semantic search (never index secret plaintext; workspaces can
+      // opt out of content indexing entirely).
+      if (config.kind !== 'secret' && (await isAiIndexingEnabled(c.var.database, workspaceId))) {
         c.executionCtx.waitUntil(indexConfig(c.env, workspaceId, config))
       }
       const changeEvent = configChangeEvent({
@@ -327,7 +363,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
       throw error
     }
     c.executionCtx.waitUntil(publishWithDependents(c, workspaceId, config))
-    if (config.kind !== 'secret') {
+    if (config.kind !== 'secret' && (await isAiIndexingEnabled(c.var.database, workspaceId))) {
       c.executionCtx.waitUntil(indexConfig(c.env, workspaceId, config))
     }
     c.executionCtx.waitUntil(
@@ -347,6 +383,10 @@ export const workspaceRoutes = new Hono<AppEnv>()
     if (c.var.role !== 'owner' && c.var.role !== 'admin') {
       return c.json({ error: 'forbidden', detail: 'revealing secrets requires admin' }, 403)
     }
+    // Hard ceiling: a compromised admin token can pull at most N secrets/min,
+    // and every one of those still lands in audit + notifications.
+    const capped = await enforceRateLimit(c, c.env.REVEAL_LIMITER, `reveal:${c.var.userId}`)
+    if (capped) return capped
     // Step-up: when the org requires it, a fresh second factor (proven by a
     // reveal token minted at auth's /reauth) is needed on top of being signed
     // in. The token is verified by its `secret-reveal` audience and must belong
@@ -389,6 +429,9 @@ export const workspaceRoutes = new Hono<AppEnv>()
     })
     c.executionCtx.waitUntil(emitAudit(c.env, revealed))
     c.executionCtx.waitUntil(dispatchNotifications(c.env, revealed))
+    c.executionCtx.waitUntil(
+      raiseAnomalyAlerts(c, c.req.param('workspaceId'), 'secret.reveal', c.var.userId),
+    )
     return c.json({ key: item.key, kind: item.kind, content: value })
   })
   .get('/:workspaceId/environments/:envId/configs/:key/revisions', async (c) => {
@@ -541,11 +584,74 @@ export const workspaceRoutes = new Hono<AppEnv>()
       total,
     })
   })
+  // Compliance export: the raw warehouse NDJSON for a date range, with a
+  // SHA-256 digest header so the file is verifiable after download
+  // (`shasum -a 256 export.ndjson`). Exporting the audit trail is itself an
+  // auditable act. Tamper-evident hash chaining stays roadmap-tier.
+  .get('/:workspaceId/audit/export', async (c) => {
+    if (!isAdmin(c)) {
+      return c.json({ error: 'forbidden', detail: 'audit export requires admin' }, 403)
+    }
+    const workspaceId = c.req.param('workspaceId')
+    const { events } = await queryAuditHistory(c.env.AUDIT_BUCKET, {
+      workspaceId,
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+      environmentId: c.req.query('env'),
+      limit: 1000000,
+    })
+    const ndjson = events.map((e) => JSON.stringify(e)).join('\n')
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ndjson))
+    const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+
+    c.executionCtx.waitUntil(
+      emitAudit(c.env, {
+        workspaceId,
+        action: 'audit.exported',
+        resourceType: 'audit',
+        userId: c.var.userId,
+        count: events.length,
+      }),
+    )
+    return new Response(ndjson, {
+      headers: {
+        'content-type': 'application/x-ndjson',
+        'content-disposition': `attachment; filename="edgevault-audit-${workspaceId}.ndjson"`,
+        'x-content-sha256': hex,
+        'x-audit-event-count': String(events.length),
+      },
+    })
+  })
+
+  // --- Workspace AI settings (content-indexing opt-out) ---
+  .get('/:workspaceId/settings', async (c) => {
+    return c.json({
+      aiIndexingEnabled: await isAiIndexingEnabled(c.var.database, c.req.param('workspaceId')),
+    })
+  })
+  .patch(
+    '/:workspaceId/settings',
+    zValidator('json', z.object({ aiIndexingEnabled: z.boolean() })),
+    async (c) => {
+      if (!isAdmin(c)) {
+        return c.json({ error: 'forbidden', detail: 'workspace settings require admin' }, 403)
+      }
+      await setAiIndexingEnabled(
+        c.var.database,
+        c.req.param('workspaceId'),
+        c.req.valid('json').aiIndexingEnabled,
+      )
+      return c.json({ ok: true })
+    },
+  )
 
   // --- AI semantic search over the workspace's configs (Vectorize) ---
   .get('/:workspaceId/search', async (c) => {
     const query = c.req.query('q')
     if (!query) return c.json({ error: 'missing_query' }, 400)
+    if (!(await isAiIndexingEnabled(c.var.database, c.req.param('workspaceId')))) {
+      return c.json({ hits: [], aiIndexingDisabled: true })
+    }
     // Embedding + Vectorize work is metered upstream — cap per user.
     const limited = await enforceRateLimit(c, c.env.AI_USER_LIMITER, `ai:${c.var.userId}`)
     if (limited) return limited
@@ -599,35 +705,95 @@ export const workspaceRoutes = new Hono<AppEnv>()
           .array(z.enum(['read', 'secrets:read']))
           .nonempty()
           .optional(),
+        // Optional lifecycle/scope hardening: TTL in days and source-IP CIDRs.
+        expiresInDays: z.number().int().min(1).max(365).optional(),
+        allowedCidrs: z.array(z.string().max(64)).max(20).optional(),
       }),
     ),
     async (c) => {
-      const scopes = c.req.valid('json').scopes ?? ['read']
+      const body = c.req.valid('json')
+      const scopes = body.scopes ?? ['read']
       // A secrets:read key can decrypt every secret in its environment (the
       // machine export surface) — minting one is gated like the reveal endpoint.
       if (scopes.includes('secrets:read') && !isAdmin(c)) {
         return c.json({ error: 'forbidden', detail: 'secrets:read keys require admin' }, 403)
       }
+      const allowedCidrs = body.allowedCidrs?.filter((c) => c.trim() !== '')
+      if (allowedCidrs?.some((cidr) => !isValidCidr(cidr))) {
+        return c.json(
+          { error: 'invalid_cidr', detail: 'allowedCidrs must be IPv4/IPv6 addresses or CIDRs' },
+          400,
+        )
+      }
+      const expiresAt = body.expiresInDays
+        ? new Date(Date.now() + body.expiresInDays * 24 * 60 * 60 * 1000)
+        : undefined
+
       const generated = generateApiKey('live')
       const key = await createApiKey(c.var.database, {
         workspaceId: c.req.param('workspaceId'),
         environmentId: c.req.param('envId'),
-        name: c.req.valid('json').name,
+        name: body.name,
         prefix: generated.prefix,
         keyHash: generated.keyHash,
         createdByUserId: c.var.userId,
         scopes,
+        expiresAt,
+        allowedCidrs: allowedCidrs?.length ? allowedCidrs : undefined,
       })
       // Publish the key->environment mapping so delivery can validate fast (KV).
       await publishApiKey(c.env, generated.keyHash, {
         workspaceId: c.req.param('workspaceId'),
         environmentId: c.req.param('envId'),
         scopes,
+        ...(expiresAt ? { expiresAt: +expiresAt } : {}),
+        ...(allowedCidrs?.length ? { allowedCidrs } : {}),
       })
       // The plaintext key is shown exactly once.
       return c.json({ apiKey: generated.key, key }, 201)
     },
   )
+
+  // Key inventory (member-visible; hashes never leave the database).
+  .get('/:workspaceId/api-keys', async (c) => {
+    const keys = await listApiKeys(c.var.database, c.req.param('workspaceId'))
+    return c.json({
+      keys: keys.map((k) => ({
+        id: k.id,
+        environmentId: k.environmentId,
+        name: k.name,
+        prefix: k.prefix,
+        scopes: k.scopes,
+        createdAt: k.createdAt.toISOString(),
+        expiresAt: k.expiresAt?.toISOString() ?? null,
+        lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
+        revokedAt: k.revokedAt?.toISOString() ?? null,
+        allowedCidrs: k.allowedCidrs ?? [],
+        mine: k.createdByUserId === c.var.userId,
+      })),
+    })
+  })
+
+  // Revoke: admins may revoke any key, members only keys they minted. The KV
+  // delete is what takes the key out of service at the edge (≤60s KV read
+  // consistency); revoked_at is the bookkeeping.
+  .delete('/:workspaceId/api-keys/:keyId', async (c) => {
+    const workspaceId = c.req.param('workspaceId')
+    const keyHash = await revokeApiKey(c.var.database, workspaceId, c.req.param('keyId'), {
+      onlyIfCreatedBy: isAdmin(c) ? undefined : c.var.userId,
+    })
+    if (!keyHash) return c.json({ error: 'not_found' }, 404)
+    await unpublishApiKey(c.env, keyHash)
+    c.executionCtx.waitUntil(
+      emitAudit(c.env, {
+        workspaceId,
+        action: 'api_key.revoked',
+        resourceType: 'api_key',
+        userId: c.var.userId,
+      }),
+    )
+    return c.json({ ok: true })
+  })
 
   // --- Notification channels (Slack / signed webhooks) ---
   // Admin-only: destination URLs are credentials. They're stored envelope-

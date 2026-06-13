@@ -104,27 +104,40 @@ export interface VerifyTotpOptions extends TotpOptions {
   window?: number
 }
 
+/**
+ * Constant-time verification returning the matched RFC 6238 counter step, or
+ * null. Callers that persist the last accepted step can reject replays of the
+ * same code within the drift window (one use per step).
+ */
+export function verifyTotpWithStep(
+  secretBase32: string,
+  token: string,
+  options: VerifyTotpOptions = {},
+): number | null {
+  const digits = options.digits ?? 6
+  const period = options.period ?? 30
+  const window = options.window ?? 1
+  const now = options.now ?? Date.now()
+  const candidate = token.replace(/\s+/g, '')
+  if (candidate.length !== digits) return null
+
+  const key = decodeBase32(secretBase32)
+  const counter = Math.floor(now / 1000 / period)
+  let matched: number | null = null
+  // Check the whole window (no early return) to keep timing independent of position.
+  for (let i = -window; i <= window; i++) {
+    if (constantTimeEqual(hotp(key, counter + i, options), candidate)) matched = counter + i
+  }
+  return matched
+}
+
 /** Constant-time verification of a submitted TOTP code, with a drift window. */
 export function verifyTotp(
   secretBase32: string,
   token: string,
   options: VerifyTotpOptions = {},
 ): boolean {
-  const digits = options.digits ?? 6
-  const period = options.period ?? 30
-  const window = options.window ?? 1
-  const now = options.now ?? Date.now()
-  const candidate = token.replace(/\s+/g, '')
-  if (candidate.length !== digits) return false
-
-  const key = decodeBase32(secretBase32)
-  const counter = Math.floor(now / 1000 / period)
-  let ok = false
-  // Check the whole window (no early return) to keep timing independent of position.
-  for (let i = -window; i <= window; i++) {
-    if (constantTimeEqual(hotp(key, counter + i, options), candidate)) ok = true
-  }
-  return ok
+  return verifyTotpWithStep(secretBase32, token, options) !== null
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

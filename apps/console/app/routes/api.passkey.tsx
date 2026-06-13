@@ -2,6 +2,7 @@ import {
   clearWebauthnCookie,
   getToken,
   getWebauthnChallenge,
+  ipHeaders,
   setTokenCookie,
   setWebauthnCookie,
 } from '../lib/session.server'
@@ -32,7 +33,11 @@ export async function action({ request, context }: Route.ActionArgs) {
       if (!token) return json({ error: 'unauthorized' }, { status: 401 })
       const res = await env.AUTH_SERVICE.fetch('https://auth/webauthn/register/options', {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          ...ipHeaders(request),
+        },
         body: JSON.stringify({ rpID }),
       })
       if (!res.ok) return json({ error: 'options_failed' }, { status: 400 })
@@ -49,7 +54,11 @@ export async function action({ request, context }: Route.ActionArgs) {
       if (!expectedChallenge) return json({ error: 'no_challenge' }, { status: 400 })
       const res = await env.AUTH_SERVICE.fetch('https://auth/webauthn/register/verify', {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+          ...ipHeaders(request),
+        },
         body: JSON.stringify({
           response: body.response,
           expectedChallenge,
@@ -67,7 +76,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     case 'auth-options': {
       const res = await env.AUTH_SERVICE.fetch('https://auth/webauthn/auth/options', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...ipHeaders(request) },
         body: JSON.stringify({ rpID }),
       })
       if (!res.ok) return json({ error: 'options_failed' }, { status: 400 })
@@ -82,7 +91,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       if (!expectedChallenge) return json({ error: 'no_challenge' }, { status: 400 })
       const res = await env.AUTH_SERVICE.fetch('https://auth/webauthn/auth/verify', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', ...ipHeaders(request) },
         body: JSON.stringify({
           response: body.response,
           expectedChallenge,
@@ -100,7 +109,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       const cookie = (res.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
       const tokenRes = await env.AUTH_SERVICE.fetch('https://auth/token', {
         method: 'POST',
-        headers: { cookie },
+        headers: { cookie, ...ipHeaders(request) },
       })
       const token = ((await tokenRes.json()) as { accessToken?: string }).accessToken
       if (!token) return json({ error: 'token_failed' }, { status: 500 })

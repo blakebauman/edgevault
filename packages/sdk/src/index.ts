@@ -20,7 +20,7 @@ export type ConfigRecord = ResolvedConfig & { key: string }
 export interface EdgeVaultOptions {
   /** Environment-scoped API key (shown once at creation). Required. */
   apiKey: string
-  /** Delivery base URL. Default: `https://cdn.edgevault.io`. */
+  /** Delivery base URL. Default: `https://delivery.edgevault.io`. */
   baseUrl?: string
   /** In-process cache TTL in ms (caches hits and misses). 0 disables. Default 15000. */
   cacheTtlMs?: number
@@ -50,7 +50,7 @@ export class EdgeVaultAuthError extends EdgeVaultError {
   }
 }
 
-const DEFAULT_BASE = 'https://cdn.edgevault.io'
+const DEFAULT_BASE = 'https://delivery.edgevault.io'
 
 type CacheEntry = { value: ConfigRecord | null; expires: number }
 

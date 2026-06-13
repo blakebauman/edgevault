@@ -1,4 +1,5 @@
 import { DurableObject } from 'cloudflare:workers'
+import { redactCredentials } from '@edgevault/ai'
 import { aiRunner, textModel } from '../ai'
 import type { ActivityEntry } from '../durable-objects/types'
 import type { VaultDurableObject } from '../durable-objects/vault'
@@ -98,7 +99,11 @@ export class EdgeVaultAgent extends DurableObject<Env> {
     let answer = ''
     let source: 'ai' | 'fallback' = 'fallback'
     try {
-      const context = events.map((event) => describeEvent(event, names)).join('\n')
+      // Defense-in-depth: activity descriptions are names/keys, not values,
+      // but anything credential-shaped is redacted before LLM inference.
+      const context = redactCredentials(
+        events.map((event) => describeEvent(event, names)).join('\n'),
+      ).text
       const result = (await aiRunner(this.env).run(textModel(this.env), {
         messages: [
           {

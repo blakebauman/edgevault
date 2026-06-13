@@ -1,8 +1,14 @@
 import { hashToken } from '@edgevault/auth'
-import { type ApiKeyRecord, apiKeyCacheKey, type ResolvedConfig } from '@edgevault/edge-protocol'
+import {
+  type ApiKeyRecord,
+  apiKeyCacheKey,
+  ipMatchesCidrs,
+  type ResolvedConfig,
+} from '@edgevault/edge-protocol'
 import { Hono } from 'hono'
 import { emitAudit } from '../audit'
 import type { VaultDurableObject } from '../durable-objects/vault'
+import { dispatchNotifications } from '../notify'
 import { rateLimitByIp } from '../rate-limit'
 import { revealSecret } from '../secrets'
 
@@ -32,6 +38,15 @@ export const machineRoutes = new Hono<MachineEnv>()
       'json',
     )
     if (!record) return c.json({ error: 'invalid_api_key' }, 401)
+    if (record.expiresAt && record.expiresAt < Date.now()) {
+      return c.json({ error: 'api_key_expired' }, 401)
+    }
+    if (record.allowedCidrs?.length) {
+      const ip = c.req.header('cf-connecting-ip') ?? ''
+      if (!ipMatchesCidrs(ip, record.allowedCidrs)) {
+        return c.json({ error: 'ip_not_allowed' }, 403)
+      }
+    }
     c.set('apiKey', record)
     await next()
   })
@@ -45,14 +60,14 @@ export const machineRoutes = new Hono<MachineEnv>()
 
     const configs: Record<string, ResolvedConfig> = {}
     const secrets: Record<string, string> = {}
-    let secretCount = 0
+    const secretKeys: string[] = []
     for (const { item, resolvedContent } of targets) {
       if (item.kind === 'secret') {
         if (!includeSecrets) continue
         const value = await revealSecret(c.env, workspaceId, item)
         if (value !== null) {
           secrets[item.key] = value
-          secretCount++
+          secretKeys.push(item.key)
         }
       } else {
         configs[item.key] = {
@@ -64,8 +79,10 @@ export const machineRoutes = new Hono<MachineEnv>()
       }
     }
 
-    // Exports that decrypt secrets always leave an audit trail.
-    if (secretCount > 0) {
+    // Exports that decrypt secrets always leave an audit trail — including
+    // WHICH keys were decrypted (names only, never values), capped to keep the
+    // queue message small.
+    if (secretKeys.length > 0) {
       c.executionCtx.waitUntil(
         emitAudit(c.env, {
           workspaceId,
@@ -73,8 +90,34 @@ export const machineRoutes = new Hono<MachineEnv>()
           action: 'environment.exported',
           resourceType: 'environment',
           userId: 'machine',
-          count: secretCount,
+          count: secretKeys.length,
+          detail: {
+            keys: secretKeys.slice(0, 100).join(','),
+            ...(secretKeys.length > 100 ? { truncated: 'true' } : {}),
+          },
         }),
+      )
+      // Anomaly check: an unusually large export alerts (cooldown-deduplicated).
+      c.executionCtx.waitUntil(
+        (async () => {
+          const alerts = await stub.recordAnomalySignal({
+            action: 'environment.export',
+            actor: 'machine',
+            count: secretKeys.length,
+          })
+          for (const alert of alerts) {
+            const event = {
+              workspaceId,
+              environmentId,
+              action: `alert.${alert}`,
+              resourceType: 'workspace',
+              userId: 'machine',
+              count: secretKeys.length,
+            }
+            await emitAudit(c.env, event)
+            await dispatchNotifications(c.env, event)
+          }
+        })(),
       )
     }
 

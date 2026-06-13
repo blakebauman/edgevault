@@ -32,6 +32,15 @@ describe('delivery auth', () => {
   it('401s without an API key', async () => {
     expect((await call('/v1/configs/feature.x')).status).toBe(401)
   })
+
+  it('sets baseline security headers on every response', async () => {
+    const res = await call('/health')
+    expect(res.headers.get('Content-Security-Policy')).toBe(
+      "default-src 'none'; frame-ancestors 'none'",
+    )
+    expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff')
+    expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains')
+  })
   it('401s with an unknown API key', async () => {
     expect((await call('/v1/configs/feature.x', { authorization: 'Bearer nope' })).status).toBe(401)
   })

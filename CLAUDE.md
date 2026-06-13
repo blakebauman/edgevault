@@ -54,9 +54,9 @@ Six core Workers plus two Durable Object classes. The browser only talks to the 
 | Worker | Role |
 |---|---|
 | `apps/api` (api.edgevault.io) | Control plane: Hono + zod-openapi. Authz, Neon metadata via Hyperdrive, all config/secret writes through the Vault DO, AI (search/risk/assistant), promotion Workflows, MCP server, SCIM 2.0 directory surface. |
-| `apps/delivery` (cdn.edgevault.io) | <10ms data plane: serves pre-resolved configs/flags from KV behind an in-memory L1, environment-scoped API keys. No business logic; cannot decrypt secrets. |
+| `apps/delivery` (delivery.edgevault.io) | <10ms data plane: serves pre-resolved configs/flags from KV behind an in-memory L1, environment-scoped API keys. No business logic; cannot decrypt secrets. |
 | `apps/auth` (auth.edgevault.io) | Custom auth, no framework: Argon2id passwords, opaque sessions, EdDSA JWT/JWKS, MFA/passkeys, social OAuth, enterprise SSO (OIDC/SAML). Built on `jose`, `@noble/hashes`, `@oslojs/*`. |
-| `apps/console` (app.edgevault.io) | React Router 7 UI + BFF on Workers (via `@cloudflare/vite-plugin`). |
+| `apps/console` (console.edgevault.io) | React Router 7 UI + BFF on Workers (via `@cloudflare/vite-plugin`). |
 | `apps/audit` | Queue consumer → R2 NDJSON audit warehouse. |
 | `apps/notify` | Queue consumer → notification delivery (Slack Block Kit + HMAC-signed webhooks). Jobs arrive fully materialized from `api`; no DB, no KEK. |
 | `apps/www` (edgevault.io) | Marketing site: static Astro build (0 KB client JS) served by an assets-only worker. Brand/design source of record is `DESIGN.md` + `.impeccable/`; copy, personas, and content strategy live in `PRODUCT.md`; this app is the implementation. |
