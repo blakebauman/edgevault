@@ -1,0 +1,18 @@
+# apps/api local dev secrets — copy to `.dev.vars` and fill in.
+# `.dev.vars` is gitignored; this example is committed. Generate real values
+# with `node scripts/gen-secrets.mjs` from the repo root.
+#
+# For `wrangler dev` / tests, the Hyperdrive localConnectionString points at the
+# Neon Local container (`pnpm db:up`), so no DATABASE_URL is needed here.
+
+# Envelope-encryption master key (base64, 32 bytes). Must be the SAME value as
+# apps/auth's MASTER_KEK or secrets written by one worker won't decrypt in the
+# other.
+MASTER_KEK='base64-32-bytes-here'
+
+# Internal mesh shared secret (shared with auth + console). Guards internal
+# service-to-service routes.
+INTERNAL_TOKEN='hex-or-base64url-here'
+
+# Console origin used when building user-facing links.
+CONSOLE_URL='https://console.edgevault.io'
