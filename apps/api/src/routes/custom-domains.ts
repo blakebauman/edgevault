@@ -122,7 +122,7 @@ export const customDomainRoutes = new Hono<AppEnv>()
       return c.json({ error: 'domain_limit', detail: 'Custom domain limit reached.' }, 409)
     }
 
-    const cf = await createCustomHostname(config, hostname)
+    const cf = await createCustomHostname(config, hostname, c.env.DELIVERY_HOST)
     if (!cf.ok) {
       return c.json({ error: 'provisioning_failed', detail: cf.errors.join('; ') }, 502)
     }
