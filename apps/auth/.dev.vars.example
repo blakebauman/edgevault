@@ -1,0 +1,26 @@
+# apps/auth local dev secrets — copy to `.dev.vars` and fill in.
+# `.dev.vars` is gitignored; this example is committed. Generate real values
+# with `node scripts/gen-secrets.mjs` from the repo root.
+#
+# For `wrangler dev` / tests, the Hyperdrive localConnectionString points at the
+# Neon Local container (`pnpm db:up`), so no DATABASE_URL is needed here.
+
+# EdDSA (Ed25519) signing key for the JWT/JWKS surface. Single-line JSON JWK.
+JWT_PRIVATE_JWK='{"kty":"OKP","crv":"Ed25519","d":"...","x":"...","alg":"EdDSA","kid":"..."}'
+
+# Envelope-encryption master key (base64, 32 bytes). REQUIRED — auth uses it to
+# encrypt TOTP secrets and OIDC client secrets, so MFA enrollment 500s without
+# it. Must be the SAME value as apps/api's MASTER_KEK or secrets won't decrypt
+# across workers.
+MASTER_KEK='base64-32-bytes-here'
+
+# Internal mesh shared secret (shared with api + console). Only guards the
+# SSO/internal provisioning paths, which are dormant in local dev — optional
+# unless you exercise them.
+# INTERNAL_TOKEN='hex-or-base64url-here'
+
+# Social OAuth (optional; only if testing GitHub/Google sign-in locally).
+# GITHUB_CLIENT_ID=''
+# GITHUB_CLIENT_SECRET=''
+# GOOGLE_CLIENT_ID=''
+# GOOGLE_CLIENT_SECRET=''

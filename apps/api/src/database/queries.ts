@@ -408,12 +408,21 @@ export async function setAiIndexingEnabled(
  * sign in and look around.
  */
 export async function isEmailVerified(database: Database, userId: string): Promise<boolean> {
-  const [row] = await database
-    .select({ emailVerified: users.emailVerified })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1)
-  return row?.emailVerified ?? false
+  // Transactional on purpose: this gates a write right after the user clicked
+  // their verification link, so it must read fresh. Hyperdrive's ~60s query
+  // cache would otherwise keep returning the pre-verification `false` for up to
+  // a minute (a sign-in path reads emailVerified=false, then verifying doesn't
+  // take effect until the TTL lapses), 403ing org create/invite-accept for a
+  // just-verified user. Same Hyperdrive read-after-write fix as the step-up
+  // policy and TOTP credential reads — in-transaction queries are never cached.
+  return database.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ emailVerified: users.emailVerified })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+    return row?.emailVerified ?? false
+  })
 }
 
 /**
