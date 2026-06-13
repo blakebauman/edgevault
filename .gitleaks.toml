@@ -1,0 +1,13 @@
+# gitleaks config — extends the default ruleset.
+# Allowlists the synthetic credential fixtures used to test redactCredentials():
+# AWS's documented example key, the jwt.io demo token, and fake ghp_/sk-
+# placeholders. These are not real secrets; they exist so the redaction test
+# can assert they get masked.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic credential fixtures for the AI redaction test"
+paths = [
+  '''packages/ai/test/redact\.test\.ts''',
+]
