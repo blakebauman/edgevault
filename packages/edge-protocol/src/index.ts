@@ -18,6 +18,13 @@ export interface ResolvedConfig {
 export interface ApiKeyRecord {
   workspaceId: string
   environmentId: string
+  /**
+   * Owning org, used by delivery to pin custom delivery domains (a key from
+   * another org presented on `config.acme.com` is refused). Optional because
+   * records published before custom domains existed lack it — those keys
+   * simply can't be used on a custom domain until re-issued.
+   */
+  organizationId?: string
   scopes: string[]
   /** Epoch ms; absent = never expires. KV TTL mirrors it, this is the check. */
   expiresAt?: number
@@ -135,6 +142,15 @@ export function configCacheKey(workspaceId: string, environmentId: string, key: 
 /** `apikey:{sha256hex}` */
 export function apiKeyCacheKey(keyHash: string): string {
   return `apikey:${keyHash}`
+}
+
+/**
+ * `domain:{hostname}` → organizationId (`ENVIRONMENT_API_KEYS` namespace).
+ * Written when a custom delivery domain turns active, deleted with the domain.
+ * Delivery treats a missing pin as "not a custom domain" and serves normally.
+ */
+export function customDomainCacheKey(hostname: string): string {
+  return `domain:${hostname.toLowerCase()}`
 }
 
 /**

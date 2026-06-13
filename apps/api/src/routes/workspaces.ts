@@ -745,6 +745,8 @@ export const workspaceRoutes = new Hono<AppEnv>()
       await publishApiKey(c.env, generated.keyHash, {
         workspaceId: c.req.param('workspaceId'),
         environmentId: c.req.param('envId'),
+        // Lets delivery pin custom delivery domains to their owning org.
+        ...(c.var.orgId ? { organizationId: c.var.orgId } : {}),
         scopes,
         ...(expiresAt ? { expiresAt: +expiresAt } : {}),
         ...(allowedCidrs?.length ? { allowedCidrs } : {}),

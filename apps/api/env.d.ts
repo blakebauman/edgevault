@@ -19,4 +19,10 @@ interface __BaseEnv_Env {
   MACHINE_IP_LIMITER?: RateLimit
   SHARE_IP_LIMITER?: RateLimit
   AI_USER_LIMITER?: RateLimit
+  /**
+   * Cloudflare for SaaS API token for custom delivery domains (zone-scoped,
+   * Custom Hostnames Edit). Optional — absent (with CF_ZONE_ID empty) the
+   * /domains routes 404 and the feature is off.
+   */
+  CF_SAAS_API_TOKEN?: string
 }

@@ -3,6 +3,7 @@ import {
   type ApiKeyRecord,
   apiKeyCacheKey,
   configCacheKey,
+  customDomainCacheKey,
   ipMatchesCidrs,
   type ResolvedConfig,
 } from '@edgevault/edge-protocol'
@@ -35,6 +36,18 @@ function l1Get(key: string): { value: ResolvedConfig | null } | undefined {
 
 function l1Set(key: string, value: ResolvedConfig | null): void {
   l1.set(key, { value, expires: Date.now() + L1_TTL_MS })
+}
+
+// Custom-delivery-domain pins (`domain:{host}` → orgId), same L1 pattern.
+// Only consulted for non-canonical hosts, so canonical traffic pays nothing.
+const pinL1 = new Map<string, { value: string | null; expires: number }>()
+
+async function getDomainPin(env: Env, host: string): Promise<string | null> {
+  const hit = pinL1.get(host)
+  if (hit && hit.expires > Date.now()) return hit.value
+  const value = await env.ENVIRONMENT_API_KEYS.get(customDomainCacheKey(host))
+  pinL1.set(host, { value, expires: Date.now() + L1_TTL_MS })
+  return value
 }
 
 // Per-isolate edge-read meter. Counting is a cheap Map bump on the hot path;
@@ -84,6 +97,18 @@ app.use('/v1/*', async (c, next) => {
     const ip = c.req.header('cf-connecting-ip') ?? ''
     if (!ipMatchesCidrs(ip, record.allowedCidrs)) {
       return c.json({ error: 'ip_not_allowed' }, 403)
+    }
+  }
+  // Custom delivery domains: when an org's hostname has an active pin, refuse
+  // keys from any other org presented on it. Hosts without a pin (canonical,
+  // dev, workers.dev) pass — the pin is defense in depth, the key still scopes
+  // every read. Records published before orgs were stamped on keys have no
+  // organizationId and fail closed on pinned hosts (re-issue the key).
+  const host = new URL(c.req.url).hostname
+  if (host !== c.env.DELIVERY_HOST) {
+    const pinned = await getDomainPin(c.env, host)
+    if (pinned && pinned !== record.organizationId) {
+      return c.json({ error: 'wrong_domain' }, 401)
     }
   }
   c.set('apiKey', record)

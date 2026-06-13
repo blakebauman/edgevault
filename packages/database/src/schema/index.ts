@@ -1,4 +1,5 @@
 export * from './auth'
+export * from './custom-domain'
 export * from './mfa'
 export * from './notifications'
 export * from './organization'

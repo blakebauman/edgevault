@@ -1,6 +1,6 @@
 import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test'
 import { hashToken } from '@edgevault/auth'
-import { apiKeyCacheKey, configCacheKey } from '@edgevault/edge-protocol'
+import { apiKeyCacheKey, configCacheKey, customDomainCacheKey } from '@edgevault/edge-protocol'
 import { beforeAll, describe, expect, it } from 'vitest'
 import app from '../src/index'
 
@@ -99,5 +99,63 @@ describe('delivery export', () => {
 
   it('requires an API key', async () => {
     expect((await call('/v1/export')).status).toBe(401)
+  })
+})
+
+describe('custom delivery domain pin', () => {
+  const PINNED_KEY = 'evk_live_pinned-org-key'
+  const OTHER_ORG_KEY = 'evk_live_other-org-key'
+
+  beforeAll(async () => {
+    await env.ENVIRONMENT_API_KEYS.put(
+      apiKeyCacheKey(hashToken(PINNED_KEY)),
+      JSON.stringify({
+        workspaceId: WS,
+        environmentId: ENV,
+        organizationId: 'org-1',
+        scopes: ['read'],
+      }),
+    )
+    await env.ENVIRONMENT_API_KEYS.put(
+      apiKeyCacheKey(hashToken(OTHER_ORG_KEY)),
+      JSON.stringify({
+        workspaceId: WS,
+        environmentId: ENV,
+        organizationId: 'org-2',
+        scopes: ['read'],
+      }),
+    )
+    await env.ENVIRONMENT_API_KEYS.put(customDomainCacheKey('config.acme.com'), 'org-1')
+  })
+
+  async function callHost(host: string, key: string) {
+    const ctx = createExecutionContext()
+    const res = await app.fetch(
+      new Request(`https://${host}/v1/configs/feature.x`, {
+        headers: { authorization: `Bearer ${key}` },
+      }),
+      env,
+      ctx,
+    )
+    await waitOnExecutionContext(ctx)
+    return res
+  }
+
+  it('serves the owning org on its custom domain', async () => {
+    expect((await callHost('config.acme.com', PINNED_KEY)).status).toBe(200)
+  })
+
+  it("refuses another org's key on a pinned domain", async () => {
+    const res = await callHost('config.acme.com', OTHER_ORG_KEY)
+    expect(res.status).toBe(401)
+    expect(await res.json()).toMatchObject({ error: 'wrong_domain' })
+  })
+
+  it('fails closed for pre-orgId key records on a pinned domain', async () => {
+    expect((await callHost('config.acme.com', API_KEY)).status).toBe(401)
+  })
+
+  it('ignores hosts without a pin (canonical/dev traffic)', async () => {
+    expect((await callHost('edge.test', PINNED_KEY)).status).toBe(200)
   })
 })

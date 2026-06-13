@@ -17,6 +17,13 @@
     "AUTH_ISSUER": "https://auth.edgevault.io",
     // Base URL for links the api mints into emails (invitation accept links).
     "CONSOLE_URL": "https://console.edgevault.io",
+    // Canonical delivery hostname: the CNAME target for custom delivery
+    // domains and the platform suffix customers may not bring themselves.
+    "DELIVERY_HOST": "delivery.edgevault.io",
+    // Empty = intentional sentinel: custom delivery domains off. Set to the
+    // zone id serving DELIVERY_HOST (plus the CF_SAAS_API_TOKEN secret) to
+    // enable the /domains routes (ROADMAP 2.12).
+    "CF_ZONE_ID": "",
     "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
     "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
     // Empty = intentional sentinel: AI binding is called directly, no AI Gateway
@@ -64,6 +71,11 @@
       "name": "edgevault-promotion",
       "binding": "PROMOTION_WORKFLOW",
       "class_name": "PromotionWorkflow"
+    },
+    {
+      "name": "edgevault-domain-verification",
+      "binding": "DOMAIN_VERIFICATION_WORKFLOW",
+      "class_name": "DomainVerificationWorkflow"
     }
   ],
   "hyperdrive": [
@@ -93,6 +105,9 @@
         "SERVICE_NAME": "edgevault-api-staging",
         "AUTH_ISSUER": "https://auth-staging.edgevault.io",
         "CONSOLE_URL": "https://console-staging.edgevault.io",
+        "DELIVERY_HOST": "delivery-staging.edgevault.io",
+        // Empty = intentional sentinel: custom delivery domains off (see production vars).
+        "CF_ZONE_ID": "",
         "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
         "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
         // Empty = intentional sentinel: no AI Gateway (see production vars).
@@ -138,6 +153,11 @@
           "name": "edgevault-promotion-staging",
           "binding": "PROMOTION_WORKFLOW",
           "class_name": "PromotionWorkflow"
+        },
+        {
+          "name": "edgevault-domain-verification-staging",
+          "binding": "DOMAIN_VERIFICATION_WORKFLOW",
+          "class_name": "DomainVerificationWorkflow"
         }
       ],
       "hyperdrive": [

@@ -260,6 +260,13 @@ function OrgSection({ org, first }: { org: Org; first: boolean }) {
               billing
             </Link>
             {' · '}
+            <Link
+              to={`/orgs/${org.id}/domains`}
+              className="text-muted-foreground hover:text-accent"
+            >
+              domains
+            </Link>
+            {' · '}
             <Link to={`/orgs/${org.id}/sso`} className="text-muted-foreground hover:text-accent">
               oidc
             </Link>
