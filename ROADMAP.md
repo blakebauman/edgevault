@@ -10,7 +10,8 @@ workflows, open-core on Cloudflare. Each plan is grounded in the current archite
 **Status:** all of Tier 1 (1.1–1.5) has shipped; Tier 2 and Tier 3 are open.
 
 **Suggested order (remaining):** 2.7 → 2.6 → 2.10 → 2.9 → 2.8 → 2.11, with Tier 3 as a
-parallel track (3.2 → 3.1 → 3.3).
+parallel track (3.2 → 3.1 → 3.3). 2.12 waits until pricing tiers go from placeholder to
+real — it's a plan-tier anchor, not a launch blocker.
 
 ---
 
@@ -346,6 +347,82 @@ Delivery-plane-only clients mirroring `packages/sdk` (`EdgeVault` class: `config
 
 ---
 
+### 2.12 Custom delivery domains (`config.acme.com`) — M — ✅ built 2026-06-12 (code complete + tested; residual spike on the real zone still open, feature dark until CF_ZONE_ID/CF_SAAS_API_TOKEN are set)
+
+A customer-owned hostname in front of the delivery plane, via Cloudflare for SaaS custom
+hostnames. The delivery worker never inspects `Host` — tenancy comes entirely from the
+environment-scoped bearer key — so this is pure transport: provisioning + TLS + an
+optional host↔org pin. Correctness changes nowhere.
+
+**Reference implementation (proven in production):**
+`~/Sites/cloudflare/ai-deploy-platform/apps/api/src/{routes/custom-domains.ts,
+lib/custom-hostnames.ts, workflows/custom-domain.ts, dispatch/tenant-resolver.ts}` —
+same shape end to end (CF custom-hostnames API client, Workflow-driven DCV polling,
+KV `cd:{hostname}` routing cache). Port, don't reinvent. Key mechanism it settles:
+custom-hostname traffic *does* reach a worker with the original `Host` header — that
+project ingresses via a **zone route** (`*.fold.run/*` + `zone_name`), not
+`custom_domain: true`.
+
+**Residual spike (~half day, on the real zone):**
+1. The delivery worker binds `delivery.edgevault.io` via `custom_domain: true`; confirm
+   what catches custom-hostname traffic on edgevault.io — the reference wildcards the
+   whole zone, which we don't want. Likely: a dedicated proxied fallback-origin record
+   (e.g. `delivery-fallback.edgevault.io`) + a route scoped to it, set as the zone's
+   custom-hostname fallback origin. Verify with one throwaway hostname.
+2. Current Cloudflare for SaaS pricing (historically ~$0.10/hostname/mo past the included
+   allotment) — this sets the floor for what the plan tier must charge.
+
+**Data model (Neon):** `custom_domains (id, organizationId, workspaceId nullable,
+hostname unique, cfCustomHostnameId, status /* pending_dcv | pending_ssl | active |
+failed */, dcvRecords jsonb /* TXT/HTTP tokens to show in console */, createdByUserId,
+timestamps)`. Migration.
+
+**Build:**
+1. CF API client (port `lib/custom-hostnames.ts` from the reference): create/status/
+   delete against `/zones/:id/custom_hostnames`, `ssl: {method:'http', type:'dv'}`
+   (TXT only if we ever do wildcards), and its **error-code→user-message mapping**
+   (1414 owned-by-another-account, 1416/1417 DNS/SSL validation, 1420 duplicate,
+   1421 plan limit) so vendor errors never leak raw. Validate hostnames at the edge of
+   the route: reject `*.edgevault.io`, IPs/localhost/`.local|.test|.internal|.invalid|
+   .example` (reference has the regex).
+2. API routes in `apps/api` (org-admin-gated): `POST /api/v1/orgs/:id/domains` creates
+   the CF hostname with a zone-scoped `CF_SAAS_API_TOKEN` secret and stores the DCV
+   records; `GET` refreshes status from CF on read; `DELETE` removes the CF hostname
+   (best-effort, logged) then the row + KV pin. **Token absent ⇒ routes 404.** That's
+   config-driven (self-hosters on their own zone just add a route and don't need any of
+   this), not an entitlement check.
+3. `DomainVerificationWorkflow` (same pattern as `PromotionWorkflow`; reference:
+   `workflows/custom-domain.ts`): poll CF every 2 min for ~2h max; on `active` write the
+   KV pin + notify via the notify queue; on terminal failure (`deleted`/`moved`/
+   `blocked_by_cf`) clean up CF + row + KV; bail if the domain row was removed mid-poll.
+4. Console: org settings → Domains tab — add hostname, show the CNAME target
+   (`delivery.edgevault.io`) + DCV records, status badge that polls to `active`.
+5. Delivery (optional hardening, last): on activation the workflow writes
+   `domain:{hostname} → orgId` to KV; delivery rejects requests where `Host` is a custom
+   domain not owned by the key's org. Defense in depth only — the key already scopes
+   every read.
+6. `edge/control-plane`: plan-tier quantity limit (free: 0, pro: N) + per-hostname
+   metering, passing through CF's marginal cost.
+
+**Tests:** route authz + CF API stubbed (same service-binding stub pattern as
+`apps/api/vitest.config.ts`); workflow step coverage for the terminal-failure cleanup
+path (reference has unit tests to crib: `test/unit/custom-domain-workflow.test.ts`);
+pool-workers delivery test with a seeded `domain:` KV mapping (host pin accepts owner,
+rejects non-owner).
+
+**Risks:** serve-before-verify (never route traffic until DCV completes — CF enforces
+this, but don't write the KV pin until `active`); orphaned CF hostnames (delete the CF
+side first, then the row; reconcile if a delete half-fails); apex domains (CNAME-at-apex
+needs ALIAS/ANAME support at the customer's DNS host — document subdomains as the
+supported path, punt apex). Wildcards: out of scope v1.
+
+**Open-core call:** provisioning API + console ship in MIT core (generic Cloudflare for
+SaaS integration, usable by anyone running a managed EdgeVault on their own zone). The
+managed platform monetizes it as a plan-tier quantity in `edge/` — a usage limit with a
+real marginal cost behind it, not a withheld feature.
+
+---
+
 ## Tier 3 — Vault-grade protection for the secrets we already hold
 
 Security patterns borrowed from commercial password managers (2026-06), applied to
@@ -457,6 +534,7 @@ must re-derive and re-wrap the user's private key without a decrypt-everything e
 1.4 CLI ─────────────┴───────► GitHub Action (free follow-on)
 2.6 syncs (independent; uses 1.3 for failure notices)
 2.11 SDKs (independent)
+2.12 custom delivery domains (independent; metering lands in edge/)
 
 3.2 reveal hygiene (independent, console-only)
 3.1 step-up reveal ────► 3.3 E2E workspaces (the passkey prompt doubles as the unwrap UX)
@@ -473,6 +551,7 @@ must re-derive and re-wrap the user's private key without a decrypt-everything e
 | 2.8 change requests | MIT core |
 | 2.9 JIT access | MIT core |
 | 2.10 advanced RBAC | MIT core — evaluator + custom roles |
+| 2.12 custom delivery domains | MIT core — provisioning API + console; plan-tier quantity metered in `edge/` |
 | 3.1 step-up reveal, 3.2 reveal hygiene | MIT core |
 | 3.3 E2E workspaces + recovery escrow | MIT core |
 

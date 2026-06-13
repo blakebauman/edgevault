@@ -124,3 +124,29 @@ billing/metering plane:
    advance on full acceptance). Orgs without a `stripe_customers` row are skipped.
 
 See [`edge/README.md`](edge/README.md) for the control-plane details.
+
+## Custom delivery domains (Cloudflare for SaaS)
+
+Off by default; the `/api/v1/organizations/:orgId/domains` routes 404 and the
+console Domains tab shows "not enabled" until both are set on the api worker:
+
+1. `wrangler.jsonc` var `CF_ZONE_ID` — the zone serving `DELIVERY_HOST`
+   (edgevault.io for the managed platform).
+2. Secret `CF_SAAS_API_TOKEN` — zone-scoped token with **SSL and Certificates
+   Edit** (custom hostnames) on that zone:
+   `wrangler secret put CF_SAAS_API_TOKEN --name edgevault-api[-staging]`.
+
+One-time zone setup (the residual spike from ROADMAP 2.12 — verify with a
+throwaway hostname before announcing the feature):
+
+1. Enable **Cloudflare for SaaS** on the zone (SSL/TLS → Custom Hostnames).
+2. Set the **fallback origin** to a proxied record served by the delivery
+   worker and confirm a verified custom hostname reaches it with the original
+   `Host` header (the delivery worker pins `Host` → owning org via KV; wrong
+   org or pre-orgId API keys get 401 `wrong_domain`).
+3. Check current per-hostname pricing — it sets the floor for the plan tier.
+
+Customers then add a domain in the console (org settings → domains), create
+the CNAME to `DELIVERY_HOST` plus the DCV records shown, and the
+DomainVerificationWorkflow flips it active (~2h polling cap; "Check status"
+refreshes immediately).

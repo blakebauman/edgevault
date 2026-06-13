@@ -4,6 +4,7 @@ import { mcpRoutes } from './mcp'
 import { requireAuth } from './middleware/auth'
 import { withDatabase } from './middleware/database'
 import { requireWorkspaceMember } from './middleware/workspace'
+import { customDomainRoutes } from './routes/custom-domains'
 import { invitationRoutes } from './routes/invitations'
 import { machineRoutes } from './routes/machine'
 import { organizationRoutes } from './routes/organizations'
@@ -15,6 +16,7 @@ import { securityHeaders } from './security-headers'
 export { EdgeVaultAgent } from './agent/agent'
 export { ShareDurableObject } from './durable-objects/share'
 export { VaultDurableObject } from './durable-objects/vault'
+export { DomainVerificationWorkflow } from './workflows/domain-verification'
 export { PromotionWorkflow } from './workflows/promotion'
 
 /**
@@ -79,6 +81,7 @@ app.use('/api/v1/*', withDatabase, requireAuth)
 app.use('/api/v1/workspaces/:workspaceId/*', requireWorkspaceMember)
 
 app.route('/api/v1/organizations', organizationRoutes)
+app.route('/api/v1/organizations', customDomainRoutes)
 app.route('/api/v1/workspaces', workspaceRoutes)
 // Invitation accept surface — authenticated but pre-membership by definition.
 app.route('/api/v1/invitations', invitationRoutes)
