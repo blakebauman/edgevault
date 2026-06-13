@@ -108,8 +108,10 @@
         "AUTH_ISSUER": "https://auth-staging.edgevault.io",
         "CONSOLE_URL": "https://console-staging.edgevault.io",
         "DELIVERY_HOST": "delivery-staging.edgevault.io",
-        // Empty = intentional sentinel: custom delivery domains off (see production vars).
-        "CF_ZONE_ID": "",
+        // Same edgevault.io zone as prod (one fallback origin per zone); the
+        // custom_origin_server pin (= this DELIVERY_HOST) routes staging custom
+        // hostnames to delivery-staging. Custom hostnames are unique zone-wide.
+        "CF_ZONE_ID": "807fdd06a44801b3aa8ad8a5f4f77399",
         "EMBEDDING_MODEL": "@cf/baai/bge-base-en-v1.5",
         "TEXT_MODEL": "@cf/meta/llama-3.1-8b-instruct",
         // Empty = intentional sentinel: no AI Gateway (see production vars).
