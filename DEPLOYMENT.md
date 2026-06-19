@@ -133,8 +133,14 @@ verifiers disagree. Procedure:
    share-link consume, and billing proxy calls. All are retry-safe — the
    affected user action just fails once and succeeds on retry. No data is at
    risk; nothing needs cleanup afterward.
-4. Verify with a console login + a share-link open against staging before
-   rotating production.
+4. Verify parity with `pnpm check:secrets` (or
+   `node scripts/check-secrets.mjs [production|staging|all]`), then a console
+   login + a share-link open against staging before rotating production. A mesh
+   secret missed on one worker fails *silently* at request time — e.g.
+   `INTERNAL_TOKEN` absent on api turns every share-link consume into a 401 the
+   console shows as "This link has expired…". The check confirms each worker
+   carries the secrets it must (presence only — wrangler can't expose values to
+   compare) and exits non-zero if any are missing.
 
 Rotate immediately if the token may have leaked; otherwise on the same cadence
 as `JWT_PRIVATE_JWK`.
