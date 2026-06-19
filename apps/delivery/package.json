@@ -15,7 +15,7 @@
   "dependencies": {
     "@edgevault/auth": "workspace:*",
     "@edgevault/edge-protocol": "workspace:*",
-    "hono": "^4.9.2"
+    "hono": "^4.12.25"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.16.12",

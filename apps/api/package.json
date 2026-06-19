@@ -26,7 +26,7 @@
     "@hono/zod-openapi": "^1.1.0",
     "@hono/zod-validator": "^0.7.0",
     "drizzle-orm": "^0.45.2",
-    "hono": "^4.9.2",
+    "hono": "^4.12.25",
     "zod": "^4.0.17"
   },
   "devDependencies": {
