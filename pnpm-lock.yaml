@@ -463,6 +463,25 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
+  packages/openfeature-provider:
+    dependencies:
+      '@edgevault/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+    devDependencies:
+      '@edgevault/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@openfeature/server-sdk':
+        specifier: ^1.22.0
+        version: 1.22.0(@openfeature/core@1.11.0)
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@25.9.1)(happy-dom@20.10.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
   packages/realtime:
     devDependencies:
       '@edgevault/typescript-config':
@@ -1873,6 +1892,15 @@ packages:
   '@noble/hashes@2.2.0':
     resolution: {integrity: sha512-IYqDGiTXab6FniAgnSdZwgWbomxpy9FtYvLKs7wCUs2a8RkITG+DFGO1DM9cr+E3/RgADRpFjrKVaJ1z6sjtEg==}
     engines: {node: '>= 20.19.0'}
+
+  '@openfeature/core@1.11.0':
+    resolution: {integrity: sha512-P0u3/ht/oZCQT89fOed+laLk0kZR529a825cS02uPDglxXbE97irWYpDAeRGGVETIzKfuy+H2g8c3Ccv/tXJNQ==}
+
+  '@openfeature/server-sdk@1.22.0':
+    resolution: {integrity: sha512-YBrf6SQkn0FNB/dRAtLEs41dvFMUE8CrQTwI+iLaMFUIqWlqGNJfGnulKSneEKS+2OgKTAC6DdmKcZ6tK7kBcg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@openfeature/core': ^1.11.0
 
   '@oslojs/encoding@1.1.0':
     resolution: {integrity: sha512-70wQhgYmndg4GCPxPPxPGevRKqTIJ2Nh4OkiMWmDAVYsTQ+Ta7Sq+rPevXyXGdzr30/qZBnyOalCszoMxlyldQ==}
@@ -5292,6 +5320,12 @@ snapshots:
     optional: true
 
   '@noble/hashes@2.2.0': {}
+
+  '@openfeature/core@1.11.0': {}
+
+  '@openfeature/server-sdk@1.22.0(@openfeature/core@1.11.0)':
+    dependencies:
+      '@openfeature/core': 1.11.0
 
   '@oslojs/encoding@1.1.0': {}
 
