@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "@edgevault/ui": "workspace:*",
-    "astro": "^5.17.0",
+    "astro": "^6.4.6",
     "wrangler": "^4.98.0"
   }
 }
