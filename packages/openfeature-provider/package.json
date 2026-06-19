@@ -1,0 +1,26 @@
+{
+  "name": "@edgevault/openfeature-provider",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@edgevault/sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "@openfeature/server-sdk": ">=1.11"
+  },
+  "devDependencies": {
+    "@edgevault/typescript-config": "workspace:*",
+    "@openfeature/server-sdk": "^1.22.0",
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.8"
+  }
+}
