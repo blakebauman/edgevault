@@ -10,8 +10,12 @@ describe('buildCsp', () => {
     expect(csp).toContain("base-uri 'self'")
   })
 
-  it('allows the realtime websocket origin only when configured', () => {
-    expect(buildCsp('n', 'wss://api.example')).toContain("connect-src 'self' wss://api.example")
+  it('allows the API websocket + matching https origin only when configured', () => {
+    // The assistant's Agents SDK client needs both wss:// (socket) and https://
+    // (the get-messages history fetch) to the API host.
+    expect(buildCsp('n', 'wss://api.example')).toContain(
+      "connect-src 'self' wss://api.example https://api.example",
+    )
     expect(buildCsp('n')).toContain("connect-src 'self';")
   })
 
