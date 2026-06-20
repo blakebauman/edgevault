@@ -79,6 +79,10 @@
     font-size: 1.05rem;
     line-height: 1.6;
     max-width: 60ch;
+    /* Give every intro line breathing room before the control beneath it.
+       Block-flow margins collapse, so pages that already add `mt-6` etc. don't
+       double up. */
+    margin: 0 0 1rem;
   }
 
   /* --- Panels --------------------------------------------------------------- */

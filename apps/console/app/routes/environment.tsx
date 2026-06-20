@@ -171,6 +171,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
         kind: String(form.get('kind') ?? 'config'),
         content: String(form.get('content') ?? ''),
         contentType: String(form.get('contentType') ?? 'json'),
+        summary: String(form.get('summary') ?? '').trim() || undefined,
       }),
     })
     if (!res.ok) {
@@ -304,7 +305,10 @@ export async function action({ request, params, context }: Route.ActionArgs) {
       env,
       token,
       `${base}/revisions/${String(form.get('revisionId'))}/revert`,
-      { method: 'POST', body: JSON.stringify({}) },
+      {
+        method: 'POST',
+        body: JSON.stringify({ summary: String(form.get('summary') ?? '').trim() || undefined }),
+      },
     )
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { detail?: string } | null
@@ -322,6 +326,32 @@ const KIND_HINT: Record<string, string> = {
   secret: 'Envelope-encrypted before storage. The value is shown only via an audited reveal.',
   content:
     'Structured content — a document of blocks (or a reusable block) rendered to HTML at the edge.',
+}
+
+/**
+ * A real, valid starting value per kind — the form pre-fills it so switching
+ * kind teaches the shape instead of facing a blank box. Format tracks kind:
+ * flags/content are JSON documents, secrets are opaque text, only config is
+ * free-format. The value is only ever swapped in while it's still untouched.
+ */
+type ItemKind = ConfigRow['kind']
+const ITEM_KINDS: readonly ItemKind[] = ['config', 'flag', 'secret', 'content']
+const toKind = (s: string): ItemKind =>
+  ITEM_KINDS.includes(s as ItemKind) ? (s as ItemKind) : 'config'
+
+const SCAFFOLD: Record<ItemKind, { format: string; value: string }> = {
+  config: { format: 'json', value: '{\n  "timeoutMs": 5000\n}' },
+  flag: { format: 'json', value: '{\n  "enabled": true,\n  "rollout": 0.25\n}' },
+  secret: { format: 'text', value: '' },
+  content: { format: 'json', value: JSON.stringify({ layout: 'page', blocks: [] }, null, 2) },
+}
+
+/** config picks its own format; the other kinds have one natural format. */
+const FORMAT_LOCKED: Record<ItemKind, boolean> = {
+  config: false,
+  flag: true,
+  secret: true,
+  content: true,
 }
 
 /** Time a revealed secret stays in memory before it's dropped automatically. */
@@ -374,6 +404,8 @@ function useReveal() {
     revealed,
     needsStepUp,
     error,
+    pending: fetcher.state !== 'idle',
+    pendingKey: lastKey.current,
     reveal: submit,
     /** Re-run the reveal for the key that triggered step-up, now that a token exists. */
     retryStepUp: () => needsStepUp && submit(needsStepUp),
@@ -396,6 +428,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
   } = loaderData
   const navigation = useNavigation()
   const busy = navigation.state !== 'idle'
+  const pendingIntent = navigation.formData?.get('intent')
   const reveal = useReveal()
   const [searchParams] = useSearchParams()
   const [editing, setEditing] = useState<ConfigRow | null>(null)
@@ -415,6 +448,12 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
   const bulkDeleted = actionData && 'bulkDeleted' in actionData ? actionData.bulkDeleted : null
   const mintedKey = actionData && 'mintedKey' in actionData ? actionData.mintedKey : null
   const reverted = actionData && 'reverted' in actionData ? actionData.reverted : false
+
+  // Scope loading to the specific in-flight action, and fire the save button's
+  // success ring on each new saved version. Non-secret keys are referenceable.
+  const savingItem = busy && pendingIntent === 'save'
+  const savedKey = saved ? `${saved.key}@${saved.version}` : undefined
+  const referenceableKeys = configs.filter((c) => c.kind !== 'secret').map((c) => c.key)
 
   const baseSearch = (extra: Record<string, string>) => {
     const next = new URLSearchParams(searchParams)
@@ -599,6 +638,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                   <ItemActions
                     item={item}
                     busy={busy}
+                    revealing={reveal.pending && reveal.pendingKey === item.key}
                     baseSearch={baseSearch}
                     pageHref={`/dashboard/${workspaceId}/env/${envId}/pages/${encodeURIComponent(item.key)}`}
                     onEdit={() => setEditing(item)}
@@ -704,11 +744,13 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
           </>
         )}
 
-        <h2>{editing ? `Edit "${editing.key}"` : 'Add a config, flag, or secret'}</h2>
+        <h2>{editing ? `Edit "${editing.key}"` : 'Add a config, flag, secret, or page'}</h2>
         <ItemForm
           key={editing?.key ?? 'new'}
           editing={editing}
-          busy={busy}
+          loading={savingItem}
+          successKey={savedKey}
+          allKeys={referenceableKeys}
           onDone={() => setEditing(null)}
         />
 
@@ -740,8 +782,13 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
           <Field label="Allowed IPs / CIDRs (optional, comma-separated)">
             <Input type="text" name="allowedCidrs" placeholder="203.0.113.0/24, 2001:db8::/32" />
           </Field>
-          <Button type="submit" disabled={busy} className="self-start">
-            {busy ? 'Minting…' : 'Mint API key'}
+          <Button
+            type="submit"
+            loading={busy && pendingIntent === 'mint-key'}
+            disabled={busy}
+            className="self-start"
+          >
+            Mint API key
           </Button>
         </Form>
 
@@ -809,14 +856,24 @@ function KeyExpiry({ expiresAt }: { expiresAt: string | null }) {
 
 function ItemForm({
   editing,
-  busy,
+  loading,
+  successKey,
+  allKeys,
   onDone,
 }: {
   editing: ConfigRow | null
-  busy: boolean
+  loading: boolean
+  successKey?: string
+  allKeys: string[]
   onDone: () => void
 }) {
-  const [kind, setKind] = useState<string>(editing?.kind ?? 'config')
+  const initialKind: ItemKind = editing?.kind ?? 'config'
+  const [kind, setKind] = useState<string>(initialKind)
+  const [format, setFormat] = useState<string>(editing?.contentType ?? SCAFFOLD[initialKind].format)
+  const [value, setValue] = useState<string>(
+    editing ? (editing.kind === 'secret' ? '' : editing.content) : SCAFFOLD[initialKind].value,
+  )
+  const [rawFlag, setRawFlag] = useState(false)
   const [clientError, setClientError] = useState<string | null>(null)
   const contentRef = useRef<HTMLTextAreaElement>(null)
 
@@ -829,12 +886,30 @@ function ItemForm({
     }
   }, [editing])
 
-  // Catch malformed JSON before the round-trip — the server still validates.
+  // Switching kind re-points the format and swaps the example — but only while
+  // the value is still a pristine scaffold, so typed content is never clobbered.
+  function changeKind(raw: string) {
+    const next = toKind(raw)
+    // New items: format follows the kind's natural default and the example
+    // swaps in — unless the user has already typed over the scaffold.
+    if (!editing) {
+      setFormat(SCAFFOLD[next].format)
+      setValue((cur) =>
+        cur.trim() === '' || cur === SCAFFOLD[toKind(kind)].value ? SCAFFOLD[next].value : cur,
+      )
+    } else if (FORMAT_LOCKED[next]) {
+      setFormat(SCAFFOLD[next].format)
+    }
+    setKind(next)
+    setClientError(null)
+  }
+
+  // Catch malformed JSON before the round-trip — the server validates every
+  // format and returns a precise reason, so non-JSON falls through to it.
   function validate(e: React.FormEvent<HTMLFormElement>) {
-    const data = new FormData(e.currentTarget)
-    if (String(data.get('contentType')) === 'json') {
+    if (format === 'json') {
       try {
-        JSON.parse(String(data.get('content')))
+        JSON.parse(value)
       } catch {
         e.preventDefault()
         setClientError("That isn't valid JSON — check for a missing quote, comma, or brace.")
@@ -844,6 +919,24 @@ function ItemForm({
     setClientError(null)
     onDone()
   }
+
+  // Insert ${key} at the caret so references don't have to be recalled by hand.
+  function insertRef(refKey: string) {
+    const el = contentRef.current
+    const token = `\${${refKey}}`
+    const start = el?.selectionStart ?? value.length
+    const end = el?.selectionEnd ?? value.length
+    setValue(value.slice(0, start) + token + value.slice(end))
+    requestAnimationFrame(() => {
+      el?.focus()
+      const caret = start + token.length
+      el?.setSelectionRange(caret, caret)
+    })
+  }
+
+  const showFlagEditor = kind === 'flag' && format === 'json' && !rawFlag
+  const refKeys = allKeys.filter((k) => k !== editing?.key)
+  const canReference = kind !== 'secret' && refKeys.length > 0
 
   return (
     <Form method="post" className="mt-6 flex max-w-xl flex-col gap-3" onSubmit={validate}>
@@ -859,38 +952,72 @@ function ItemForm({
       </Field>
       <div className="flex flex-wrap gap-3">
         <Field label="Kind">
-          <Select name="kind" value={kind} onChange={(e) => setKind(e.target.value)}>
+          <Select name="kind" value={kind} onChange={(e) => changeKind(e.target.value)}>
             <option value="config">config</option>
             <option value="flag">flag</option>
             <option value="secret">secret</option>
             <option value="content">content</option>
           </Select>
         </Field>
-        <Field label="Format">
-          <Select name="contentType" defaultValue={editing?.contentType ?? 'json'}>
-            {CONTENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {FORMAT_LOCKED[toKind(kind)] ? (
+          <input type="hidden" name="contentType" value={format} />
+        ) : (
+          <Field label="Format">
+            <Select name="contentType" value={format} onChange={(e) => setFormat(e.target.value)}>
+              {CONTENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </div>
       <p className="m-0 text-xs text-muted-foreground">{KIND_HINT[kind]}</p>
-      <Field label="Value">
+
+      {showFlagEditor && (
+        <FlagEditor value={value} onChange={setValue} onEditRaw={() => setRawFlag(true)} />
+      )}
+      <Field label="Value" className={showFlagEditor ? 'sr-only' : undefined}>
         <Textarea
           ref={contentRef}
           name="content"
           required
-          rows={4}
-          defaultValue={editing && editing.kind !== 'secret' ? editing.content : ''}
-          placeholder={kind === 'flag' ? '{"enabled": true, "rollout": 0.25}' : ''}
+          rows={kind === 'content' ? 8 : 4}
+          value={value}
+          spellCheck={false}
+          onChange={(e) => setValue(e.target.value)}
+          aria-hidden={showFlagEditor || undefined}
+          tabIndex={showFlagEditor ? -1 : undefined}
         />
       </Field>
+
+      {canReference && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+          <span>Reference a key:</span>
+          {refKeys.slice(0, 8).map((k) => (
+            <Button
+              key={k}
+              type="button"
+              variant="secondary"
+              size="compact"
+              className="font-mono"
+              onClick={() => insertRef(k)}
+            >
+              {`\${${k}}`}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      <Field label="Reason (optional)">
+        <Input type="text" name="summary" placeholder="Why this change? — shown in history" />
+      </Field>
+
       {clientError && <ErrorNote>{clientError}</ErrorNote>}
       <div className="flex flex-wrap gap-3">
-        <Button type="submit" disabled={busy}>
-          {busy ? 'Saving…' : editing ? 'Save new version' : 'Save'}
+        <Button type="submit" loading={loading} successKey={successKey}>
+          {editing ? 'Save new version' : 'Save'}
         </Button>
         {editing && (
           <Button type="button" variant="secondary" onClick={onDone}>
@@ -902,12 +1029,85 @@ function ItemForm({
   )
 }
 
+/**
+ * A flag is just JSON to the API, so this is a thin editor over the two fields
+ * the SDK's flag() actually reads — an enabled toggle and a 0–100 rollout — with
+ * a raw-JSON escape hatch. Targeting rules aren't enforced server-side yet, so
+ * the editor stays deliberately small rather than implying more than ships.
+ */
+function FlagEditor({
+  value,
+  onChange,
+  onEditRaw,
+}: {
+  value: string
+  onChange: (next: string) => void
+  onEditRaw: () => void
+}) {
+  let parsed: Record<string, unknown> | null = null
+  try {
+    const p = JSON.parse(value)
+    if (p && typeof p === 'object' && !Array.isArray(p)) parsed = p as Record<string, unknown>
+  } catch {
+    parsed = null
+  }
+
+  // Hand-shaped JSON (arrays, custom keys) doesn't fit the toggle — send them
+  // straight to the raw editor rather than flatten their intent.
+  if (!parsed) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 rounded-sm border border-border p-3 text-xs text-muted-foreground">
+        <span>This flag's shape is custom.</span>
+        <Button type="button" variant="secondary" size="compact" onClick={onEditRaw}>
+          Edit raw JSON
+        </Button>
+      </div>
+    )
+  }
+
+  const enabled = parsed.enabled !== false
+  const fraction = typeof parsed.rollout === 'number' ? parsed.rollout : 1
+  const rolloutPct = Math.max(0, Math.min(100, Math.round(fraction * 100)))
+  const emit = (patch: Record<string, unknown>) =>
+    onChange(JSON.stringify({ ...parsed, ...patch }, null, 2))
+
+  return (
+    <div className="flex flex-col gap-3 rounded-sm border border-border p-3">
+      {/* biome-ignore lint/a11y/noLabelWithoutControl: the Checkbox is the control, wrapped by the label */}
+      <label className="flex items-center gap-2 text-sm text-foreground">
+        <Checkbox checked={enabled} onChange={(e) => emit({ enabled: e.target.checked })} />
+        <span>Enabled</span>
+      </label>
+      <Field label={`Rollout — ${rolloutPct}% of traffic`}>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={rolloutPct}
+          disabled={!enabled}
+          onChange={(e) => emit({ rollout: Number(e.target.value) / 100 })}
+          className="w-full accent-relay disabled:opacity-55"
+          aria-label="Rollout percentage"
+        />
+      </Field>
+      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+        <code className="truncate font-mono">{value.replace(/\s+/g, ' ')}</code>
+        <Button type="button" variant="linklike" size="compact" onClick={onEditRaw}>
+          Edit raw JSON
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 /** The row's action group. Arming the delete replaces the WHOLE group (same
  * height, no sibling reflow — TwoStepConfirm's contract). Deleting breaks
  * consumers immediately and (if referenced) the API refuses; danger voice. */
 function ItemActions({
   item,
   busy,
+  revealing,
   baseSearch,
   pageHref,
   onEdit,
@@ -915,6 +1115,7 @@ function ItemActions({
 }: {
   item: ConfigRow
   busy: boolean
+  revealing: boolean
   baseSearch: (extra: Record<string, string>) => string
   pageHref: string
   onEdit: () => void
@@ -956,7 +1157,14 @@ function ItemActions({
         <Link to={baseSearch({ history: item.key })}>History</Link>
       </Button>
       {item.kind === 'secret' && (
-        <Button type="button" variant="secondary" size="compact" disabled={busy} onClick={onReveal}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="compact"
+          disabled={busy}
+          loading={revealing}
+          onClick={onReveal}
+        >
           Reveal
         </Button>
       )}
@@ -990,10 +1198,17 @@ function RevertControl({
       note={`Replace the current value with v${version}?`}
     >
       {(close) => (
-        <Form method="post" onSubmit={close}>
+        <Form method="post" onSubmit={close} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="intent" value="revert" />
           <input type="hidden" name="revisionId" value={revisionId} />
-          <Button type="submit" variant="danger" size="compact" disabled={busy}>
+          <Input
+            type="text"
+            name="summary"
+            placeholder="reason (optional)"
+            className="w-44 max-w-full"
+            aria-label="Reason for revert"
+          />
+          <Button type="submit" variant="danger" size="compact" loading={busy}>
             Confirm revert
           </Button>
         </Form>

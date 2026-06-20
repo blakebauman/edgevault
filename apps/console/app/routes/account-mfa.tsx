@@ -131,9 +131,13 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
           </Button>
         </header>
 
-        {error && <ErrorNote>{error}</ErrorNote>}
-        {confirmed && <StatusNote>Two-factor authentication is now enabled.</StatusNote>}
-        {disabled && <StatusNote>Two-factor authentication has been disabled.</StatusNote>}
+        {error && <ErrorNote className="mb-3">{error}</ErrorNote>}
+        {confirmed && (
+          <StatusNote className="mb-3">Two-factor authentication is now enabled.</StatusNote>
+        )}
+        {disabled && (
+          <StatusNote className="mb-3">Two-factor authentication has been disabled.</StatusNote>
+        )}
 
         {recoveryCodes.length > 0 && <RecoveryCodes codes={recoveryCodes} />}
 
@@ -148,7 +152,7 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
             )}
             <div className="mt-6 flex flex-wrap gap-8">
               <Form method="post" className="flex max-w-sm flex-col gap-3">
-                <Field label="Enter a current code to disable">
+                <Field label="Current code to disable">
                   <Input name="code" inputMode="numeric" placeholder="123456" required />
                 </Field>
                 <Button
@@ -162,7 +166,7 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
                 </Button>
               </Form>
               <Form method="post" className="flex max-w-sm flex-col gap-3">
-                <Field label="Enter a current code for fresh recovery codes">
+                <Field label="Current code to regenerate">
                   <Input name="code" inputMode="numeric" placeholder="123456" required />
                 </Field>
                 <Button
@@ -191,12 +195,12 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             )}
-            <TokenBox note="Secret (or use the otpauth URI):">
+            <TokenBox className="mt-3" note="Secret (or use the otpauth URI):">
               <TokenValue>{secret}</TokenValue>
               <CopyButton value={secret} label="Copy secret" />
             </TokenBox>
             {otpauthUri && (
-              <TokenBox note="Full otpauth URI (contains the secret):">
+              <TokenBox className="mt-3" note="Full otpauth URI (contains the secret):">
                 <TokenValue>{otpauthUri}</TokenValue>
                 <CopyButton value={otpauthUri} label="Copy URI" />
               </TokenBox>
@@ -241,7 +245,7 @@ function RecoveryCodes({ codes }: { codes: string[] }) {
   return (
     <div className="assistant">
       <h2>Recovery codes</h2>
-      <p className="text-muted-foreground">
+      <p className="mb-3 text-muted-foreground">
         Store these somewhere safe (a password manager, a printout). Each works once if you lose
         your authenticator. This is the only time they're shown.
       </p>
@@ -272,7 +276,7 @@ function SessionsSection({
   return (
     <div className="assistant">
       <h2>Active sessions</h2>
-      <p className="text-muted-foreground">
+      <p className="mb-3 text-muted-foreground">
         Sign-ins that can still mint access tokens. Revoke anything you don't recognize.
       </p>
       {sessions.length === 0 && (
@@ -301,7 +305,7 @@ function SessionsSection({
         ))}
       </ul>
       {sessions.length > 0 && (
-        <Form method="post">
+        <Form method="post" className="mt-3">
           <input type="hidden" name="intent" value="revoke-all-sessions" />
           <Button type="submit" variant="secondary">
             Sign out everywhere
@@ -341,12 +345,12 @@ function PasskeySection() {
   return (
     <div className="assistant">
       <h2>Passkeys</h2>
-      <p className="text-muted-foreground">
+      <p className="mb-3 text-muted-foreground">
         Add a passkey (Touch ID, Windows Hello, a security key) for phishing-resistant sign-in.
       </p>
-      {status.kind === 'ok' && <StatusNote>{status.message}</StatusNote>}
-      {status.kind === 'error' && <ErrorNote>{status.message}</ErrorNote>}
-      <Button type="button" onClick={onAdd} disabled={busy}>
+      {status.kind === 'ok' && <StatusNote className="mb-3">{status.message}</StatusNote>}
+      {status.kind === 'error' && <ErrorNote className="mb-3">{status.message}</ErrorNote>}
+      <Button type="button" onClick={onAdd} loading={busy}>
         {busy ? 'Waiting for passkey…' : 'Add a passkey'}
       </Button>
     </div>

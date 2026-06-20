@@ -1,5 +1,5 @@
 import { Button, ErrorNote, Input } from '@edgevault/ui'
-import { Form, redirect } from 'react-router'
+import { Form, redirect, useNavigation } from 'react-router'
 import {
   clearMfaCookie,
   getMfaToken,
@@ -60,8 +60,11 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function LoginMfa({ actionData, loaderData }: Route.ComponentProps) {
+  const navigation = useNavigation()
+  const pending = navigation.state !== 'idle'
+  const usingRecovery = navigation.formData?.get('method') === 'recovery'
   return (
-    <main className="shell">
+    <main className="shell shell-center">
       <section className="hero">
         <p className="eyebrow">EdgeVault Console</p>
         <h1>Two-factor authentication</h1>
@@ -77,7 +80,7 @@ export default function LoginMfa({ actionData, loaderData }: Route.ComponentProp
             required
           />
           {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
-          <Button type="submit" className="self-start">
+          <Button type="submit" className="self-start" loading={pending && !usingRecovery}>
             Verify
           </Button>
         </Form>
@@ -97,7 +100,12 @@ export default function LoginMfa({ actionData, loaderData }: Route.ComponentProp
             <p className="m-0 text-xs text-muted-foreground">
               Each recovery code works once. Signing in this way signs out every other session.
             </p>
-            <Button type="submit" variant="secondary" className="self-start">
+            <Button
+              type="submit"
+              variant="secondary"
+              className="self-start"
+              loading={pending && usingRecovery}
+            >
               Use recovery code
             </Button>
           </Form>

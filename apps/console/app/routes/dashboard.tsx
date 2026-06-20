@@ -567,7 +567,8 @@ function ApprovalControl({
           type="submit"
           variant={arming === 'approve' ? 'danger' : 'secondary'}
           size="compact"
-          disabled={busy || locked}
+          loading={busy}
+          disabled={locked}
         >
           {arming === 'approve' ? `Confirm → /${targetSlug}` : 'Confirm reject'}
         </Button>

@@ -288,7 +288,7 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
                         type="submit"
                         variant="danger"
                         size="compact"
-                        disabled={navigation.state !== 'idle'}
+                        loading={navigation.state !== 'idle'}
                       >
                         Confirm {selected.size} → /{envName(comparison.targetEnvironmentId)}
                       </Button>
@@ -454,7 +454,7 @@ function PromoteControl({
           <input type="hidden" name="key" value={entryKey} />
           <input type="hidden" name="sourceEnvironmentId" value={sourceEnvironmentId} />
           <input type="hidden" name="targetEnvironmentId" value={targetEnvironmentId} />
-          <Button type="submit" variant="danger" size="compact" disabled={busy}>
+          <Button type="submit" variant="danger" size="compact" loading={busy}>
             Confirm → /{targetName}
           </Button>
         </Form>

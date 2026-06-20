@@ -180,8 +180,8 @@ export default function ContentPage({ loaderData, actionData }: Route.ComponentP
             </p>
             {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
             <div>
-              <Button type="submit" disabled={busy || error !== null}>
-                {busy ? 'Saving…' : 'Save & publish'}
+              <Button type="submit" loading={busy} disabled={error !== null}>
+                Save &amp; publish
               </Button>
             </div>
           </Form>

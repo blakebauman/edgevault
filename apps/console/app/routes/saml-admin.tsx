@@ -128,7 +128,7 @@ export default function SamlAdmin({ loaderData, actionData }: Route.ComponentPro
             )}
             {error && <ErrorNote>{error}</ErrorNote>}
 
-            <TokenBox note="ACS (Assertion Consumer Service) URL:">
+            <TokenBox className="mt-6" note="ACS (Assertion Consumer Service) URL:">
               <TokenValue>{suggestedAcsUrl}</TokenValue>
             </TokenBox>
 

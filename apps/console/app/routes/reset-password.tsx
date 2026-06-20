@@ -1,5 +1,5 @@
 import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
-import { Form, Link, redirect } from 'react-router'
+import { Form, Link, redirect, useNavigation } from 'react-router'
 import { ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/reset-password'
 
@@ -32,6 +32,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function ResetPassword({ loaderData, actionData }: Route.ComponentProps) {
+  const navigation = useNavigation()
   if (!loaderData.token) {
     return (
       <main className="shell shell-center">
@@ -75,7 +76,7 @@ export default function ResetPassword({ loaderData, actionData }: Route.Componen
             />
           </Field>
           {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
-          <Button type="submit" className="self-start">
+          <Button type="submit" className="self-start" loading={navigation.state !== 'idle'}>
             Set new password
           </Button>
         </Form>

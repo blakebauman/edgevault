@@ -1,5 +1,5 @@
 import { Button, Field, Input, StatusNote } from '@edgevault/ui'
-import { Form, Link } from 'react-router'
+import { Form, Link, useNavigation } from 'react-router'
 import { ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/forgot-password'
 
@@ -21,6 +21,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function ForgotPassword({ actionData }: Route.ComponentProps) {
+  const navigation = useNavigation()
   return (
     <main className="shell shell-center">
       <section className="hero">
@@ -40,7 +41,9 @@ export default function ForgotPassword({ actionData }: Route.ComponentProps) {
             </StatusNote>
           )}
           <div className="flex flex-wrap items-baseline gap-3">
-            <Button type="submit">Send reset link</Button>
+            <Button type="submit" loading={navigation.state !== 'idle'}>
+              Send reset link
+            </Button>
             <Link to="/login" className="text-xs text-muted-foreground hover:text-accent">
               Back to sign in
             </Link>
