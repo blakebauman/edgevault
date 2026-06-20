@@ -44,15 +44,13 @@ export function GlobalAssistant() {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const [input, setInput] = useState('')
-  const { messages, isLoading, error, send, clear } = useAgentChat(workspaceId ?? '')
+  const { messages, isLoading, error, send, loadHistory } = useAgentChat(workspaceId ?? '')
 
-  // The agent's history is per-workspace — start fresh when switching to a
-  // different one (but keep the thread while you roam off-workspace and back).
-  const prevWs = useRef(workspaceId)
+  // Load the persisted thread the first time the panel opens for a workspace
+  // (the hook resets and re-arms history when the workspace changes).
   useEffect(() => {
-    if (workspaceId && prevWs.current && workspaceId !== prevWs.current) clear()
-    prevWs.current = workspaceId
-  }, [workspaceId, clear])
+    if (open && workspaceId) loadHistory()
+  }, [open, workspaceId, loadHistory])
 
   useEffect(() => {
     if (open) inputRef.current?.focus()

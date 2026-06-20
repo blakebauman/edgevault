@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
  * Console chat hook for the EdgeVault "what changed & why" agent.
@@ -39,11 +39,23 @@ interface AskResult {
   citations?: Citation[]
 }
 
+/** A persisted turn from the agent's SQLite (user-scoped via the BFF). */
+interface ChatTurn {
+  id: string
+  question: string
+  answer: string
+  source: string
+  userId: string | null
+  createdAt: number
+}
+
 export interface UseAgentChat {
   messages: AgentMessage[]
   isLoading: boolean
   error: string | null
   send: (question: string) => Promise<void>
+  /** Load the caller's persisted thread for this workspace (once per workspace). */
+  loadHistory: () => Promise<void>
   clear: () => void
 }
 
@@ -111,5 +123,40 @@ export function useAgentChat(workspaceId: string): UseAgentChat {
     setError(null)
   }, [])
 
-  return { messages, isLoading, error, send, clear }
+  // The agent's thread is per-workspace — drop it and re-arm history when the
+  // workspace changes (or clears).
+  const loadedFor = useRef<string | null>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset is keyed on the workspace only
+  useEffect(() => {
+    setMessages([])
+    setError(null)
+    loadedFor.current = null
+  }, [workspaceId])
+
+  const loadHistory = useCallback(async () => {
+    if (!workspaceId || loadedFor.current === workspaceId) return
+    loadedFor.current = workspaceId
+    try {
+      const res = await fetch(`/dashboard/${encodeURIComponent(workspaceId)}/assistant/history`)
+      if (!res.ok) return
+      const { history } = (await res.json()) as { history: ChatTurn[] }
+      // History is newest-first; replay chronologically, each turn → two messages.
+      const restored: AgentMessage[] = []
+      for (const turn of [...history].reverse()) {
+        restored.push({ id: `${turn.id}-q`, role: 'user', content: turn.question })
+        restored.push({
+          id: `${turn.id}-a`,
+          role: 'assistant',
+          content: turn.answer,
+          source: turn.source === 'ai' ? 'ai' : 'fallback',
+        })
+      }
+      // Don't clobber a thread the user has already started this open.
+      setMessages((prev) => (prev.length === 0 ? restored : prev))
+    } catch {
+      // history unavailable — start empty
+    }
+  }, [workspaceId])
+
+  return { messages, isLoading, error, send, loadHistory, clear }
 }

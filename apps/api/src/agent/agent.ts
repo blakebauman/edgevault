@@ -168,20 +168,26 @@ export class EdgeVaultAgent extends DurableObject<Env> {
     return { answer, source, groundedOnEvents: events.length, citations }
   }
 
-  getHistory(limit = 50): ChatTurn[] {
-    return this.sql
-      .exec<ChatTurnRow>(
-        `SELECT * FROM chat_turns ORDER BY created_at DESC, id DESC LIMIT ?`,
-        limit,
-      )
-      .toArray()
-      .map((row) => ({
-        id: row.id,
-        question: row.question,
-        answer: row.answer,
-        source: row.source,
-        userId: row.user_id,
-        createdAt: row.created_at,
-      }))
+  /** Per-user by default (each caller sees only their own thread); omit userId
+   * for the full workspace history. */
+  getHistory(userId?: string, limit = 50): ChatTurn[] {
+    const rows = userId
+      ? this.sql.exec<ChatTurnRow>(
+          `SELECT * FROM chat_turns WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
+          userId,
+          limit,
+        )
+      : this.sql.exec<ChatTurnRow>(
+          `SELECT * FROM chat_turns ORDER BY created_at DESC, id DESC LIMIT ?`,
+          limit,
+        )
+    return rows.toArray().map((row) => ({
+      id: row.id,
+      question: row.question,
+      answer: row.answer,
+      source: row.source,
+      userId: row.user_id,
+      createdAt: row.created_at,
+    }))
   }
 }

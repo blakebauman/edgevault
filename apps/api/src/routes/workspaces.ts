@@ -704,7 +704,8 @@ export const workspaceRoutes = new Hono<AppEnv>()
   )
   .get('/:workspaceId/assistant/history', async (c) => {
     const agent = c.env.AGENT.get(c.env.AGENT.idFromName(c.req.param('workspaceId')))
-    return c.json({ history: await agent.getHistory() })
+    // Scoped to the caller — the per-workspace agent stores every user's turns.
+    return c.json({ history: await agent.getHistory(c.var.userId) })
   })
 
   // --- Environment API keys (for the delivery edge read path) ---
