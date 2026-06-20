@@ -28,8 +28,10 @@ in the architecture vocabulary.
 
 EdgeVault is edge-native configuration, secrets, and feature-flag management on the Cloudflare
 Developer Platform: values served in under 10 ms from 300+ cities, one strongly-consistent
-Durable Object per workspace, envelope-encrypted secrets, every change attributed. Open-core: MIT
-where it matters, paid tiers that say plainly what they add.
+Durable Object per workspace, envelope-encrypted secrets, every change attributed. The same
+plane also serves **content** — block-based pages/documents that pre-render to HTML and ship from
+the edge on the same versioning and promotion machinery. Open-core: MIT where it matters, paid
+tiers that say plainly what they add.
 
 The marketing surface succeeds when an evaluating engineer thinks "I could verify every claim on
 this page" — and then picks one of the two doors (start free on the managed edge, or self-host

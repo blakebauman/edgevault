@@ -7,7 +7,7 @@ const GITHUB = 'https://github.com/blakebauman/edgevault'
 
 <Base
   title="EdgeVault Product — The whole system, on one page"
-  description="EdgeVault's full system: versioned config in per-workspace Durable Objects, envelope-encrypted secrets, typed feature flags, a <10ms edge read plane, realtime events, and AI operator tooling."
+  description="EdgeVault's full system: versioned config in per-workspace Durable Objects, envelope-encrypted secrets, typed feature flags, block-based content pages pre-rendered to HTML, a <10ms edge read plane, realtime events, and AI operator tooling."
   path="/product"
   active="product"
 >
@@ -85,6 +85,22 @@ export function Checkout() &lbrace;
         </p>
         <p class="cite">@edgevault/sdk · @edgevault/sdk/react</p>
       </div>
+    </div>
+  </section>
+
+  <section id="content" data-section="content" data-intent="content as another item on the same governed plane" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Edge content / pages</span>
+      <h2>Content on the same plane as your config.</h2>
+      <p class="body-ink lede wide">
+        A content item is a block-based document — typed, reusable blocks composed with the same
+        <span class="mono sm">{'${…}'}</span> references as config. It pre-renders to HTML at
+        publish and serves verbatim from the edge at <span class="mono sm">/v1/pages/:key</span>,
+        on the same versioning, promotion, and approval machinery as everything else in the
+        workspace. Read a page with <span class="mono sm">page()</span> or
+        <span class="mono sm">usePage</span>.
+      </p>
+      <p class="cite">packages/blocks · apps/api content-render · /v1/pages/:key</p>
     </div>
   </section>
 

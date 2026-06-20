@@ -11,7 +11,7 @@ Queues, R2, Vectorize, KV, Rate Limiting) and a **Neon** Postgres database.
 |---|---|---|---|
 | `edgevault-auth` | `apps/auth` | core (MIT) | identity, sessions, JWT/JWKS, MFA, passkeys, social OAuth, enterprise SSO (OIDC/SAML) |
 | `edgevault-api` | `apps/api` | core | control plane, Workspace DO, AI/MCP, workflows, audit query, SCIM 2.0 |
-| `edgevault-delivery` | `apps/delivery` | core | edge read path (KV + L1) |
+| `edgevault-delivery` | `apps/delivery` | core | edge read path — configs/flags + content pages (KV + L1) |
 | `edgevault-console` | `apps/console` | core | React Router UI / BFF |
 | `edgevault-audit` | `apps/audit` | core | Queue → R2 audit warehouse consumer |
 | `edgevault-notify` | `apps/notify` | core | Queue → Slack / signed-webhook notification delivery |

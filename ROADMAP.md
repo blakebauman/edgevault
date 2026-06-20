@@ -3,8 +3,8 @@
 Derived from a gap analysis against leading secrets-management platforms (Tiers 1–2,
 2026-06), plus security patterns borrowed from commercial password managers and applied
 to our existing secrets plane (Tier 3, 2026-06) — filtered through EdgeVault's
-positioning: edge-native config/flags/secrets with a <10ms delivery plane, AI-native
-workflows, open-core on Cloudflare. Each plan is grounded in the current architecture
+positioning: edge-native config/flags/secrets — plus edge-served content pages — with a
+<10ms delivery plane, AI-native workflows, open-core on Cloudflare. Each plan is grounded in the current architecture
 (see CLAUDE.md). Effort: S ≈ 1–2 days, M ≈ 3–5 days, L ≈ 1–2 weeks.
 
 **Status:** all of Tier 1 (1.1–1.5) has shipped; Tier 2 and Tier 3 are open.

@@ -13,7 +13,7 @@ no CORS, no cross-site cookies.
 | Worker | Domain | Role |
 | --- | --- | --- |
 | `api` | api.edgevault.io | Control plane: authz, all writes, AI, promotions, MCP |
-| `delivery` | delivery.edgevault.io | Data plane: <10 ms reads, no business logic, cannot decrypt |
+| `delivery` | delivery.edgevault.io | Data plane: <10 ms reads (configs/flags + content pages), no business logic, cannot decrypt |
 | `auth` | auth.edgevault.io | Argon2id passwords, opaque sessions, EdDSA JWT/JWKS, MFA, passkeys |
 | `console` | console.edgevault.io | The UI + BFF — the only origin a browser sees |
 | `audit` | — | Queue consumer → append-only NDJSON warehouse in R2 |
@@ -21,7 +21,7 @@ no CORS, no cross-site cookies.
 ## The system of record
 
 Every workspace gets a **`VaultDurableObject`** — a SQLite Durable Object holding
-environments, config/flag/secret items, versioned revisions, promotions, and the activity log. One
+environments, config/flag/secret/content items, versioned revisions, promotions, and the activity log. One
 DO per workspace means strong consistency where it matters: two writers to the same workspace are
 serialized; the history is a single ordered log.
 
@@ -36,17 +36,17 @@ serialized; the history is a single ordered log.
 ## The read path
 
 SDK → delivery worker → in-memory L1 → KV. The delivery worker holds no key material and has no
-code path to decryption — a compromised edge node yields resolved configs and flags, never
-secrets. Reads are eventually consistent (KV propagation), writes are strongly consistent (the
-DO).
+code path to decryption — a compromised edge node yields resolved configs, flags, and
+pre-rendered content pages, never secrets. Reads are eventually consistent (KV propagation),
+writes are strongly consistent (the DO).
 
 ## Where data lives
 
 | Store | Holds |
 | --- | --- |
 | Neon Postgres (via Hyperdrive) | users, orgs, sessions, API-key hashes, workspace metadata, SSO/SAML/SCIM connections, billing plan + Stripe customer |
-| Vault DO SQLite | config content, revisions, secret **ciphertext** |
-| Workers KV | pre-resolved edge values (write-through on every change) |
+| Vault DO SQLite | config content, content documents, revisions, secret **ciphertext** |
+| Workers KV | pre-resolved edge values + pre-rendered content HTML (write-through on every change) |
 | Secrets Store | signing keys, the master KEK |
 | R2 | the append-only NDJSON audit warehouse |
 

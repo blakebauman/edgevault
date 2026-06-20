@@ -173,6 +173,22 @@ export function Checkout() &lbrace;
     </div>
   </section>
 
+  <section id="content" data-section="content" data-intent="content rides the same governed plane — adjacent, not a new headline" data-layout="contained">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Edge content / pages</span>
+        <h2>The same plane serves your pages, too.</h2>
+        <p class="body-ink intro">
+          Beyond config, secrets, and flags, a workspace holds <b>content</b> — block-based
+          documents that pre-render to HTML at publish and serve from the edge at
+          <span class="mono sm">/v1/pages/:key</span>, on the same revisions, promotions, and
+          approvals. Read a page with <span class="mono sm">page()</span> or
+          <span class="mono sm">usePage</span>.
+        </p>
+      </div>
+    </div>
+  </section>
+
   <section id="ai-ops" data-section="ai-ops" data-intent="differentiate: AI as operator tooling, not gimmick" data-layout="contained" data-items="3">
     <div class="wrap">
       <div class="aihead">
@@ -317,6 +333,9 @@ export function Checkout() &lbrace;
   .intro {
     margin-top: var(--spacing-sm);
     max-width: 64ch;
+  }
+  .mono.sm {
+    font-size: 0.85em;
   }
   .cta-after {
     margin-top: var(--spacing-md);

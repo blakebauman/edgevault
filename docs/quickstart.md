@@ -53,7 +53,9 @@ curl https://delivery.edgevault.io/v1/configs/feature.checkout.theme \
 ```
 
 A feature flag is read the same way under `/v1/flags/:key`, and you can fetch
-many keys in one round trip via `POST /v1/batch` with `{"keys":[...]}`.
+many keys in one round trip via `POST /v1/batch` with `{"keys":[...]}`. A
+**content page** — a block-based document pre-rendered to HTML at publish — is
+served under `/v1/pages/:key` and returns the HTML directly.
 
 Responses include an `x-cache` header (L1 / KV source) and a `Server-Timing:
 resolve;dur=<ms>` header with the server-side resolve time. Typical edge reads
@@ -72,6 +74,8 @@ are served from KV in single-digit milliseconds.
 - Promote a value from `development` to `production` with an approval gate.
 - Drive the same operations from an AI assistant or agent over **MCP**.
 - Store **secrets** (envelope-encrypted) alongside plain configs.
+- Author **content** — block-based pages that pre-render to HTML and serve from
+  the edge; read them with the SDK's `page()` / `usePage` or `GET /v1/pages/:key`.
 
 See [architecture.md](./architecture.md) for how reads and writes flow through
 the system.

@@ -1,6 +1,7 @@
 # EdgeVault documentation
 
-Edge-native configuration, feature flags, and secrets on Cloudflare.
+Edge-native configuration, feature flags, and secrets on Cloudflare — plus
+block-based content pages served from the same edge plane.
 
 ## By audience
 
@@ -8,7 +9,8 @@ Edge-native configuration, feature flags, and secrets on Cloudflare.
 - [Quickstart](./quickstart.md) — create a config and read it from the edge in
   under five minutes.
 - [`@edgevault/sdk`](../packages/sdk/) — typed client (`value`/`flag`/`batch`,
-  in-process cache, React bindings) for reading configs/flags from your app.
+  `page` for pre-rendered content, in-process cache, React bindings incl. `usePage`)
+  for reading configs/flags/pages from your app.
 - [Architecture](./architecture.md) — how the pieces fit and where your data
   lives.
 
