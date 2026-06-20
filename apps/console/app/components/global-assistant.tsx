@@ -146,7 +146,12 @@ function AgentChat({
   }, [workspaceId])
 
   const agent = useAgent({ agent: 'EdgeVaultAgent', name, host, query, queryDeps: [workspaceId] })
-  const { messages, sendMessage, status, error } = useAgentChat({ agent })
+  // `getInitialMessages: null` disables the SDK's default HTTP fetch of thread
+  // history (`GET /agents/.../get-messages`). That fetch is cross-origin
+  // (console→api) and the api intentionally sends no CORS headers — the browser
+  // only talks to the api over the CORS-exempt WebSocket. History (and every
+  // turn) syncs over that socket instead, so the HTTP call is unnecessary here.
+  const { messages, sendMessage, status, error } = useAgentChat({ agent, getInitialMessages: null })
   const busy = status === 'submitted' || status === 'streaming'
 
   useEffect(() => {
