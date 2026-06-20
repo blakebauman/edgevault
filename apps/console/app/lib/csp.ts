@@ -1,12 +1,16 @@
 /**
  * Content-Security-Policy for console documents. Scripts are nonce-gated
  * (React Router streams inline hydration scripts); styles allow inline because
- * component style attributes are subject to style-src. The websocket origin is
- * the only cross-origin connection the browser makes — everything else goes
- * through the BFF on this origin.
+ * component style attributes are subject to style-src. The API origin is the
+ * only cross-origin connection the browser makes — everything else goes through
+ * the BFF on this origin. The assistant's Agents SDK client uses BOTH the
+ * WebSocket (`wss://`) and a preliminary HTTPS fetch (`/agents/.../get-messages`
+ * to load history), so connect-src must allow the matching `https://` origin
+ * too — otherwise that history fetch is CSP-blocked and the assistant crashes.
  */
 export function buildCsp(nonce: string, apiWsBase?: string): string {
-  const connect = apiWsBase ? `'self' ${apiWsBase}` : "'self'"
+  const apiOrigins = apiWsBase ? [apiWsBase, apiWsBase.replace(/^ws(s?):\/\//, 'http$1://')] : []
+  const connect = ["'self'", ...apiOrigins].join(' ')
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
