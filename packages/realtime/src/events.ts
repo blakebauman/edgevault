@@ -1,6 +1,6 @@
 /** Shared real-time event contract between the workspace DO and clients. */
 
-export type ConfigEventKind = 'config' | 'flag' | 'secret'
+export type ConfigEventKind = 'config' | 'flag' | 'secret' | 'content'
 
 export type WorkspaceEvent =
   | {

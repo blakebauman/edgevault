@@ -588,7 +588,10 @@ export class VaultDurableObject extends DurableObject<Env> {
 
   /** Expand an item's references for KV publication (secrets pass through). */
   private resolveContent(item: ConfigItem): string {
-    if (item.kind === 'secret') return item.content
+    // Secrets pass through as ciphertext; content (documents/blocks) publishes
+    // raw — its ${block.key} refs are JSON-structural and are resolved at HTML
+    // render time, not by textual substitution (which would corrupt the JSON).
+    if (item.kind === 'secret' || item.kind === 'content') return item.content
     try {
       return resolveRefs(
         item.content,
@@ -630,6 +633,30 @@ export class VaultDurableObject extends DurableObject<Env> {
       }
     }
     return { targets, truncated }
+  }
+
+  /**
+   * Render inputs for a `content` document: its raw content plus the raw content
+   * of every block it references (`${block.key}`), keyed by the reference's inner
+   * string (`block.key` or `slug/block.key`) so a block resolver can match it.
+   * One RPC for the whole document — the api worker renders it to HTML. Secrets
+   * are never referencable, so they can never appear here.
+   */
+  collectDocumentBlocks(
+    environmentId: string,
+    key: string,
+  ): { content: string | null; blocks: Record<string, string> } {
+    const doc = this.getConfig(environmentId, key)
+    if (!doc) return { content: null, blocks: {} }
+    const blocks: Record<string, string> = {}
+    for (const ref of extractRefs(doc.content)) {
+      const targetEnv = ref.envSlug ? this.envIdBySlug(ref.envSlug) : environmentId
+      if (!targetEnv) continue
+      const item = this.getConfig(targetEnv, ref.key)
+      if (!item || item.kind === 'secret') continue
+      blocks[ref.envSlug ? `${ref.envSlug}/${ref.key}` : ref.key] = item.content
+    }
+    return { content: doc.content, blocks }
   }
 
   /**

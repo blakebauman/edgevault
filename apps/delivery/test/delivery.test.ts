@@ -1,6 +1,11 @@
 import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test'
 import { hashToken } from '@edgevault/auth'
-import { apiKeyCacheKey, configCacheKey, customDomainCacheKey } from '@edgevault/edge-protocol'
+import {
+  apiKeyCacheKey,
+  configCacheKey,
+  customDomainCacheKey,
+  pageCacheKey,
+} from '@edgevault/edge-protocol'
 import { beforeAll, describe, expect, it } from 'vitest'
 import app from '../src/index'
 
@@ -16,6 +21,10 @@ beforeAll(async () => {
   await env.CONFIGS_CACHE.put(
     configCacheKey(WS, ENV, 'feature.x'),
     JSON.stringify({ content: '{"on":true}', contentType: 'json', kind: 'flag', version: 3 }),
+  )
+  await env.CONFIGS_CACHE.put(
+    pageCacheKey(WS, ENV, 'doc.home'),
+    '<!doctype html><html><body><h1>Home</h1></body></html>',
   )
 })
 
@@ -71,6 +80,28 @@ describe('delivery reads', () => {
 
   it('404s for an unknown key', async () => {
     expect((await call('/v1/configs/missing', auth)).status).toBe(404)
+  })
+})
+
+describe('delivery pages', () => {
+  it('serves a pre-rendered content page as HTML', async () => {
+    const res = await call('/v1/pages/doc.home', auth)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('text/html')
+    expect(await res.text()).toBe('<!doctype html><html><body><h1>Home</h1></body></html>')
+  })
+
+  it('serves the page again from the L1 cache', async () => {
+    const res = await call('/v1/pages/doc.home', auth)
+    expect(res.headers.get('x-cache')).toBe('l1')
+  })
+
+  it('404s an unknown page', async () => {
+    expect((await call('/v1/pages/doc.missing', auth)).status).toBe(404)
+  })
+
+  it('requires an API key', async () => {
+    expect((await call('/v1/pages/doc.home')).status).toBe(401)
   })
 })
 

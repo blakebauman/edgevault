@@ -4,7 +4,7 @@
  * one place prevents the two workers from drifting.
  */
 
-export type ConfigCacheKind = 'config' | 'flag'
+export type ConfigCacheKind = 'config' | 'flag' | 'content'
 
 /** Pre-resolved config/flag value served from the edge (`CONFIGS_CACHE`). */
 export interface ResolvedConfig {
@@ -137,6 +137,16 @@ export const MAX_CONFIG_KEY_LENGTH = 256
 /** `config:{workspaceId}:{environmentId}:{key}` */
 export function configCacheKey(workspaceId: string, environmentId: string, key: string): string {
   return `config:${workspaceId}:${environmentId}:${key}`
+}
+
+/**
+ * `html:{workspaceId}:{environmentId}:{key}` — the pre-rendered HTML of a
+ * `content` document, written at publish time and served verbatim by delivery.
+ * Shares the CONFIGS_CACHE namespace with `config:` but a distinct prefix, so the
+ * `config:`-prefixed export listing never picks it up.
+ */
+export function pageCacheKey(workspaceId: string, environmentId: string, key: string): string {
+  return `html:${workspaceId}:${environmentId}:${key}`
 }
 
 /** `apikey:{sha256hex}` */

@@ -82,6 +82,13 @@ type Pages = {
       "envId": string;
     };
   };
+  "/dashboard/:workspaceId/env/:envId/pages/:key": {
+    params: {
+      "workspaceId": string;
+      "envId": string;
+      "key": string;
+    };
+  };
   "/dashboard/:workspaceId/assistant": {
     params: {
       "workspaceId": string;
@@ -150,7 +157,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/verify-email" | "/forgot-password" | "/reset-password" | "/account/mfa" | "/api/passkey" | "/api/reveal-token" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/invite/:id" | "/orgs/:orgId/members" | "/orgs/:orgId/billing" | "/orgs/:orgId/domains" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/verify-email" | "/forgot-password" | "/reset-password" | "/account/mfa" | "/api/passkey" | "/api/reveal-token" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/env/:envId/pages/:key" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/share" | "/s/:id" | "/invite/:id" | "/orgs/:orgId/members" | "/orgs/:orgId/billing" | "/orgs/:orgId/domains" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -223,6 +230,10 @@ type RouteFiles = {
   "routes/environment.tsx": {
     id: "routes/environment";
     page: "/dashboard/:workspaceId/env/:envId";
+  };
+  "routes/content-page.tsx": {
+    id: "routes/content-page";
+    page: "/dashboard/:workspaceId/env/:envId/pages/:key";
   };
   "routes/assistant.tsx": {
     id: "routes/assistant";
@@ -298,6 +309,7 @@ type RouteModules = {
   "routes/oauth.callback": typeof import("./app/routes/oauth.callback.tsx");
   "routes/dashboard": typeof import("./app/routes/dashboard.tsx");
   "routes/environment": typeof import("./app/routes/environment.tsx");
+  "routes/content-page": typeof import("./app/routes/content-page.tsx");
   "routes/assistant": typeof import("./app/routes/assistant.tsx");
   "routes/dashboard.compare": typeof import("./app/routes/dashboard.compare.tsx");
   "routes/dashboard.audit": typeof import("./app/routes/dashboard.audit.tsx");

@@ -1,5 +1,9 @@
-/** Unified config/flag/secret item kinds stored in a workspace. */
-export type ConfigKind = 'config' | 'flag' | 'secret'
+/**
+ * Unified item kinds stored in a workspace. `content` is a structured-content
+ * document/block (JSON), served from the edge like config/flag — it is not a
+ * secret, so it is cached, never redacted, and may participate in ${...} refs.
+ */
+export type ConfigKind = 'config' | 'flag' | 'secret' | 'content'
 
 export type ChangeType = 'created' | 'updated' | 'deleted' | 'reverted' | 'promoted'
 

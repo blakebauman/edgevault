@@ -39,7 +39,7 @@ const CONTENT_TYPES = ['json', 'yaml', 'xml', 'ini', 'toml', 'properties', 'csv'
 
 type ConfigRow = {
   key: string
-  kind: 'config' | 'flag' | 'secret'
+  kind: 'config' | 'flag' | 'secret' | 'content'
   contentType: string
   content: string
   version: number
@@ -320,6 +320,8 @@ const KIND_HINT: Record<string, string> = {
   config: 'Plain configuration — served from the edge, indexed for search.',
   flag: 'Feature flag — booleans, percentages, or JSON; SDK flag() reads these.',
   secret: 'Envelope-encrypted before storage. The value is shown only via an audited reveal.',
+  content:
+    'Structured content — a document of blocks (or a reusable block) rendered to HTML at the edge.',
 }
 
 /** Time a revealed secret stays in memory before it's dropped automatically. */
@@ -598,6 +600,7 @@ export default function Environment({ loaderData, actionData }: Route.ComponentP
                     item={item}
                     busy={busy}
                     baseSearch={baseSearch}
+                    pageHref={`/dashboard/${workspaceId}/env/${envId}/pages/${encodeURIComponent(item.key)}`}
                     onEdit={() => setEditing(item)}
                     onReveal={() => reveal.reveal(item.key)}
                   />
@@ -860,6 +863,7 @@ function ItemForm({
             <option value="config">config</option>
             <option value="flag">flag</option>
             <option value="secret">secret</option>
+            <option value="content">content</option>
           </Select>
         </Field>
         <Field label="Format">
@@ -905,12 +909,14 @@ function ItemActions({
   item,
   busy,
   baseSearch,
+  pageHref,
   onEdit,
   onReveal,
 }: {
   item: ConfigRow
   busy: boolean
   baseSearch: (extra: Record<string, string>) => string
+  pageHref: string
   onEdit: () => void
   onReveal: () => void
 }) {
@@ -939,6 +945,11 @@ function ItemActions({
       {item.kind !== 'secret' && (
         <Button type="button" variant="secondary" size="compact" onClick={onEdit}>
           Edit
+        </Button>
+      )}
+      {item.kind === 'content' && (
+        <Button variant="secondary" size="compact" asChild>
+          <Link to={pageHref}>Page</Link>
         </Button>
       )}
       <Button variant="secondary" size="compact" asChild>

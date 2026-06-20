@@ -313,6 +313,54 @@ describe('VaultDurableObject', () => {
     expect((await ws.getConfig(dev.id, 'URL'))?.content).toBe('https://${HOST}/v1')
   })
 
+  it('composes a content document from a reusable content block, republishing dependents', async () => {
+    const ws = workspace('ws-content-blocks')
+    const dev = await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })
+
+    // A reusable block and a document that composes it via a ${...} reference.
+    await ws.setConfig({
+      environmentId: dev.id,
+      key: 'block.hero',
+      kind: 'content',
+      content: '<h1>Welcome</h1>',
+      contentType: 'text',
+      userId: 'u1',
+    })
+    const doc = await ws.setConfig({
+      environmentId: dev.id,
+      key: 'doc.home',
+      kind: 'content',
+      content: '<main>${block.hero}</main>',
+      contentType: 'text',
+      userId: 'u1',
+    })
+    // content is a first-class kind, not a secret: stored, never redacted.
+    expect(doc.kind).toBe('content')
+    expect((await ws.getConfig(dev.id, 'doc.home'))?.content).toBe('<main>${block.hero}</main>')
+
+    // Editing the shared block republishes the block AND every document using it
+    // (dependent tracking via the reference graph).
+    await ws.setConfig({
+      environmentId: dev.id,
+      key: 'block.hero',
+      kind: 'content',
+      content: '<h1>Welcome back</h1>',
+      contentType: 'text',
+      userId: 'u1',
+    })
+    const { targets } = await ws.collectPublishTargets(dev.id, 'block.hero')
+    const byKey = new Map(targets.map((t) => [t.item.key, t.resolvedContent]))
+    // content publishes RAW — composition is structural at HTML render time, not
+    // textual substitution (which would corrupt the document JSON).
+    expect(byKey.has('doc.home')).toBe(true)
+    expect(byKey.get('doc.home')).toBe('<main>${block.hero}</main>')
+
+    // The DO gathers a document's referenced blocks for the renderer in one RPC.
+    const inputs = await ws.collectDocumentBlocks(dev.id, 'doc.home')
+    expect(inputs.content).toBe('<main>${block.hero}</main>')
+    expect(inputs.blocks).toEqual({ 'block.hero': '<h1>Welcome back</h1>' })
+  })
+
   it('resolves cross-environment refs in the target environment', async () => {
     const ws = workspace('ws-refs-xenv')
     const dev = await ws.createEnvironment({

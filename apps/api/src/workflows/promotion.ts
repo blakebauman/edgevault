@@ -1,9 +1,9 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from 'cloudflare:workers'
 import { scoreConfigRisk } from '@edgevault/ai'
 import { aiRunner, textModel } from '../ai'
+import { publishWithRender } from '../content-render'
 import type { ConfigItem, Promotion } from '../durable-objects/types'
 import type { VaultDurableObject } from '../durable-objects/vault'
-import { publishTargets } from '../edge-cache'
 import { dispatchNotifications } from '../notify'
 
 export interface PromotionParams {
@@ -107,11 +107,9 @@ export class PromotionWorkflow extends WorkflowEntrypoint<Env, PromotionParams> 
     // 5. Propagate the resolved value to the edge cache (KV) — the promoted
     // item plus anything that references it, with ${...} expanded.
     await step.do('propagate', async () => {
-      const { targets } = await workspace().collectPublishTargets(
-        params.targetEnvironmentId,
-        params.key,
-      )
-      await publishTargets(this.env, params.workspaceId, targets)
+      const stub = workspace()
+      const { targets } = await stub.collectPublishTargets(params.targetEnvironmentId, params.key)
+      await publishWithRender(this.env, stub, params.workspaceId, targets)
     })
 
     // 6. Verify the read-back matches what we promoted.

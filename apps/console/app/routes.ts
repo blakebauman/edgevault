@@ -19,6 +19,7 @@ export default [
   route('oauth/:provider/callback', 'routes/oauth.callback.tsx'),
   route('dashboard/:workspaceId', 'routes/dashboard.tsx'),
   route('dashboard/:workspaceId/env/:envId', 'routes/environment.tsx'),
+  route('dashboard/:workspaceId/env/:envId/pages/:key', 'routes/content-page.tsx'),
   route('dashboard/:workspaceId/assistant', 'routes/assistant.tsx'),
   route('dashboard/:workspaceId/compare', 'routes/dashboard.compare.tsx'),
   route('dashboard/:workspaceId/audit', 'routes/dashboard.audit.tsx'),
