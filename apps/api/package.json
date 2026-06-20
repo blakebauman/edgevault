@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@cloudflare/ai-chat": "^0.8.6",
     "@edgevault/ai": "workspace:*",
     "@edgevault/auth": "workspace:*",
     "@edgevault/blocks": "workspace:*",
@@ -26,8 +27,11 @@
     "@edgevault/scim": "workspace:*",
     "@hono/zod-openapi": "^1.1.0",
     "@hono/zod-validator": "^0.7.0",
+    "agents": "^0.16.2",
+    "ai": "^6.0.208",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.25",
+    "workers-ai-provider": "^3.2.0",
     "zod": "^4.0.17"
   },
   "devDependencies": {

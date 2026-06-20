@@ -135,7 +135,7 @@ export default function SsoAdmin({ loaderData, actionData }: Route.ComponentProp
               </p>
             )}
 
-            <TokenBox note="Redirect URI (set this in your IdP):">
+            <TokenBox className="mt-6" note="Redirect URI (set this in your IdP):">
               <TokenValue>{suggestedRedirectUri}</TokenValue>
             </TokenBox>
 

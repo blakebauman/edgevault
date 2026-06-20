@@ -190,234 +190,231 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
     })
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <div>
-            <Crumbs
-              items={[
-                { label: 'workspaces', to: '/' },
-                { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
-                { label: 'compare' },
-              ]}
-            />
-            <p className="eyebrow">Compare environments</p>
-            <h1>{workspaceName ?? workspaceId}</h1>
-          </div>
-        </header>
+    <section className="panel">
+      <header className="panel-head">
+        <div>
+          <Crumbs
+            items={[
+              { label: 'workspaces', to: '/' },
+              { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
+              { label: 'compare' },
+            ]}
+          />
+          <p className="eyebrow">Compare environments</p>
+          <h1>{workspaceName ?? workspaceId}</h1>
+        </div>
+      </header>
 
-        <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
-          <Field label="Source">
-            <Select name="source" defaultValue={source}>
-              <option value="">Choose…</option>
-              {environments.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name} /{e.slug}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <span className="pb-2.5 text-muted-foreground">→</span>
-          <Field label="Target">
-            <Select name="target" defaultValue={target}>
-              <option value="">Choose…</option>
-              {environments.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name} /{e.slug}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Button type="submit">Compare</Button>
-        </Form>
+      <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
+        <Field label="Source">
+          <Select name="source" defaultValue={source}>
+            <option value="">Choose…</option>
+            {environments.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name} /{e.slug}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <span className="pb-2.5 text-muted-foreground">→</span>
+        <Field label="Target">
+          <Select name="target" defaultValue={target}>
+            <option value="">Choose…</option>
+            {environments.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name} /{e.slug}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Button type="submit">Compare</Button>
+      </Form>
 
-        {compareError && <ErrorNote>{compareError}</ErrorNote>}
-        {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
-        {bulkStarted && (
-          <StatusNote>
-            Started {bulkStarted.count} promotion
-            {bulkStarted.count === 1 ? '' : 's'} — each runs the risk scan; risky targets park for
-            approval on the dashboard.
-            {bulkStarted.failures.length > 0 && ` Not started: ${bulkStarted.failures.join(', ')}.`}
-          </StatusNote>
-        )}
-        {actionData && 'started' in actionData && (
-          <StatusNote>
-            Promotion of "{actionData.started}" started — it applies in seconds, or parks for
-            approval if the risk scan flags it. Track it on the workspace dashboard.
-          </StatusNote>
-        )}
+      {compareError && <ErrorNote>{compareError}</ErrorNote>}
+      {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
+      {bulkStarted && (
+        <StatusNote>
+          Started {bulkStarted.count} promotion
+          {bulkStarted.count === 1 ? '' : 's'} — each runs the risk scan; risky targets park for
+          approval on the dashboard.
+          {bulkStarted.failures.length > 0 && ` Not started: ${bulkStarted.failures.join(', ')}.`}
+        </StatusNote>
+      )}
+      {actionData && 'started' in actionData && (
+        <StatusNote>
+          Promotion of "{actionData.started}" started — it applies in seconds, or parks for approval
+          if the risk scan flags it. Track it on the workspace dashboard.
+        </StatusNote>
+      )}
 
-        {comparison && (
-          <>
-            <p className="mb-3 text-sm tabular-nums text-muted-foreground">
-              {comparison.summary.equal} equal · {comparison.summary.drifted} drifted ·{' '}
-              {comparison.summary.onlyInSource} missing in target ·{' '}
-              {comparison.summary.onlyInTarget} only in target · {comparison.summary.notComparable}{' '}
-              secrets not compared
-            </p>
-            {selected.size > 0 && (
-              <div className="mb-2 flex min-h-8 flex-wrap items-center gap-2">
-                <span className="text-sm text-muted-foreground">{selected.size} selected</span>
-                <TwoStepConfirm
-                  trigger={`Promote ${selected.size} → /${envName(comparison.targetEnvironmentId)}`}
-                  disabled={navigation.state !== 'idle'}
-                  note={`Promote ${selected.size} key${selected.size === 1 ? '' : 's'} to /${envName(comparison.targetEnvironmentId)}? Each runs the risk scan first.`}
-                >
-                  {(close) => (
-                    <Form
-                      method="post"
-                      onSubmit={() => {
-                        close()
-                        setSelected(new Set())
-                      }}
+      {comparison && (
+        <>
+          <p className="mb-3 text-sm tabular-nums text-muted-foreground">
+            {comparison.summary.equal} equal · {comparison.summary.drifted} drifted ·{' '}
+            {comparison.summary.onlyInSource} missing in target · {comparison.summary.onlyInTarget}{' '}
+            only in target · {comparison.summary.notComparable} secrets not compared
+          </p>
+          {selected.size > 0 && (
+            <div className="mb-2 flex min-h-8 flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">{selected.size} selected</span>
+              <TwoStepConfirm
+                trigger={`Promote ${selected.size} → /${envName(comparison.targetEnvironmentId)}`}
+                disabled={navigation.state !== 'idle'}
+                note={`Promote ${selected.size} key${selected.size === 1 ? '' : 's'} to /${envName(comparison.targetEnvironmentId)}? Each runs the risk scan first.`}
+              >
+                {(close) => (
+                  <Form
+                    method="post"
+                    onSubmit={() => {
+                      close()
+                      setSelected(new Set())
+                    }}
+                  >
+                    <input type="hidden" name="intent" value="bulk-promote" />
+                    <input type="hidden" name="keys" value={[...selected].join('\n')} />
+                    <input
+                      type="hidden"
+                      name="sourceEnvironmentId"
+                      value={comparison.sourceEnvironmentId}
+                    />
+                    <input
+                      type="hidden"
+                      name="targetEnvironmentId"
+                      value={comparison.targetEnvironmentId}
+                    />
+                    <Button
+                      type="submit"
+                      variant="danger"
+                      size="compact"
+                      loading={navigation.state !== 'idle'}
                     >
-                      <input type="hidden" name="intent" value="bulk-promote" />
-                      <input type="hidden" name="keys" value={[...selected].join('\n')} />
-                      <input
-                        type="hidden"
-                        name="sourceEnvironmentId"
-                        value={comparison.sourceEnvironmentId}
-                      />
-                      <input
-                        type="hidden"
-                        name="targetEnvironmentId"
-                        value={comparison.targetEnvironmentId}
-                      />
-                      <Button
-                        type="submit"
-                        variant="danger"
-                        size="compact"
-                        disabled={navigation.state !== 'idle'}
-                      >
-                        Confirm {selected.size} → /{envName(comparison.targetEnvironmentId)}
-                      </Button>
-                    </Form>
-                  )}
-                </TwoStepConfirm>
-                <Button
-                  type="button"
-                  variant="linklike"
-                  size="compact"
-                  onClick={() => setSelected(new Set())}
-                >
-                  Clear
-                </Button>
-              </div>
-            )}
-            <CardTable label="Comparison">
-              <thead>
-                <tr>
-                  <Th aria-label="Select" />
-                  <Th>Key</Th>
-                  <Th>Status</Th>
-                  <Th>{envName(comparison.sourceEnvironmentId)}</Th>
-                  <Th>{envName(comparison.targetEnvironmentId)}</Th>
-                  <Th>Changes</Th>
-                  <Th />
-                </tr>
-              </thead>
-              <tbody>
-                {comparison.entries.map((entry) => (
-                  <tr key={entry.key}>
-                    <Td>
-                      {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
-                        <Checkbox
-                          checked={selected.has(entry.key)}
-                          onChange={() => toggle(entry.key)}
-                          aria-label={`Select ${entry.key}`}
-                        />
-                      )}
-                    </Td>
-                    <Td className="font-mono text-sm">{entry.key}</Td>
-                    <Td label="Status">
-                      <Chip
-                        variant={
-                          (entry.source ?? entry.target)?.kind === 'secret'
-                            ? 'drift-not-comparable'
-                            : DRIFT_CHIP[entry.status]
-                        }
-                      >
-                        {entryLabel(entry)}
-                      </Chip>
-                    </Td>
-                    <Td
-                      className="text-muted-foreground"
-                      label={`/${envName(comparison.sourceEnvironmentId)}`}
-                    >
-                      {entry.source ? `v${entry.source.version}` : '—'}
-                    </Td>
-                    <Td
-                      className="text-muted-foreground"
-                      label={`/${envName(comparison.targetEnvironmentId)}`}
-                    >
-                      {entry.target ? `v${entry.target.version}` : '—'}
-                    </Td>
-                    <Td className="text-muted-foreground" label="Changes">
-                      {entry.diff && entry.diff.length > 0 ? (
-                        <details>
-                          <summary className="cursor-pointer text-accent">
-                            {entry.diffSummary ?? `${entry.diff.length} changes`}
-                          </summary>
-                          <ul className="m-0 mt-1 list-none p-0 font-mono text-xs">
-                            {entry.diff.map((d) => (
-                              <li key={`${d.type}:${d.path}`}>
-                                <span
-                                  className={
-                                    d.type === 'added'
-                                      ? 'text-ok'
-                                      : d.type === 'removed'
-                                        ? 'text-destructive'
-                                        : 'text-warn'
-                                  }
-                                >
-                                  {d.type}
-                                </span>{' '}
-                                {d.path}
-                                {d.type !== 'added' && d.oldValue !== undefined && (
-                                  <span className="text-muted-foreground">
-                                    {' '}
-                                    {JSON.stringify(d.oldValue)}
-                                  </span>
-                                )}
-                                {d.type !== 'removed' && d.newValue !== undefined && (
-                                  <span> → {JSON.stringify(d.newValue)}</span>
-                                )}
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      ) : (
-                        (entry.diffSummary ?? '')
-                      )}
-                    </Td>
-                    <Td>
-                      {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
-                        <PromoteControl
-                          entryKey={entry.key}
-                          sourceEnvironmentId={comparison.sourceEnvironmentId}
-                          targetEnvironmentId={comparison.targetEnvironmentId}
-                          targetName={envName(comparison.targetEnvironmentId)}
-                          isSecret={(entry.source ?? entry.target)?.kind === 'secret'}
-                          busy={navigation.state !== 'idle'}
-                        />
-                      )}
-                    </Td>
-                  </tr>
-                ))}
-                {comparison.entries.length === 0 && (
-                  <tr>
-                    <Td colSpan={7} className="text-muted-foreground">
-                      Both environments are empty.
-                    </Td>
-                  </tr>
+                      Confirm {selected.size} → /{envName(comparison.targetEnvironmentId)}
+                    </Button>
+                  </Form>
                 )}
-              </tbody>
-            </CardTable>
-          </>
-        )}
-      </section>
-    </main>
+              </TwoStepConfirm>
+              <Button
+                type="button"
+                variant="linklike"
+                size="compact"
+                onClick={() => setSelected(new Set())}
+              >
+                Clear
+              </Button>
+            </div>
+          )}
+          <CardTable label="Comparison">
+            <thead>
+              <tr>
+                <Th aria-label="Select" />
+                <Th>Key</Th>
+                <Th>Status</Th>
+                <Th>{envName(comparison.sourceEnvironmentId)}</Th>
+                <Th>{envName(comparison.targetEnvironmentId)}</Th>
+                <Th>Changes</Th>
+                <Th />
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.entries.map((entry) => (
+                <tr key={entry.key}>
+                  <Td>
+                    {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
+                      <Checkbox
+                        checked={selected.has(entry.key)}
+                        onChange={() => toggle(entry.key)}
+                        aria-label={`Select ${entry.key}`}
+                      />
+                    )}
+                  </Td>
+                  <Td className="font-mono text-sm">{entry.key}</Td>
+                  <Td label="Status">
+                    <Chip
+                      variant={
+                        (entry.source ?? entry.target)?.kind === 'secret'
+                          ? 'drift-not-comparable'
+                          : DRIFT_CHIP[entry.status]
+                      }
+                    >
+                      {entryLabel(entry)}
+                    </Chip>
+                  </Td>
+                  <Td
+                    className="text-muted-foreground"
+                    label={`/${envName(comparison.sourceEnvironmentId)}`}
+                  >
+                    {entry.source ? `v${entry.source.version}` : '—'}
+                  </Td>
+                  <Td
+                    className="text-muted-foreground"
+                    label={`/${envName(comparison.targetEnvironmentId)}`}
+                  >
+                    {entry.target ? `v${entry.target.version}` : '—'}
+                  </Td>
+                  <Td className="text-muted-foreground" label="Changes">
+                    {entry.diff && entry.diff.length > 0 ? (
+                      <details>
+                        <summary className="cursor-pointer text-accent">
+                          {entry.diffSummary ?? `${entry.diff.length} changes`}
+                        </summary>
+                        <ul className="m-0 mt-1 list-none p-0 font-mono text-xs">
+                          {entry.diff.map((d) => (
+                            <li key={`${d.type}:${d.path}`}>
+                              <span
+                                className={
+                                  d.type === 'added'
+                                    ? 'text-ok'
+                                    : d.type === 'removed'
+                                      ? 'text-destructive'
+                                      : 'text-warn'
+                                }
+                              >
+                                {d.type}
+                              </span>{' '}
+                              {d.path}
+                              {d.type !== 'added' && d.oldValue !== undefined && (
+                                <span className="text-muted-foreground">
+                                  {' '}
+                                  {JSON.stringify(d.oldValue)}
+                                </span>
+                              )}
+                              {d.type !== 'removed' && d.newValue !== undefined && (
+                                <span> → {JSON.stringify(d.newValue)}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : (
+                      (entry.diffSummary ?? '')
+                    )}
+                  </Td>
+                  <Td>
+                    {(entry.status === 'drifted' || entry.status === 'only-in-source') && (
+                      <PromoteControl
+                        entryKey={entry.key}
+                        sourceEnvironmentId={comparison.sourceEnvironmentId}
+                        targetEnvironmentId={comparison.targetEnvironmentId}
+                        targetName={envName(comparison.targetEnvironmentId)}
+                        isSecret={(entry.source ?? entry.target)?.kind === 'secret'}
+                        busy={navigation.state !== 'idle'}
+                      />
+                    )}
+                  </Td>
+                </tr>
+              ))}
+              {comparison.entries.length === 0 && (
+                <tr>
+                  <Td colSpan={7} className="text-muted-foreground">
+                    Both environments are empty.
+                  </Td>
+                </tr>
+              )}
+            </tbody>
+          </CardTable>
+        </>
+      )}
+    </section>
   )
 }
 
@@ -454,7 +451,7 @@ function PromoteControl({
           <input type="hidden" name="key" value={entryKey} />
           <input type="hidden" name="sourceEnvironmentId" value={sourceEnvironmentId} />
           <input type="hidden" name="targetEnvironmentId" value={targetEnvironmentId} />
-          <Button type="submit" variant="danger" size="compact" disabled={busy}>
+          <Button type="submit" variant="danger" size="compact" loading={busy}>
             Confirm → /{targetName}
           </Button>
         </Form>

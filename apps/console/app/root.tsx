@@ -11,13 +11,49 @@ import {
 } from 'react-router'
 import type { Route } from './+types/root'
 import { TopBar } from './components/brand'
+import type { OrgSummary } from './components/user-menu'
 import { useNonce } from './lib/nonce'
 import { getToken } from './lib/session.server'
 import './app.css'
 
-/** Cookie-presence only (no network) — drives the TopBar's account links. */
-export function loader({ request }: Route.LoaderArgs) {
-  return { authed: Boolean(getToken(request)) }
+/** Drives the TopBar's account menu: cookie-presence for the authed state, plus
+ * the caller's orgs (id/name/role) so the dropdown can list org settings on
+ * every page. Best-effort — a slow or down api leaves the menu org-less rather
+ * than blanking the whole shell. */
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const token = getToken(request)
+  const env = context.cloudflare.env
+  // The agent WebSocket connects browser→api directly (like the realtime /ws),
+  // so the client needs the api host (without the wss:// scheme).
+  const apiHost = env.API_WS_BASE.replace(/^wss?:\/\//, '')
+  if (!token) {
+    return {
+      authed: false as const,
+      orgs: [] as OrgSummary[],
+      email: undefined,
+      userId: undefined,
+      apiHost,
+    }
+  }
+  const headers = { authorization: `Bearer ${token}` }
+  let orgs: OrgSummary[] = []
+  let email: string | undefined
+  let userId: string | undefined
+  try {
+    const [orgsRes, meRes] = await Promise.all([
+      env.API_SERVICE.fetch('https://api/api/v1/organizations', { headers }),
+      env.AUTH_SERVICE.fetch('https://auth/me', { headers }),
+    ])
+    if (orgsRes.ok) orgs = ((await orgsRes.json()) as { organizations: OrgSummary[] }).organizations
+    if (meRes.ok) {
+      const user = ((await meRes.json()) as { user?: { email?: string; id?: string } }).user
+      email = user?.email
+      userId = user?.id
+    }
+  } catch {
+    // best-effort — the shell renders without the org list / identity
+  }
+  return { authed: true as const, orgs, email, userId, apiHost }
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -40,7 +76,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <TopBar authed={data?.authed ?? false} />
+        <TopBar authed={data?.authed ?? false} orgs={data?.orgs ?? []} email={data?.email} />
         {children}
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />

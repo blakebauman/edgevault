@@ -707,6 +707,7 @@ export class VaultDurableObject extends DurableObject<Env> {
       content: input.content,
       version,
       changeType,
+      summary: input.summary ?? null,
       createdBy: input.userId,
       kind: kind as ConfigKind,
       contentType,
@@ -847,13 +848,18 @@ export class VaultDurableObject extends DurableObject<Env> {
     return this.revisions.list(environmentId, key, limit, offset)
   }
 
-  async revertToRevision(revisionId: string, userId: string): Promise<ConfigItem | null> {
+  async revertToRevision(
+    revisionId: string,
+    userId: string,
+    summary?: string,
+  ): Promise<ConfigItem | null> {
     const revision = this.revisions.get(revisionId)
     if (!revision) return null
     return this.setConfig({
       environmentId: revision.environmentId,
       key: revision.key,
       content: revision.content,
+      summary: summary ?? `Reverted to v${revision.version}`,
       userId,
     })
   }

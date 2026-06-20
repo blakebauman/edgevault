@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema/index.ts"
+    "./schema": "./src/schema/index.ts",
+    "./seed-fixtures": "./src/seed-fixtures.ts"
   },
   "scripts": {
     "db:generate": "drizzle-kit generate",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@edgevault/auth": "workspace:*",
+    "@edgevault/crypto": "workspace:*",
     "@edgevault/typescript-config": "workspace:*",
     "@types/pg": "^8.20.0",
     "dotenv": "^17.0.0",

@@ -1,6 +1,6 @@
 import { Button, ErrorNote, Field, Input, StatusNote } from '@edgevault/ui'
 import { type FormEvent, useState } from 'react'
-import { Form, redirect } from 'react-router'
+import { Form, redirect, useNavigation } from 'react-router'
 import { ipHeaders, safeRelativePath, setMfaCookie, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/login'
 
@@ -96,6 +96,8 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function Login({ actionData, loaderData }: Route.ComponentProps) {
+  const navigation = useNavigation()
+  const pendingIntent = navigation.state !== 'idle' ? navigation.formData?.get('intent') : null
   return (
     <main className="shell shell-center">
       <section className="hero">
@@ -112,7 +114,7 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
           {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
           {loaderData.notice && <StatusNote>{loaderData.notice}</StatusNote>}
           <div className="flex flex-wrap gap-3">
-            <Button type="submit" name="intent" value="signin">
+            <Button type="submit" name="intent" value="signin" loading={pendingIntent === 'signin'}>
               Sign in
             </Button>
             <Button
@@ -121,6 +123,7 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
               value="signup"
               variant="linklike"
               className="more-auth-alt"
+              loading={pendingIntent === 'signup'}
             >
               New here? Create an account
             </Button>
@@ -175,7 +178,7 @@ function PasskeyButton({ next }: { next: string | null }) {
         variant="secondary"
         className="self-start"
         onClick={onClick}
-        disabled={busy}
+        loading={busy}
       >
         {busy ? 'Waiting for passkey…' : 'Sign in with a passkey'}
       </Button>

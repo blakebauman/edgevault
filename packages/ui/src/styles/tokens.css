@@ -75,7 +75,9 @@
   --accent-foreground: #10002b;
   --destructive: #ff6b6b;
   --ok: #4ade80;
-  --warn: #fbbf24;
+  /* Lifted from #fbbf24 (~4.2:1) to clear 4.5:1 for small warn text (the
+     two-step confirm note runs at 12px) — still the same amber voice. */
+  --warn: #fcd34d;
   --border: rgba(243, 244, 246, 0.14);
   --input: rgba(243, 244, 246, 0.3);
   --ring: var(--glow);

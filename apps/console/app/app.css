@@ -79,6 +79,10 @@
     font-size: 1.05rem;
     line-height: 1.6;
     max-width: 60ch;
+    /* Give every intro line breathing room before the control beneath it.
+       Block-flow margins collapse, so pages that already add `mt-6` etc. don't
+       double up. */
+    margin: 0 0 1rem;
   }
 
   /* --- Panels --------------------------------------------------------------- */
@@ -360,12 +364,228 @@
     margin-top: 1.5rem;
   }
 
+  /* Markdown rendered by the assistant (streamdown), themed to the vault palette
+     so we don't need the typography plugin. */
+  .ev-response {
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  .ev-response > :first-child {
+    margin-top: 0;
+  }
+
+  .ev-response > :last-child {
+    margin-bottom: 0;
+  }
+
+  .ev-response p,
+  .ev-response ul,
+  .ev-response ol,
+  .ev-response pre,
+  .ev-response blockquote {
+    margin: 0 0 0.5rem;
+  }
+
+  .ev-response ul,
+  .ev-response ol {
+    padding-left: 1.25rem;
+  }
+
+  .ev-response li {
+    margin: 0.15rem 0;
+  }
+
+  .ev-response a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .ev-response code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--muted);
+    padding: 0.1em 0.3em;
+    border-radius: var(--radius);
+  }
+
+  .ev-response pre {
+    background: var(--surface-2);
+    padding: 0.6rem 0.7rem;
+    border-radius: var(--radius);
+    overflow-x: auto;
+  }
+
+  .ev-response pre code {
+    background: none;
+    padding: 0;
+  }
+
+  .ev-response h1,
+  .ev-response h2,
+  .ev-response h3 {
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    margin: 0.6rem 0 0.25rem;
+  }
+
+  .ev-response blockquote {
+    border-left: 2px solid var(--border);
+    padding-left: 0.6rem;
+    color: var(--muted-foreground);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       transition-duration: 0.01ms !important;
       animation-duration: 0.01ms !important;
+    }
+  }
+
+  /* --- Workspace shell: sidebar + main ---------------------------------------- */
+  .ws-shell {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: 2.5rem;
+    align-items: start;
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 5rem;
+  }
+
+  .ws-sidebar {
+    position: sticky;
+    top: 2.5rem;
+  }
+
+  .ws-main {
+    min-width: 0;
+  }
+
+  /* The shell already provides the page gutter; panels inside it run full-width
+     of the main column rather than the centered 64rem the standalone shell used. */
+  .ws-main .panel {
+    width: 100%;
+  }
+
+  .ws-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .ws-nav-group {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .ws-nav-label {
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.66rem;
+    color: var(--muted-foreground);
+    margin: 0 0 0.4rem;
+    padding-left: 0.6rem;
+  }
+
+  .ws-nav-link {
+    display: block;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius);
+    color: var(--muted-foreground);
+    text-decoration: none;
+    font-size: 0.9rem;
+    border-left: 2px solid transparent;
+  }
+
+  .ws-nav-link:hover {
+    background: var(--surface-2);
+    color: var(--foreground);
+  }
+
+  .ws-nav-link.active {
+    background: var(--surface-2);
+    color: var(--foreground);
+    border-left-color: var(--accent);
+  }
+
+  .ws-envswitch {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .ws-nav-empty {
+    padding: 0 0.6rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  /* --- In-section sub-tabs ---------------------------------------------------- */
+  .subtabs {
+    display: flex;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin: 1.5rem 0 1rem;
+  }
+
+  .subtabs button {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 0.45rem 0.7rem;
+    cursor: pointer;
+    color: var(--muted-foreground);
+    font: inherit;
+    font-size: 0.9rem;
+  }
+
+  .subtabs button:hover {
+    color: var(--foreground);
+  }
+
+  .subtabs button.active {
+    color: var(--foreground);
+    border-bottom-color: var(--accent);
+  }
+
+  @media (max-width: 860px) {
+    .ws-shell {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .ws-sidebar {
+      position: static;
+    }
+
+    .ws-nav {
+      flex-flow: row wrap;
+    }
+
+    .ws-nav-group {
+      margin-top: 0.5rem;
+      flex-basis: 100%;
+      flex-flow: row wrap;
+    }
+
+    .ws-nav-label {
+      flex-basis: 100%;
+      margin-bottom: 0.2rem;
+    }
+
+    .ws-envswitch {
+      width: auto;
+      flex-basis: 100%;
     }
   }
 } /* @layer legacy */

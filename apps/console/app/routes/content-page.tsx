@@ -140,67 +140,63 @@ export default function ContentPage({ loaderData, actionData }: Route.ComponentP
   const { html, error } = useMemo(() => preview(docText, blocks), [docText, blocks])
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <Crumbs
-            items={[
-              { label: 'workspace', to: `/dashboard/${workspaceId}` },
-              { label: 'environment', to: `/dashboard/${workspaceId}/env/${envId}` },
-              { label: key },
-            ]}
-          />
-          <Button variant="secondary" size="compact" asChild>
-            <Link to={`/dashboard/${workspaceId}/env/${envId}`}>Back to environment</Link>
-          </Button>
-        </header>
+    <section className="panel">
+      <header className="panel-head">
+        <Crumbs
+          items={[
+            { label: 'workspace', to: `/dashboard/${workspaceId}` },
+            { label: 'environment', to: `/dashboard/${workspaceId}/env/${envId}` },
+            { label: key },
+          ]}
+        />
+        <Button variant="secondary" size="compact" asChild>
+          <Link to={`/dashboard/${workspaceId}/env/${envId}`}>Back to environment</Link>
+        </Button>
+      </header>
 
-        {!exists && (
-          <StatusNote>
-            This page doesn't exist yet — saving creates it as a content item.
-          </StatusNote>
-        )}
+      {!exists && (
+        <StatusNote>This page doesn't exist yet — saving creates it as a content item.</StatusNote>
+      )}
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Form method="post" className="flex flex-col gap-3">
-            <Field label="Document (JSON)">
-              <Textarea
-                name="content"
-                rows={20}
-                value={docText}
-                onChange={(e) => setDocText(e.target.value)}
-                spellCheck={false}
-                className="font-mono text-xs"
-              />
-            </Field>
-            <p className="m-0 text-xs text-muted-foreground">
-              A document is <code>{'{ "layout": "page", "blocks": [...] }'}</code>. Each block is an
-              inline <code>{'{ "type", "props" }'}</code> or a <code>{'${block.key}'}</code>{' '}
-              reference to another content item.
-            </p>
-            {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
-            <div>
-              <Button type="submit" disabled={busy || error !== null}>
-                {busy ? 'Saving…' : 'Save & publish'}
-              </Button>
-            </div>
-          </Form>
-
-          <div className="flex flex-col gap-2">
-            <span className="text-xs text-muted-foreground">Live preview</span>
-            {error ? (
-              <ErrorNote>{error}</ErrorNote>
-            ) : (
-              <iframe
-                title="page preview"
-                sandbox=""
-                srcDoc={html}
-                className="h-[28rem] w-full rounded-md border border-border bg-white"
-              />
-            )}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Form method="post" className="flex flex-col gap-3">
+          <Field label="Document (JSON)">
+            <Textarea
+              name="content"
+              rows={20}
+              value={docText}
+              onChange={(e) => setDocText(e.target.value)}
+              spellCheck={false}
+              className="font-mono text-xs"
+            />
+          </Field>
+          <p className="m-0 text-xs text-muted-foreground">
+            A document is <code>{'{ "layout": "page", "blocks": [...] }'}</code>. Each block is an
+            inline <code>{'{ "type", "props" }'}</code> or a <code>{'${block.key}'}</code> reference
+            to another content item.
+          </p>
+          {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
+          <div>
+            <Button type="submit" loading={busy} disabled={error !== null}>
+              Save &amp; publish
+            </Button>
           </div>
+        </Form>
+
+        <div className="flex flex-col gap-2">
+          <span className="text-xs text-muted-foreground">Live preview</span>
+          {error ? (
+            <ErrorNote>{error}</ErrorNote>
+          ) : (
+            <iframe
+              title="page preview"
+              sandbox=""
+              srcDoc={html}
+              className="h-[28rem] w-full rounded-md border border-border bg-white"
+            />
+          )}
         </div>
-      </section>
-    </main>
+      </div>
+    </section>
   )
 }

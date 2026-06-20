@@ -183,6 +183,8 @@ export interface SetConfigInput {
   contentType?: string
   isEncrypted?: boolean
   userId: string
+  /** Optional "why" recorded on the revision this write creates. */
+  summary?: string
   /** Restores continue the key's old version sequence instead of resetting to 1. */
   minVersion?: number
 }

@@ -222,7 +222,6 @@ function NewOrgAction() {
 }
 
 function OrgSection({ org, first }: { org: Org; first: boolean }) {
-  const isAdmin = org.role === 'owner' || org.role === 'admin'
   const [creating, setCreating] = useState(org.workspaces.length === 0)
 
   const ghostCard = (
@@ -243,43 +242,6 @@ function OrgSection({ org, first }: { org: Org; first: boolean }) {
           <h2 className="m-0 text-lg">{org.name}</h2>
           <Chip variant="neutral">{org.role}</Chip>
         </span>
-        {/* Admin doors only for those who can open them — members see none. */}
-        {isAdmin && (
-          <span className="font-mono text-xs text-muted-foreground">
-            <Link
-              to={`/orgs/${org.id}/members`}
-              className="text-muted-foreground hover:text-accent"
-            >
-              members
-            </Link>
-            {' · '}
-            <Link
-              to={`/orgs/${org.id}/billing`}
-              className="text-muted-foreground hover:text-accent"
-            >
-              billing
-            </Link>
-            {' · '}
-            <Link
-              to={`/orgs/${org.id}/domains`}
-              className="text-muted-foreground hover:text-accent"
-            >
-              domains
-            </Link>
-            {' · '}
-            <Link to={`/orgs/${org.id}/sso`} className="text-muted-foreground hover:text-accent">
-              oidc
-            </Link>
-            {' · '}
-            <Link to={`/orgs/${org.id}/saml`} className="text-muted-foreground hover:text-accent">
-              saml
-            </Link>
-            {' · '}
-            <Link to={`/orgs/${org.id}/scim`} className="text-muted-foreground hover:text-accent">
-              scim
-            </Link>
-          </span>
-        )}
       </div>
 
       {org.workspaces.length === 0 && (

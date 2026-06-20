@@ -1,5 +1,6 @@
-import { Button } from '@edgevault/ui'
-import { Form, Link } from 'react-router'
+import { Link } from 'react-router'
+import { GlobalAssistant } from './global-assistant'
+import { type OrgSummary, UserMenu } from './user-menu'
 
 /** The vault mark — square with a folded corner; the keyway slot is the single
  * accent dose (same mark as the marketing site, light-on-dark variant). Sized
@@ -24,9 +25,18 @@ export function VaultMark() {
   )
 }
 
-/** Persistent app header: brand identity + account actions. Rendered from the
- * root layout on every page; account links only when a session exists. */
-export function TopBar({ authed }: { authed: boolean }) {
+/** Persistent app header: brand identity + the account menu. Rendered from the
+ * root layout on every page; the account dropdown (with org settings) appears
+ * only when a session exists. */
+export function TopBar({
+  authed,
+  orgs,
+  email,
+}: {
+  authed: boolean
+  orgs: OrgSummary[]
+  email?: string
+}) {
   return (
     <header className="flex min-h-13 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border bg-card px-6 py-2 max-sm:px-4">
       <Link
@@ -49,27 +59,8 @@ export function TopBar({ authed }: { authed: boolean }) {
         >
           Docs
         </a>
-        {authed && (
-          <>
-            <Link
-              to="/share"
-              className="text-sm text-muted-foreground no-underline hover:text-accent"
-            >
-              Share a secret
-            </Link>
-            <Link
-              to="/account/mfa"
-              className="text-sm text-muted-foreground no-underline hover:text-accent"
-            >
-              Security
-            </Link>
-            <Form method="post" action="/logout">
-              <Button type="submit" variant="linklike" className="text-sm">
-                Sign out
-              </Button>
-            </Form>
-          </>
-        )}
+        {authed && <GlobalAssistant />}
+        {authed && <UserMenu email={email} orgs={orgs} />}
       </nav>
     </header>
   )

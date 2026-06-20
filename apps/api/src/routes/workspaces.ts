@@ -70,6 +70,12 @@ const setConfigSchema = z.object({
   kind: kindSchema.optional(),
   contentType: z.string().optional(),
   isEncrypted: z.boolean().optional(),
+  /** Optional "why" recorded on the revision — attribution beyond who + when. */
+  summary: z.string().max(500).optional(),
+})
+
+const revertSchema = z.object({
+  summary: z.string().max(500).optional(),
 })
 
 const promoteSchema = z.object({
@@ -255,6 +261,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
           content: prepared.content,
           contentType: format,
           isEncrypted: prepared.isEncrypted,
+          summary: body.summary?.trim() || undefined,
           userId: c.var.userId,
         })
       } catch (error) {
@@ -287,7 +294,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const kind = kindParam && kindSchema.safeParse(kindParam).success ? kindParam : undefined
     const configs = await stubFor(c, c.req.param('workspaceId')).listConfigs(
       c.req.param('envId'),
-      kind as 'config' | 'flag' | 'secret' | undefined,
+      kind as 'config' | 'flag' | 'secret' | 'content' | undefined,
     )
     return c.json({ configs: configs.map(redact) })
   })
@@ -455,23 +462,29 @@ export const workspaceRoutes = new Hono<AppEnv>()
   })
 
   // --- Revisions / promotions / activity ---
-  .post('/:workspaceId/revisions/:revisionId/revert', async (c) => {
-    let config: ConfigItem | null
-    try {
-      config = await stubFor(c, c.req.param('workspaceId')).revertToRevision(
-        c.req.param('revisionId'),
-        c.var.userId,
-      )
-    } catch (error) {
-      // The old revision may reference items that no longer exist.
-      if (isRefError(error))
-        return c.json({ error: 'invalid_reference', detail: error.message }, 400)
-      throw error
-    }
-    if (!config) return c.json({ error: 'not_found' }, 404)
-    c.executionCtx.waitUntil(publishWithDependents(c, c.req.param('workspaceId'), config))
-    return c.json({ config: redact(config) })
-  })
+  .post(
+    '/:workspaceId/revisions/:revisionId/revert',
+    zValidator('json', revertSchema),
+    async (c) => {
+      const { summary } = c.req.valid('json')
+      let config: ConfigItem | null
+      try {
+        config = await stubFor(c, c.req.param('workspaceId')).revertToRevision(
+          c.req.param('revisionId'),
+          c.var.userId,
+          summary?.trim() || undefined,
+        )
+      } catch (error) {
+        // The old revision may reference items that no longer exist.
+        if (isRefError(error))
+          return c.json({ error: 'invalid_reference', detail: error.message }, 400)
+        throw error
+      }
+      if (!config) return c.json({ error: 'not_found' }, 404)
+      c.executionCtx.waitUntil(publishWithDependents(c, c.req.param('workspaceId'), config))
+      return c.json({ config: redact(config) })
+    },
+  )
   .post('/:workspaceId/promotions', zValidator('json', promoteSchema), async (c) => {
     const body = c.req.valid('json')
     const workspaceId = c.req.param('workspaceId')
@@ -691,7 +704,8 @@ export const workspaceRoutes = new Hono<AppEnv>()
   )
   .get('/:workspaceId/assistant/history', async (c) => {
     const agent = c.env.AGENT.get(c.env.AGENT.idFromName(c.req.param('workspaceId')))
-    return c.json({ history: await agent.getHistory() })
+    // Scoped to the caller — the per-workspace agent stores every user's turns.
+    return c.json({ history: await agent.getHistory(c.var.userId) })
   })
 
   // --- Environment API keys (for the delivery edge read path) ---

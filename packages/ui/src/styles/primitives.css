@@ -84,6 +84,72 @@
   clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
 }
 
+/* One-shot success ring: a button briefly wears an --ok outline after a
+   completed action (save, promote), then it fades. Outline (not shadow) keeps
+   the no-shadow rule and never shifts layout. Reduced motion: no pulse. */
+@keyframes ev-success-pulse {
+  from {
+    outline: 2px solid var(--ok);
+    outline-offset: 2px;
+  }
+  to {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+}
+
+.ev-success-pulse {
+  animation: ev-success-pulse 700ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-success-pulse {
+    animation: none;
+  }
+}
+
+/* Docked panel entrance: slides in from the right edge. Reduced motion: instant. */
+@keyframes ev-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ev-drawer-in {
+  animation: ev-drawer-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-drawer-in {
+    animation: none;
+  }
+}
+
+/* Dropdown/menu entrance: a short fade + lift. Reduced motion: appears instantly. */
+@keyframes ev-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ev-menu-in {
+  animation: ev-menu-in 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-menu-in {
+    animation: none;
+  }
+}
+
 /* Native selects share the input look with a machined chevron. */
 .chevron-select {
   appearance: none;
