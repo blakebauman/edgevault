@@ -5,6 +5,7 @@ import {
   configCacheKey,
   customDomainCacheKey,
   ipMatchesCidrs,
+  pageCacheKey,
   type ResolvedConfig,
 } from '@edgevault/edge-protocol'
 import { type Context, Hono } from 'hono'
@@ -37,6 +38,10 @@ function l1Get(key: string): { value: ResolvedConfig | null } | undefined {
 function l1Set(key: string, value: ResolvedConfig | null): void {
   l1.set(key, { value, expires: Date.now() + L1_TTL_MS })
 }
+
+// Pre-rendered content pages (`html:{ws}:{env}:{key}`) are raw HTML strings, not
+// ResolvedConfig JSON — their own L1 keyed the same way, same self-healing TTL.
+const pageL1 = new Map<string, { value: string | null; expires: number }>()
 
 // Custom-delivery-domain pins (`domain:{host}` → orgId), same L1 pattern.
 // Only consulted for non-canonical hosts, so canonical traffic pays nothing.
@@ -157,6 +162,31 @@ app.get('/v1/flags/:key', async (c) => {
   meterRead(c, 1)
   if (value?.kind !== 'flag') return c.json({ error: 'not_found' }, 404)
   return c.json({ key: c.req.param('key'), ...value })
+})
+
+// Serve a pre-rendered content page (HTML composed at publish time). Same auth,
+// L1, and metering as config reads — no rendering on the hot path.
+async function resolvePage(
+  c: { env: Env; var: { apiKey: ApiKeyRecord } },
+  key: string,
+): Promise<{ value: string | null; source: 'l1' | 'kv' }> {
+  const { workspaceId, environmentId } = c.var.apiKey
+  const cacheKey = pageCacheKey(workspaceId, environmentId, key)
+
+  const hit = pageL1.get(cacheKey)
+  if (hit && hit.expires > Date.now()) return { value: hit.value, source: 'l1' }
+
+  const fromKv = await c.env.CONFIGS_CACHE.get(cacheKey, 'text')
+  pageL1.set(cacheKey, { value: fromKv, expires: Date.now() + L1_TTL_MS })
+  return { value: fromKv, source: 'kv' }
+}
+
+app.get('/v1/pages/:key', async (c) => {
+  const t0 = Date.now()
+  const { value } = timed(c, t0, await resolvePage(c, c.req.param('key')))
+  meterRead(c, 1)
+  if (value === null) return c.json({ error: 'not_found' }, 404)
+  return c.html(value)
 })
 
 // Export every config/flag in the key's environment (CLI `edgevault run`/`pull`,

@@ -9,6 +9,7 @@
  *   const theme = await ev.value<string>('feature.checkout.theme')
  *   if (await ev.flag('feature.search.enabled')) { ... }
  *   const many = await ev.batch(['a', 'b', 'c'])
+ *   const html = await ev.page('doc.home')
  */
 import type { ResolvedConfig } from '@edgevault/edge-protocol'
 
@@ -53,6 +54,7 @@ export class EdgeVaultAuthError extends EdgeVaultError {
 const DEFAULT_BASE = 'https://delivery.edgevault.io'
 
 type CacheEntry = { value: ConfigRecord | null; expires: number }
+type PageCacheEntry = { value: string | null; expires: number }
 
 export class EdgeVault {
   readonly #apiKey: string
@@ -61,6 +63,7 @@ export class EdgeVault {
   readonly #timeoutMs: number
   readonly #fetch: typeof fetch
   readonly #cache = new Map<string, CacheEntry>()
+  readonly #pageCache = new Map<string, PageCacheEntry>()
 
   constructor(options: EdgeVaultOptions) {
     if (!options?.apiKey) throw new EdgeVaultError('apiKey is required', 0, 'config')
@@ -123,9 +126,25 @@ export class EdgeVault {
     return out
   }
 
+  /**
+   * Fetch a pre-rendered content page's HTML, or `null` if it does not exist
+   * (404). Content documents are rendered to HTML at publish time and served
+   * verbatim from the edge — this returns that HTML string.
+   */
+  async page(key: string): Promise<string | null> {
+    const path = `/v1/pages/${encodeURIComponent(key)}`
+    const cached = this.#pageCacheGet(path)
+    if (cached) return cached.value
+    const res = await this.#send('GET', path)
+    const html = res === null ? null : await res.text()
+    this.#pageCacheSet(path, html)
+    return html
+  }
+
   /** Drop the in-process cache (e.g. after a known config change). */
   clearCache(): void {
     this.#cache.clear()
+    this.#pageCache.clear()
   }
 
   #path(kind: 'configs' | 'flags', key: string): string {
@@ -158,12 +177,34 @@ export class EdgeVault {
     this.#cache.set(path, { value, expires: Date.now() + this.#cacheTtlMs })
   }
 
-  /**
-   * Issue a request. Returns the parsed JSON body, or `null` on 404. Throws
-   * `EdgeVaultAuthError` on 401 and `EdgeVaultError` on any other failure.
-   */
+  #pageCacheGet(path: string): PageCacheEntry | undefined {
+    if (this.#cacheTtlMs <= 0) return undefined
+    const hit = this.#pageCache.get(path)
+    if (!hit) return undefined
+    if (hit.expires < Date.now()) {
+      this.#pageCache.delete(path)
+      return undefined
+    }
+    return hit
+  }
+
+  #pageCacheSet(path: string, value: string | null): void {
+    if (this.#cacheTtlMs <= 0) return
+    this.#pageCache.set(path, { value, expires: Date.now() + this.#cacheTtlMs })
+  }
+
+  /** Parsed JSON body, or `null` on 404. Thin wrapper over `#send`. */
   // biome-ignore lint/suspicious/noExplicitAny: response bodies are route-specific
   async #request(method: string, path: string, json?: unknown): Promise<any> {
+    const res = await this.#send(method, path, json)
+    return res === null ? null : res.json()
+  }
+
+  /**
+   * Issue a request. Returns the raw `Response`, or `null` on 404. Throws
+   * `EdgeVaultAuthError` on 401 and `EdgeVaultError` on any other failure.
+   */
+  async #send(method: string, path: string, json?: unknown): Promise<Response | null> {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), this.#timeoutMs)
     let res: Response
@@ -198,7 +239,7 @@ export class EdgeVault {
         .catch(() => undefined)
       throw new EdgeVaultError(`request failed (${res.status})`, res.status, code ?? 'http_error')
     }
-    return res.json()
+    return res
   }
 }
 

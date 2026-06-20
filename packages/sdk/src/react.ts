@@ -32,6 +32,14 @@ export function useValue<T = string>(client: EdgeVault, key: string): AsyncState
   return state
 }
 
+/** Subscribe a component to a pre-rendered content page's HTML. Refetches when
+ *  `key` changes. The HTML is produced at publish time by the block renderer. */
+export function usePage(client: EdgeVault, key: string): AsyncState<string | null> {
+  const [state, setState] = useState<AsyncState<string | null>>(loadingState(null))
+  useEffect(() => track(() => client.page(key), null, setState), [client, key])
+  return state
+}
+
 /** Subscribe a component to a feature flag (boolean). */
 export function useFlag(
   client: EdgeVault,

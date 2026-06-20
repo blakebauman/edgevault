@@ -23,7 +23,7 @@ function isAdmin(ctx: McpToolContext): boolean {
   return ctx.role === 'owner' || ctx.role === 'admin'
 }
 
-const kindEnum = ['config', 'flag', 'secret'] as const
+const kindEnum = ['config', 'flag', 'secret', 'content'] as const
 // Same write-time key constraint as the HTTP routes (KV-key and ref safe).
 const keySchema = z.string().min(1).max(MAX_CONFIG_KEY_LENGTH).regex(CONFIG_KEY_PATTERN)
 const objectSchema = (properties: Record<string, unknown>, required: string[] = []) => ({

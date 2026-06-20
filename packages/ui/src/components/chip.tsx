@@ -18,6 +18,7 @@ const chipVariants = cva(
         'kind-config': 'bg-muted text-foreground',
         'kind-flag': 'bg-accent/16 text-accent',
         'kind-secret': 'sealed-corner bg-plaintext/14 text-plaintext',
+        'kind-content': 'bg-accent/10 text-foreground',
         ok: 'border-ok/40 text-ok',
         warn: 'border-warn/40 text-warn',
         danger: 'border-destructive/40 text-destructive',

@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { aiRunner, embeddingModel, indexConfig, unindexConfig, vectorize } from '../ai'
 import { configChangeEvent, emitAudit, promoteEvent, revealEvent } from '../audit'
 import { queryAuditHistory } from '../audit-query'
+import { deletePageThrough, publishWithRender } from '../content-render'
 import type { AppEnv } from '../context'
 import {
   createApiKey,
@@ -32,7 +33,7 @@ import {
 } from '../database/queries'
 import type { ConfigItem } from '../durable-objects/types'
 import type { VaultDurableObject } from '../durable-objects/vault'
-import { deleteThrough, publishApiKey, publishTargets, unpublishApiKey } from '../edge-cache'
+import { deleteThrough, publishApiKey, unpublishApiKey } from '../edge-cache'
 import { verifyRevealToken } from '../middleware/auth'
 import { buildNotifyJob, dispatchNotifications, invalidateChannelCache } from '../notify'
 import { enforceRateLimit } from '../rate-limit'
@@ -54,7 +55,7 @@ function redact(item: ConfigItem): ConfigItem {
   return item.kind === 'secret' ? { ...item, content: '' } : item
 }
 
-const kindSchema = z.enum(['config', 'flag', 'secret'])
+const kindSchema = z.enum(['config', 'flag', 'secret', 'content'])
 
 // Keys compose into KV cache keys and ${...} references — constrain at write time.
 const keySchema = z
@@ -154,16 +155,14 @@ async function publishWithDependents(
   workspaceId: string,
   item: ConfigItem,
 ): Promise<void> {
-  const { targets, truncated } = await stubFor(c, workspaceId).collectPublishTargets(
-    item.environmentId,
-    item.key,
-  )
+  const stub = stubFor(c, workspaceId)
+  const { targets, truncated } = await stub.collectPublishTargets(item.environmentId, item.key)
   if (truncated) {
     console.warn(
       `publish fan-out truncated at 100 for ${workspaceId}/${item.environmentId}/${item.key}`,
     )
   }
-  await publishTargets(c.env, workspaceId, targets)
+  await publishWithRender(c.env, stub, workspaceId, targets)
 }
 
 export const workspaceRoutes = new Hono<AppEnv>()
@@ -324,6 +323,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
     }
     if (ok) {
       c.executionCtx.waitUntil(deleteThrough(c.env, workspaceId, envId, key))
+      c.executionCtx.waitUntil(deletePageThrough(c.env, workspaceId, envId, key))
       c.executionCtx.waitUntil(unindexConfig(c.env, workspaceId, envId, key))
       const deleteEvent = {
         workspaceId,

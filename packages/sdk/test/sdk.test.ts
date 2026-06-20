@@ -122,6 +122,27 @@ describe('EdgeVault client', () => {
     expect((f as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2)
   })
 
+  it('fetches a pre-rendered page as HTML, caches it, and 404s to null', async () => {
+    const html = '<!doctype html><h1>Home</h1>'
+    const f = fakeFetch({
+      '/v1/pages/doc.home': () =>
+        new Response(html, { status: 200, headers: { 'content-type': 'text/html' } }),
+    })
+    const ev = new EdgeVault({ apiKey: KEY, fetch: f })
+    expect(await ev.page('doc.home')).toBe(html)
+    expect(await ev.page('doc.home')).toBe(html) // served from cache
+    expect((f as unknown as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1)
+    expect(await ev.page('doc.missing')).toBeNull()
+  })
+
+  it('raises EdgeVaultAuthError on a 401 page read', async () => {
+    const ev = new EdgeVault({
+      apiKey: KEY,
+      fetch: fakeFetch({ '/v1/pages/doc.home': () => json({ error: 'unauthorized' }, 401) }),
+    })
+    await expect(ev.page('doc.home')).rejects.toBeInstanceOf(EdgeVaultAuthError)
+  })
+
   it('maps a timeout to an EdgeVaultError', async () => {
     const f = vi.fn(async (_input: unknown, init?: RequestInit) => {
       // Reject as the platform does when the AbortController fires.
