@@ -1,6 +1,6 @@
 import { AIChatAgent } from '@cloudflare/ai-chat'
 import { searchConfigs } from '@edgevault/ai'
-import { convertToModelMessages, streamText, type ToolSet, tool } from 'ai'
+import { convertToModelMessages, stepCountIs, streamText, type ToolSet, tool } from 'ai'
 import { createWorkersAI } from 'workers-ai-provider'
 import { z } from 'zod'
 import { aiRunner, embeddingModel, textModel, vectorize } from '../ai'
@@ -87,6 +87,11 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
       // Widened to ToolSet so streamText doesn't narrow onFinish past the
       // base-class callback signature; the executes run unchanged.
       tools: this.chatTools() as ToolSet,
+      // Without this the model stops after the tool CALL (one step) and never
+      // writes an answer from the results — the user sees only the tool output
+      // ("Sources: …"). Let it loop tool → results → text (a few steps is ample
+      // for our two read-only tools).
+      stopWhen: stepCountIs(5),
       abortSignal: options?.abortSignal,
       onFinish,
       onError: ({ error }) => {
