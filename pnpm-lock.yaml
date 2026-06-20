@@ -176,6 +176,12 @@ importers:
 
   apps/console:
     dependencies:
+      '@ai-sdk/react':
+        specifier: ^3.0.210
+        version: 3.0.210(react@19.2.7)(zod@4.4.3)
+      '@cloudflare/ai-chat':
+        specifier: ^0.8.6
+        version: 0.8.6(@ai-sdk/react@3.0.210(react@19.2.7)(zod@4.4.3))(agents@0.16.2)(ai@6.0.208(zod@4.4.3))(react@19.2.7)(zod@4.4.3)
       '@edgevault/blocks':
         specifier: workspace:*
         version: link:../../packages/blocks
@@ -194,6 +200,9 @@ importers:
       '@simplewebauthn/browser':
         specifier: ^13.3.0
         version: 13.3.0
+      agents:
+        specifier: ^0.16.2
+        version: 0.16.2(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/ai-chat@0.8.6)(@cloudflare/workers-types@4.20260620.1)(ai@6.0.208(zod@4.4.3))(react@19.2.7)(rolldown@1.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))(zod@4.4.3)
       isbot:
         specifier: ^5.1.0
         version: 5.1.40
@@ -472,6 +481,9 @@ importers:
       '@edgevault/auth':
         specifier: workspace:*
         version: link:../auth
+      '@edgevault/crypto':
+        specifier: workspace:*
+        version: link:../crypto
       '@edgevault/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -5665,7 +5677,7 @@ snapshots:
   '@cloudflare/ai-chat@0.8.6(@ai-sdk/react@3.0.210(react@19.2.7)(zod@4.4.3))(agents@0.16.2)(ai@6.0.208(zod@4.4.3))(react@19.2.7)(zod@4.4.3)':
     dependencies:
       '@ai-sdk/react': 3.0.210(react@19.2.7)(zod@4.4.3)
-      agents: 0.16.2(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/ai-chat@0.8.6)(@cloudflare/workers-types@4.20260620.1)(ai@6.0.208(zod@4.4.3))(react@19.2.7)(rolldown@1.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(zod@4.4.3)
+      agents: 0.16.2(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/ai-chat@0.8.6)(@cloudflare/workers-types@4.20260620.1)(ai@6.0.208(zod@4.4.3))(react@19.2.7)(rolldown@1.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))(zod@4.4.3)
       ai: 6.0.208(zod@4.4.3)
       nanoid: 5.1.14
       react: 19.2.7
@@ -6620,6 +6632,15 @@ snapshots:
   '@rolldown/binding-win32-x64-msvc@1.0.3':
     optional: true
 
+  '@rolldown/plugin-babel@0.2.3(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))':
+    dependencies:
+      '@babel/core': 7.29.7
+      picomatch: 4.0.4
+      rolldown: 1.0.3
+    optionalDependencies:
+      '@babel/runtime': 7.29.7
+      vite: 7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+
   '@rolldown/plugin-babel@0.2.3(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))':
     dependencies:
       '@babel/core': 7.29.7
@@ -7041,6 +7062,36 @@ snapshots:
       negotiator: 1.0.0
 
   acorn@8.17.0: {}
+
+  agents@0.16.2(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/ai-chat@0.8.6)(@cloudflare/workers-types@4.20260620.1)(ai@6.0.208(zod@4.4.3))(react@19.2.7)(rolldown@1.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))(zod@4.4.3):
+    dependencies:
+      '@babel/plugin-proposal-decorators': 7.29.7(@babel/core@7.29.7)
+      '@cfworker/json-schema': 4.1.1
+      '@cloudflare/codemode': 0.4.1(@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3))(ai@6.0.208(zod@4.4.3))(zod@4.4.3)
+      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)
+      '@rolldown/plugin-babel': 0.2.3(@babel/core@7.29.7)(@babel/runtime@7.29.7)(rolldown@1.0.3)(vite@7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0))
+      ai: 6.0.208(zod@4.4.3)
+      cron-schedule: 6.0.0
+      esbuild: 0.28.1
+      just-bash: 3.0.1
+      mimetext: 3.0.28
+      nanoid: 5.1.14
+      partyserver: 0.5.8(@cloudflare/workers-types@4.20260620.1)
+      partysocket: 1.2.0(react@19.2.7)
+      react: 19.2.7
+      yaml: 2.9.0
+      yargs: 18.0.0
+      zod: 4.4.3
+    optionalDependencies:
+      '@cloudflare/ai-chat': 0.8.6(@ai-sdk/react@3.0.210(react@19.2.7)(zod@4.4.3))(agents@0.16.2)(ai@6.0.208(zod@4.4.3))(react@19.2.7)(zod@4.4.3)
+      vite: 7.3.5(@types/node@25.9.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.4)(yaml@2.9.0)
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@babel/plugin-transform-runtime'
+      - '@babel/runtime'
+      - '@cloudflare/workers-types'
+      - rolldown
+      - supports-color
 
   agents@0.16.2(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/ai-chat@0.8.6)(@cloudflare/workers-types@4.20260620.1)(ai@6.0.208(zod@4.4.3))(react@19.2.7)(rolldown@1.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(zod@4.4.3):
     dependencies:

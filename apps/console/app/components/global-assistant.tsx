@@ -1,7 +1,9 @@
+import { useAgentChat } from '@cloudflare/ai-chat/react'
 import { Button, cn, ErrorNote } from '@edgevault/ui'
-import { type FormEvent, lazy, Suspense, useEffect, useRef, useState } from 'react'
-import { Link, useMatches } from 'react-router'
-import { useAgentChat } from '../lib/use-agent-chat'
+import { useAgent } from 'agents/react'
+import { type FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useMatches, useRouteLoaderData } from 'react-router'
+import type { loader as rootLoader } from '../root'
 import {
   Conversation,
   ConversationContent,
@@ -10,26 +12,30 @@ import {
 import { Loader } from './ai-elements/loader'
 import { Suggestion, Suggestions } from './ai-elements/suggestion'
 
-// streamdown is heavy (markdown + highlighting) — keep it in its own chunk,
-// loaded only when an assistant message actually renders on the client.
 const Response = lazy(() => import('./ai-elements/response').then((m) => ({ default: m.Response })))
 
 const STARTERS = [
   'What changed today?',
-  'What were the last 5 changes, and why?',
+  'Find the checkout timeout config',
   'Who changed config most recently?',
 ]
 
+/** A permissive view of a UIMessage part (the v5 union is wide; we read text +
+ * tool output defensively). */
+type AnyPart = { type: string; text?: string; output?: unknown }
+type ConfigHit = { key: string; environmentId: string; kind?: string }
+
+function isConfigHits(v: unknown): v is ConfigHit[] {
+  return Array.isArray(v) && v.every((h) => h && typeof (h as ConfigHit).key === 'string')
+}
+
 /**
- * The workspace assistant, available from the top bar on every page. It's a
- * non-modal docked panel (the page stays interactive), so its workspace context
- * tracks wherever you navigate: tools that need a workspace (MCP, config lookup)
- * light up inside a workspace and explain themselves outside one.
- *
- * Workspace context comes from the active route — its `:workspaceId` param and,
- * when the matched loader exposes it, the human name — so no extra fetch.
- *
- * Chat surface uses AI Elements (ai-sdk.dev), themed to the vault palette.
+ * The workspace assistant in the top bar — now on the Cloudflare Agents SDK.
+ * `useAgent` opens an authed WebSocket straight to the api's per-workspace agent
+ * (browser→api, like the realtime /ws); `useAgentChat` streams turns with
+ * model-chosen tools and SDK-managed history. The chat hooks live in a child
+ * that only mounts inside a workspace with the panel open, so the socket
+ * connects on demand and history re-syncs on connect.
  */
 export function GlobalAssistant() {
   const matches = useMatches()
@@ -39,22 +45,12 @@ export function GlobalAssistant() {
   const workspaceName = matches
     .map((m) => (m.data as { workspaceName?: string } | undefined)?.workspaceName)
     .find(Boolean)
+  const root = useRouteLoaderData<typeof rootLoader>('root')
+  const userId = root?.userId
+  const apiHost = root?.apiHost
 
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
-  const [input, setInput] = useState('')
-  const { messages, isLoading, error, send, loadHistory } = useAgentChat(workspaceId ?? '')
-
-  // Load the persisted thread the first time the panel opens for a workspace
-  // (the hook resets and re-arms history when the workspace changes).
-  useEffect(() => {
-    if (open && workspaceId) loadHistory()
-  }, [open, workspaceId, loadHistory])
-
-  useEffect(() => {
-    if (open) inputRef.current?.focus()
-  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -68,18 +64,7 @@ export function GlobalAssistant() {
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
-  function ask(question: string) {
-    if (!workspaceId) return
-    send(question)
-  }
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    const q = input.trim()
-    if (!q) return
-    setInput('')
-    ask(q)
-  }
+  const ready = Boolean(workspaceId && userId && apiHost)
 
   return (
     <>
@@ -118,66 +103,8 @@ export function GlobalAssistant() {
             </button>
           </header>
 
-          {workspaceId ? (
-            <Conversation>
-              <ConversationContent>
-                {messages.length === 0 && (
-                  <div className="flex flex-col gap-3">
-                    <p className="m-0 text-sm text-muted-foreground">
-                      Ask what changed in this workspace, and why.
-                    </p>
-                    <Suggestions>
-                      {STARTERS.map((s) => (
-                        <Suggestion key={s} suggestion={s} onClick={ask} />
-                      ))}
-                    </Suggestions>
-                  </div>
-                )}
-
-                {messages.map((m) =>
-                  m.role === 'user' ? (
-                    <div key={m.id} className="flex flex-col items-end gap-1">
-                      <span className="font-mono text-xs text-muted-foreground">You</span>
-                      <div className="max-w-[85%] rounded-sm bg-muted px-3 py-2 text-sm">
-                        {m.content}
-                      </div>
-                    </div>
-                  ) : (
-                    <div key={m.id} className="flex flex-col gap-1">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        Agent
-                        {m.source === 'fallback' && ' · offline summary'}
-                      </span>
-                      <Suspense fallback={<div className="ev-response">{m.content}</div>}>
-                        <Response>{m.content}</Response>
-                      </Suspense>
-                      {m.citations && m.citations.length > 0 && (
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <span className="font-mono text-xs text-muted-foreground">Sources:</span>
-                          {m.citations.map((c) => (
-                            <Link
-                              key={`${c.environmentId}:${c.key}`}
-                              to={`/dashboard/${workspaceId}/env/${c.environmentId}`}
-                              className="rounded-sm bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground no-underline transition-colors hover:text-accent"
-                            >
-                              {c.key}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ),
-                )}
-
-                {isLoading && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader /> Thinking…
-                  </div>
-                )}
-                {error && <ErrorNote>{error}</ErrorNote>}
-              </ConversationContent>
-              <ConversationScrollButton />
-            </Conversation>
+          {ready && workspaceId && apiHost && userId ? (
+            <AgentChat workspaceId={workspaceId} name={`${workspaceId}:${userId}`} host={apiHost} />
           ) : (
             <div className="flex flex-1 flex-col gap-3 p-4">
               <p className="m-0 text-sm text-muted-foreground">
@@ -191,37 +118,164 @@ export function GlobalAssistant() {
               </Button>
             </div>
           )}
-
-          <form onSubmit={onSubmit} className="border-t border-border p-3">
-            <div className="flex items-end gap-2">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    onSubmit(e)
-                  }
-                }}
-                rows={2}
-                placeholder={
-                  workspaceId ? 'Ask the assistant…  (Enter to send)' : 'Select a workspace first'
-                }
-                aria-label="Ask the assistant"
-                disabled={!workspaceId || isLoading}
-                className={cn(
-                  'max-h-32 flex-1 resize-none rounded-sm border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground',
-                  'focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-55',
-                )}
-              />
-              <Button type="submit" loading={isLoading} disabled={!workspaceId || !input.trim()}>
-                Ask
-              </Button>
-            </div>
-          </form>
         </aside>
       )}
     </>
+  )
+}
+
+function AgentChat({
+  workspaceId,
+  name,
+  host,
+}: {
+  workspaceId: string
+  name: string
+  host: string
+}) {
+  const [input, setInput] = useState('')
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // The access token is httpOnly — fetch a fresh one from the BFF on each
+  // (re)connect for the ?token= the api verifies.
+  const query = useCallback(async (): Promise<Record<string, string>> => {
+    const res = await fetch(`/dashboard/${encodeURIComponent(workspaceId)}/assistant/ws-token`)
+    if (!res.ok) return {}
+    const { token } = (await res.json()) as { token?: string }
+    return token ? { token } : {}
+  }, [workspaceId])
+
+  const agent = useAgent({ agent: 'EdgeVaultAgent', name, host, query, queryDeps: [workspaceId] })
+  const { messages, sendMessage, status, error } = useAgentChat({ agent })
+  const busy = status === 'submitted' || status === 'streaming'
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  function submit(text: string) {
+    const q = text.trim()
+    if (!q || busy) return
+    setInput('')
+    sendMessage({ text: q })
+  }
+
+  return (
+    <>
+      <Conversation>
+        <ConversationContent>
+          {messages.length === 0 && (
+            <div className="flex flex-col gap-3">
+              <p className="m-0 text-sm text-muted-foreground">
+                Ask what changed in this workspace, or find a config by meaning.
+              </p>
+              <Suggestions>
+                {STARTERS.map((s) => (
+                  <Suggestion key={s} suggestion={s} onClick={submit} />
+                ))}
+              </Suggestions>
+            </div>
+          )}
+
+          {messages.map((m) => (
+            <MessageView
+              key={m.id}
+              role={m.role}
+              parts={m.parts as unknown as AnyPart[]}
+              ws={workspaceId}
+            />
+          ))}
+
+          {busy && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader /> Thinking…
+            </div>
+          )}
+          {error && <ErrorNote>{error.message}</ErrorNote>}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      <form
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault()
+          submit(input)
+        }}
+        className="border-t border-border p-3"
+      >
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                submit(input)
+              }
+            }}
+            rows={2}
+            placeholder="Ask the assistant…  (Enter to send)"
+            aria-label="Ask the assistant"
+            disabled={busy}
+            className={cn(
+              'max-h-32 flex-1 resize-none rounded-sm border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground',
+              'focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-55',
+            )}
+          />
+          <Button type="submit" loading={busy} disabled={!input.trim()}>
+            Ask
+          </Button>
+        </div>
+      </form>
+    </>
+  )
+}
+
+function MessageView({ role, parts, ws }: { role: string; parts: AnyPart[]; ws: string }) {
+  if (role === 'user') {
+    const text = parts
+      .filter((p) => p.type === 'text')
+      .map((p) => p.text ?? '')
+      .join('')
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <span className="font-mono text-xs text-muted-foreground">You</span>
+        <div className="max-w-[85%] rounded-sm bg-muted px-3 py-2 text-sm">{text}</div>
+      </div>
+    )
+  }
+
+  const text = parts
+    .filter((p) => p.type === 'text')
+    .map((p) => p.text ?? '')
+    .join('')
+  const sources = parts.flatMap((p) =>
+    p.type.startsWith('tool-') && isConfigHits(p.output) ? p.output : [],
+  )
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="font-mono text-xs text-muted-foreground">Agent</span>
+      {text && (
+        <Suspense fallback={<div className="ev-response">{text}</div>}>
+          <Response>{text}</Response>
+        </Suspense>
+      )}
+      {sources.length > 0 && (
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <span className="font-mono text-xs text-muted-foreground">Sources:</span>
+          {sources.map((c) => (
+            <Link
+              key={`${c.environmentId}:${c.key}`}
+              to={`/dashboard/${ws}/env/${c.environmentId}`}
+              className="rounded-sm bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground no-underline transition-colors hover:text-accent"
+            >
+              {c.key}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

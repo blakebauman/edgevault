@@ -22,22 +22,38 @@ import './app.css'
  * than blanking the whole shell. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const token = getToken(request)
-  if (!token) return { authed: false as const, orgs: [] as OrgSummary[], email: undefined }
   const env = context.cloudflare.env
+  // The agent WebSocket connects browser→api directly (like the realtime /ws),
+  // so the client needs the api host (without the wss:// scheme).
+  const apiHost = env.API_WS_BASE.replace(/^wss?:\/\//, '')
+  if (!token) {
+    return {
+      authed: false as const,
+      orgs: [] as OrgSummary[],
+      email: undefined,
+      userId: undefined,
+      apiHost,
+    }
+  }
   const headers = { authorization: `Bearer ${token}` }
   let orgs: OrgSummary[] = []
   let email: string | undefined
+  let userId: string | undefined
   try {
     const [orgsRes, meRes] = await Promise.all([
       env.API_SERVICE.fetch('https://api/api/v1/organizations', { headers }),
       env.AUTH_SERVICE.fetch('https://auth/me', { headers }),
     ])
     if (orgsRes.ok) orgs = ((await orgsRes.json()) as { organizations: OrgSummary[] }).organizations
-    if (meRes.ok) email = ((await meRes.json()) as { user?: { email?: string } }).user?.email
+    if (meRes.ok) {
+      const user = ((await meRes.json()) as { user?: { email?: string; id?: string } }).user
+      email = user?.email
+      userId = user?.id
+    }
   } catch {
-    // best-effort — the shell renders without the org list / email
+    // best-effort — the shell renders without the org list / identity
   }
-  return { authed: true as const, orgs, email }
+  return { authed: true as const, orgs, email, userId, apiHost }
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {

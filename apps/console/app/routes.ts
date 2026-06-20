@@ -35,6 +35,7 @@ export default [
   ]),
   route('dashboard/:workspaceId/assistant', 'routes/assistant.tsx'),
   route('dashboard/:workspaceId/assistant/history', 'routes/assistant.history.tsx'),
+  route('dashboard/:workspaceId/assistant/ws-token', 'routes/assistant.ws-token.tsx'),
   route('share', 'routes/share.tsx'),
   route('s/:id', 'routes/share.view.tsx'),
   route('invite/:id', 'routes/invite.tsx'),
