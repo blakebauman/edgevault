@@ -1,4 +1,5 @@
 import { Link } from 'react-router'
+import { GlobalAssistant } from './global-assistant'
 import { type OrgSummary, UserMenu } from './user-menu'
 
 /** The vault mark — square with a folded corner; the keyway slot is the single
@@ -58,6 +59,7 @@ export function TopBar({
         >
           Docs
         </a>
+        {authed && <GlobalAssistant />}
         {authed && <UserMenu email={email} orgs={orgs} />}
       </nav>
     </header>

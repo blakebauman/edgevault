@@ -133,126 +133,124 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
   const busy = navigation.state !== 'idle'
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <div>
-            <Crumbs
-              items={[
-                { label: 'workspaces', to: '/' },
-                { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
-                { label: 'notifications' },
-              ]}
-            />
-            <p className="eyebrow">Notifications</p>
-            <h1>{workspaceName ?? workspaceId}</h1>
-          </div>
-        </header>
+    <section className="panel">
+      <header className="panel-head">
+        <div>
+          <Crumbs
+            items={[
+              { label: 'workspaces', to: '/' },
+              { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
+              { label: 'notifications' },
+            ]}
+          />
+          <p className="eyebrow">Notifications</p>
+          <h1>{workspaceName ?? workspaceId}</h1>
+        </div>
+      </header>
 
-        {forbidden && <ErrorNote>Managing notification channels requires an org admin.</ErrorNote>}
-        {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
-        {actionData?.tested && <StatusNote>Test notification queued.</StatusNote>}
-        {actionData?.deleted && <StatusNote>Channel deleted.</StatusNote>}
+      {forbidden && <ErrorNote>Managing notification channels requires an org admin.</ErrorNote>}
+      {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
+      {actionData?.tested && <StatusNote>Test notification queued.</StatusNote>}
+      {actionData?.deleted && <StatusNote>Channel deleted.</StatusNote>}
 
-        {actionData?.signingSecret && (
-          <TokenBox
-            note={
-              <>
-                Webhook signing secret — copy it now, it won't be shown again. Verify deliveries by
-                recomputing HMAC-SHA256 over <code>timestamp.body</code> against{' '}
-                <code>x-edgevault-signature</code>.
-              </>
-            }
-          >
-            <TokenValue>{actionData.signingSecret}</TokenValue>
-            <CopyButton value={actionData.signingSecret} label="Copy secret" />
-          </TokenBox>
-        )}
+      {actionData?.signingSecret && (
+        <TokenBox
+          note={
+            <>
+              Webhook signing secret — copy it now, it won't be shown again. Verify deliveries by
+              recomputing HMAC-SHA256 over <code>timestamp.body</code> against{' '}
+              <code>x-edgevault-signature</code>.
+            </>
+          }
+        >
+          <TokenValue>{actionData.signingSecret}</TokenValue>
+          <CopyButton value={actionData.signingSecret} label="Copy secret" />
+        </TokenBox>
+      )}
 
-        {!forbidden && (
-          <>
-            <h2>Channels</h2>
-            <CardTable label="Notification channels">
-              <thead>
-                <tr>
-                  <Th>Name</Th>
-                  <Th>Type</Th>
-                  <Th>Events</Th>
-                  <Th />
+      {!forbidden && (
+        <>
+          <h2>Channels</h2>
+          <CardTable label="Notification channels">
+            <thead>
+              <tr>
+                <Th>Name</Th>
+                <Th>Type</Th>
+                <Th>Events</Th>
+                <Th />
+              </tr>
+            </thead>
+            <tbody>
+              {channels.map((channel) => (
+                <tr key={channel.id}>
+                  <Td label="Name">{channel.name}</Td>
+                  <Td label="Type">
+                    <Chip variant="neutral">{channel.type}</Chip>
+                  </Td>
+                  <Td label="Events" className="text-muted-foreground">
+                    {channel.events?.length ? channel.events.join(', ') : 'all events'}
+                  </Td>
+                  <Td>
+                    <ActionGroup>
+                      <Form method="post">
+                        <input type="hidden" name="intent" value="test" />
+                        <input type="hidden" name="channelId" value={channel.id} />
+                        <Button type="submit" variant="secondary" size="compact" disabled={busy}>
+                          Send test
+                        </Button>
+                      </Form>
+                      <DeleteChannel channelId={channel.id} name={channel.name} busy={busy} />
+                    </ActionGroup>
+                  </Td>
                 </tr>
-              </thead>
-              <tbody>
-                {channels.map((channel) => (
-                  <tr key={channel.id}>
-                    <Td label="Name">{channel.name}</Td>
-                    <Td label="Type">
-                      <Chip variant="neutral">{channel.type}</Chip>
-                    </Td>
-                    <Td label="Events" className="text-muted-foreground">
-                      {channel.events?.length ? channel.events.join(', ') : 'all events'}
-                    </Td>
-                    <Td>
-                      <ActionGroup>
-                        <Form method="post">
-                          <input type="hidden" name="intent" value="test" />
-                          <input type="hidden" name="channelId" value={channel.id} />
-                          <Button type="submit" variant="secondary" size="compact" disabled={busy}>
-                            Send test
-                          </Button>
-                        </Form>
-                        <DeleteChannel channelId={channel.id} name={channel.name} busy={busy} />
-                      </ActionGroup>
-                    </Td>
-                  </tr>
-                ))}
-                {channels.length === 0 && (
-                  <tr>
-                    <Td colSpan={4} className="text-muted-foreground">
-                      No channels yet — add Slack or a webhook below.
-                    </Td>
-                  </tr>
-                )}
-              </tbody>
-            </CardTable>
+              ))}
+              {channels.length === 0 && (
+                <tr>
+                  <Td colSpan={4} className="text-muted-foreground">
+                    No channels yet — add Slack or a webhook below.
+                  </Td>
+                </tr>
+              )}
+            </tbody>
+          </CardTable>
 
-            <h2>Add a channel</h2>
-            <Form method="post" className="mt-6 flex max-w-md flex-col gap-3">
-              <input type="hidden" name="intent" value="create" />
-              <Field label="Type">
-                <Select name="type" defaultValue="slack">
-                  <option value="slack">Slack incoming webhook</option>
-                  <option value="webhook">Generic signed webhook</option>
-                </Select>
-              </Field>
-              <Field label="Name">
-                <Input type="text" name="name" required placeholder="e.g. #deploys" />
-              </Field>
-              <Field label="URL">
-                <Input
-                  type="url"
-                  name="url"
-                  required
-                  placeholder="https://hooks.slack.com/services/…"
-                />
-              </Field>
-              <fieldset className="grid gap-1.5 rounded-sm border border-input p-3">
-                <legend className="text-muted-foreground">Events to deliver</legend>
-                <p className="field-hint">Leave every box unchecked to deliver all event types.</p>
-                {EVENT_OPTIONS.map((event) => (
-                  // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label
-                  <label key={event} className="flex items-center gap-2 font-mono text-xs">
-                    <Checkbox name="events" value={event} /> {event}
-                  </label>
-                ))}
-              </fieldset>
-              <Button type="submit" className="self-start" disabled={busy}>
-                {busy ? 'Saving…' : 'Add channel'}
-              </Button>
-            </Form>
-          </>
-        )}
-      </section>
-    </main>
+          <h2>Add a channel</h2>
+          <Form method="post" className="mt-6 flex max-w-md flex-col gap-3">
+            <input type="hidden" name="intent" value="create" />
+            <Field label="Type">
+              <Select name="type" defaultValue="slack">
+                <option value="slack">Slack incoming webhook</option>
+                <option value="webhook">Generic signed webhook</option>
+              </Select>
+            </Field>
+            <Field label="Name">
+              <Input type="text" name="name" required placeholder="e.g. #deploys" />
+            </Field>
+            <Field label="URL">
+              <Input
+                type="url"
+                name="url"
+                required
+                placeholder="https://hooks.slack.com/services/…"
+              />
+            </Field>
+            <fieldset className="grid gap-1.5 rounded-sm border border-input p-3">
+              <legend className="text-muted-foreground">Events to deliver</legend>
+              <p className="field-hint">Leave every box unchecked to deliver all event types.</p>
+              {EVENT_OPTIONS.map((event) => (
+                // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label
+                <label key={event} className="flex items-center gap-2 font-mono text-xs">
+                  <Checkbox name="events" value={event} /> {event}
+                </label>
+              ))}
+            </fieldset>
+            <Button type="submit" className="self-start" disabled={busy}>
+              {busy ? 'Saving…' : 'Add channel'}
+            </Button>
+          </Form>
+        </>
+      )}
+    </section>
   )
 }
 

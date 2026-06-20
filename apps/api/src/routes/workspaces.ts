@@ -294,7 +294,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
     const kind = kindParam && kindSchema.safeParse(kindParam).success ? kindParam : undefined
     const configs = await stubFor(c, c.req.param('workspaceId')).listConfigs(
       c.req.param('envId'),
-      kind as 'config' | 'flag' | 'secret' | undefined,
+      kind as 'config' | 'flag' | 'secret' | 'content' | undefined,
     )
     return c.json({ configs: configs.map(redact) })
   })

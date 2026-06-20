@@ -108,6 +108,26 @@
   }
 }
 
+/* Docked panel entrance: slides in from the right edge. Reduced motion: instant. */
+@keyframes ev-drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.ev-drawer-in {
+  animation: ev-drawer-in 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-drawer-in {
+    animation: none;
+  }
+}
+
 /* Dropdown/menu entrance: a short fade + lift. Reduced motion: appears instantly. */
 @keyframes ev-menu-in {
   from {

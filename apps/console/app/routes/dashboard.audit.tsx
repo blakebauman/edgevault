@@ -115,118 +115,116 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
     id ? (environments.find((e) => e.id === id)?.slug ?? id.slice(0, 8)) : null
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <div>
-            <Crumbs
-              items={[
-                { label: 'workspaces', to: '/' },
-                { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
-                { label: 'audit' },
-              ]}
-            />
-            <p className="eyebrow">Audit history</p>
-            <h1>{workspaceName ?? workspaceId}</h1>
-          </div>
-        </header>
+    <section className="panel">
+      <header className="panel-head">
+        <div>
+          <Crumbs
+            items={[
+              { label: 'workspaces', to: '/' },
+              { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
+              { label: 'audit' },
+            ]}
+          />
+          <p className="eyebrow">Audit history</p>
+          <h1>{workspaceName ?? workspaceId}</h1>
+        </div>
+      </header>
 
-        <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-          The cold warehouse: every recorded change, retained indefinitely. Defaults to the last 7
-          days; ranges are capped at 31 days per query.
-        </p>
+      <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+        The cold warehouse: every recorded change, retained indefinitely. Defaults to the last 7
+        days; ranges are capped at 31 days per query.
+      </p>
 
-        <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
-          <Field label="From">
-            <Input type="date" name="from" defaultValue={from} />
-          </Field>
-          <Field label="To">
-            <Input type="date" name="to" defaultValue={to} />
-          </Field>
-          <Field label="Environment">
-            <Select name="env" defaultValue={envId}>
-              <option value="">All environments</option>
-              {environments.map((e) => (
-                <option key={e.id} value={e.id}>
-                  {e.name} /{e.slug}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Button type="submit">Query</Button>
-          <span className="flex gap-3 pb-2.5">
-            {presets.map((preset) => (
-              <Link
-                key={preset.label}
-                className="font-mono text-xs text-accent underline underline-offset-4"
-                to={`?from=${preset.from}&to=${preset.to}${envId ? `&env=${envId}` : ''}`}
-              >
-                {preset.label}
-              </Link>
+      <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
+        <Field label="From">
+          <Input type="date" name="from" defaultValue={from} />
+        </Field>
+        <Field label="To">
+          <Input type="date" name="to" defaultValue={to} />
+        </Field>
+        <Field label="Environment">
+          <Select name="env" defaultValue={envId}>
+            <option value="">All environments</option>
+            {environments.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name} /{e.slug}
+              </option>
             ))}
-          </span>
-        </Form>
+          </Select>
+        </Field>
+        <Button type="submit">Query</Button>
+        <span className="flex gap-3 pb-2.5">
+          {presets.map((preset) => (
+            <Link
+              key={preset.label}
+              className="font-mono text-xs text-accent underline underline-offset-4"
+              to={`?from=${preset.from}&to=${preset.to}${envId ? `&env=${envId}` : ''}`}
+            >
+              {preset.label}
+            </Link>
+          ))}
+        </span>
+      </Form>
 
-        {auditError && <ErrorNote>{auditError}</ErrorNote>}
+      {auditError && <ErrorNote>{auditError}</ErrorNote>}
 
-        {!auditError && (
-          <>
-            <p className="mb-3 text-sm tabular-nums text-muted-foreground">
-              Showing {events.length} of {total} event{total === 1 ? '' : 's'} in range
-              {events.length >= 1000 ? ' — the 1000-per-query cap; narrow the range' : ''}
-            </p>
-            <CardTable label="Audit events">
-              <thead>
-                <tr>
-                  <Th>At</Th>
-                  <Th>Action</Th>
-                  <Th>Key</Th>
-                  <Th>Environment</Th>
-                  <Th>By</Th>
+      {!auditError && (
+        <>
+          <p className="mb-3 text-sm tabular-nums text-muted-foreground">
+            Showing {events.length} of {total} event{total === 1 ? '' : 's'} in range
+            {events.length >= 1000 ? ' — the 1000-per-query cap; narrow the range' : ''}
+          </p>
+          <CardTable label="Audit events">
+            <thead>
+              <tr>
+                <Th>At</Th>
+                <Th>Action</Th>
+                <Th>Key</Th>
+                <Th>Environment</Th>
+                <Th>By</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: warehouse events carry no id; the list is read-only and replaced wholesale per query
+                <tr key={`${event.at}-${event.action}-${event.key ?? ''}-${i}`}>
+                  <Td label="At" className="text-muted-foreground">
+                    <LocalTime epoch={event.at} />
+                  </Td>
+                  <Td label="Action">
+                    <Chip variant="neutral">{humanizeAction(event.action)}</Chip>
+                    {event.count && event.count > 1 && (
+                      <span className="text-muted-foreground"> ×{event.count}</span>
+                    )}
+                  </Td>
+                  <Td label="Key" className="font-mono text-sm">
+                    {event.key ?? '—'}
+                  </Td>
+                  <Td label="Environment" className="font-mono text-sm text-muted-foreground">
+                    {envSlug(event.environmentId) ? `/${envSlug(event.environmentId)}` : '—'}
+                  </Td>
+                  <Td label="By" className="text-muted-foreground">
+                    {event.actor ?? event.userId.slice(0, 8)}
+                  </Td>
                 </tr>
-              </thead>
-              <tbody>
-                {events.map((event, i) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: warehouse events carry no id; the list is read-only and replaced wholesale per query
-                  <tr key={`${event.at}-${event.action}-${event.key ?? ''}-${i}`}>
-                    <Td label="At" className="text-muted-foreground">
-                      <LocalTime epoch={event.at} />
-                    </Td>
-                    <Td label="Action">
-                      <Chip variant="neutral">{humanizeAction(event.action)}</Chip>
-                      {event.count && event.count > 1 && (
-                        <span className="text-muted-foreground"> ×{event.count}</span>
-                      )}
-                    </Td>
-                    <Td label="Key" className="font-mono text-sm">
-                      {event.key ?? '—'}
-                    </Td>
-                    <Td label="Environment" className="font-mono text-sm text-muted-foreground">
-                      {envSlug(event.environmentId) ? `/${envSlug(event.environmentId)}` : '—'}
-                    </Td>
-                    <Td label="By" className="text-muted-foreground">
-                      {event.actor ?? event.userId.slice(0, 8)}
-                    </Td>
-                  </tr>
-                ))}
-                {events.length === 0 && (
-                  <tr>
-                    <Td colSpan={5} className="text-muted-foreground">
-                      No events in this range. Widen the dates, or make a change and check back —
-                      the warehouse fills from the audit queue within seconds.
-                    </Td>
-                  </tr>
-                )}
-              </tbody>
-            </CardTable>
-            {total > events.length && limit < 1000 && (
-              <Button variant="secondary" size="compact" asChild className="mt-3">
-                <Link to={`?${moreParams}`}>Show 200 more</Link>
-              </Button>
-            )}
-          </>
-        )}
-      </section>
-    </main>
+              ))}
+              {events.length === 0 && (
+                <tr>
+                  <Td colSpan={5} className="text-muted-foreground">
+                    No events in this range. Widen the dates, or make a change and check back — the
+                    warehouse fills from the audit queue within seconds.
+                  </Td>
+                </tr>
+              )}
+            </tbody>
+          </CardTable>
+          {total > events.length && limit < 1000 && (
+            <Button variant="secondary" size="compact" asChild className="mt-3">
+              <Link to={`?${moreParams}`}>Show 200 more</Link>
+            </Button>
+          )}
+        </>
+      )}
+    </section>
   )
 }
