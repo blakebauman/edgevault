@@ -1,7 +1,7 @@
 # EdgeVault
 
-Edge-native **configuration**, **secrets**, and **feature-flag** management built on
-the Cloudflare Developer Platform. Sub-10ms reads at the edge, strong
+Edge-native **configuration**, **secrets**, and **feature-flag** management — plus
+edge-served **content pages** — built on the Cloudflare Developer Platform. Sub-10ms reads at the edge, strong
 per-workspace consistency, real-time updates, AI-native authoring, and a remote
 MCP server — open-core, self-hostable on your own Cloudflare account.
 
@@ -10,7 +10,7 @@ MCP server — open-core, self-hostable on your own Cloudflare account.
 | Worker               | Role                                                                                                                                                                   |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/api`           | Control plane (OpenAPI Hono): authz, config R/W via the workspace Durable Object, real-time WebSockets, AI search + risk + assistant, promotion Workflows, MCP server. |
-| `apps/delivery`      | <10ms edge data plane: pre-resolved configs/flags from KV + an in-memory L1, API-key authenticated.                                                                    |
+| `apps/delivery`      | <10ms edge data plane: pre-resolved configs/flags + pre-rendered content pages from KV + an in-memory L1, API-key authenticated.                                       |
 | `apps/auth`          | Custom, zero-telemetry auth: Argon2id passwords, opaque sessions, EdDSA JWT/JWKS.                                                                                      |
 | `apps/console`       | React Router 7 admin UI on Workers (BFF): login + a live workspace dashboard.                                                                                          |
 | `apps/audit`         | Queue consumer: archives audit events to R2 (NDJSON) — the cold warehouse.                                                                                             |
@@ -26,13 +26,14 @@ KV for hot edge reads; R2 + Vectorize + Queues for audit, search, and warehouse.
   tokens against the JWKS and enforces Neon org membership.
 - **Config system of record** — per-workspace SQLite DO with versioned revisions,
   content-hash diffs, environment promotion, and an activity log; unified
-  config / flag / **secret** items.
+  config / flag / **secret** / **content** items.
 - **Real-time** — WebSocket Hibernation in the DO broadcasts changes to the
   console (`@edgevault/realtime` + `useWorkspaceEvents`).
 - **Edge delivery** — write-through to KV on every change; the delivery worker
   serves pre-resolved values behind an L1 cache, with `Server-Timing` on every
   read. Consume it with the typed [`@edgevault/sdk`](./packages/sdk/)
-  (`value`/`flag`/`batch` + React bindings).
+  (`value`/`flag`/`batch` + React bindings). Content pages pre-render to HTML at
+  publish and serve from `/v1/pages/:key` (SDK `page()` / `usePage`).
 - **Promotion Workflows** — durable dev→prod promotion with an AI/heuristic risk
   scan and a `waitForEvent` approval gate.
 - **AI** — embeddings-on-write + Vectorize semantic search, config-risk scoring

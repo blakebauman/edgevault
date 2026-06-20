@@ -54,7 +54,7 @@ Six core Workers plus two Durable Object classes. The browser only talks to the 
 | Worker | Role |
 |---|---|
 | `apps/api` (api.edgevault.io) | Control plane: Hono + zod-openapi. Authz, Neon metadata via Hyperdrive, all config/secret writes through the Vault DO, AI (search/risk/assistant), promotion Workflows, MCP server, SCIM 2.0 directory surface. |
-| `apps/delivery` (delivery.edgevault.io) | <10ms data plane: serves pre-resolved configs/flags from KV behind an in-memory L1, environment-scoped API keys. No business logic; cannot decrypt secrets. |
+| `apps/delivery` (delivery.edgevault.io) | <10ms data plane: serves pre-resolved configs/flags and pre-rendered content pages (`/v1/pages/:key`) from KV behind an in-memory L1, environment-scoped API keys. No business logic; cannot decrypt secrets. |
 | `apps/auth` (auth.edgevault.io) | Custom auth, no framework: Argon2id passwords, opaque sessions, EdDSA JWT/JWKS, MFA/passkeys, social OAuth, enterprise SSO (OIDC/SAML). Built on `jose`, `@noble/hashes`, `@oslojs/*`. |
 | `apps/console` (console.edgevault.io) | React Router 7 UI + BFF on Workers (via `@cloudflare/vite-plugin`). |
 | `apps/audit` | Queue consumer → R2 NDJSON audit warehouse. |
@@ -63,13 +63,13 @@ Six core Workers plus two Durable Object classes. The browser only talks to the 
 | `edge/control-plane` | Proprietary Managed-Edge billing (Stripe checkout/portal + usage metering) — internal, reached via service binding. |
 
 Durable Objects (in `apps/api`):
-- **VaultDurableObject** — one SQLite DO per workspace, the config **system of record**: environments, config/flag/secret items, versioned revisions, promotions, activity log, hibernatable WebSocket/SSE broadcast. Strong consistency per workspace.
+- **VaultDurableObject** — one SQLite DO per workspace, the config **system of record**: environments, config/flag/secret/content items, versioned revisions, promotions, activity log, hibernatable WebSocket/SSE broadcast. Strong consistency per workspace.
 - **EdgeVaultAgent** — AI chat state, "what changed & why", the stateful MCP server.
 
 Where data lives:
 - **Neon Postgres via Hyperdrive** — users, orgs, sessions, API-key hashes, workspace metadata, SSO/SAML/SCIM connections, billing plan + Stripe customer mapping (Drizzle, `packages/database`).
 - **Vault DO SQLite** — config content, revisions, secret *ciphertext*.
-- **KV** — pre-resolved edge values `config:{ws}:{env}:{key}`, write-through on every change (eventual consistency).
+- **KV** — pre-resolved edge values `config:{ws}:{env}:{key}` + pre-rendered content HTML `html:{ws}:{env}:{key}`, write-through on every change (eventual consistency).
 - **Secrets Store** — signing keys, `MASTER_KEK`.
 
 Core write flow: client/MCP → `api` (authz + Zod) → Vault DO RPC (revision + activity log + broadcast + audit queue) → `api` recomputes resolved value → KV write-through + `waitUntil` Vectorize upsert. Edge read: SDK → `delivery` → L1 → KV → (cold miss) repopulate.

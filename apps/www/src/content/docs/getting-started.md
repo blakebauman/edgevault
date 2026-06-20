@@ -4,8 +4,8 @@ description: From zero to an edge read in five minutes — create a workspace, m
 order: 1
 ---
 
-EdgeVault serves configuration, secrets, and feature flags from the edge. This guide takes you
-from nothing to a working read.
+EdgeVault serves configuration, secrets, and feature flags from the edge — plus block-based
+content pages that pre-render to HTML. This guide takes you from nothing to a working read.
 
 ## 1. Create a workspace
 
@@ -61,3 +61,6 @@ revision history), the resolved value is written through to KV, and the edge ser
 - [The SDK reference](/docs/sdk) — every method, option, and error
 - [Realtime events](/docs/realtime) — subscribe instead of polling
 - [Architecture](/docs/architecture) — where your data actually lives
+
+Content pages are served the same way: a block-based document pre-renders to HTML at publish and
+is read with `page()` / `usePage` (or `GET /v1/pages/:key`).

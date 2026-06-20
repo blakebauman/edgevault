@@ -33,6 +33,7 @@ const edgevault = new EdgeVault({
 | `flag(key, fallback?)` | `boolean` | Evaluates a flag. Recognises `true/false`, `1/0`, `on/off`, `yes/no`, JSON booleans, and `{ enabled: boolean }`. Anything unrecognised — including a missing flag — returns `fallback` (default `false`). **Never throws.** |
 | `config(key)` | `ConfigRecord \| null` | The full config record (key, content, contentType, version, …). |
 | `flagRecord(key)` | `ConfigRecord \| null` | The full flag record. |
+| `page(key)` | `string \| null` | A content page's pre-rendered HTML, fetched from `/v1/pages/:key`. `null` = not found. Cached like other reads. |
 | `batch(keys)` | `Record<string, ConfigRecord \| null>` | Many keys in one request; populates the per-key cache. |
 | `clearCache()` | `void` | Drop the in-process cache (e.g. after a known change). |
 
@@ -48,11 +49,12 @@ Everything except `flag()` throws on non-success responses:
 ## React bindings
 
 ```ts
-import { useConfig, useFlag, useValue } from '@edgevault/sdk/react'
+import { useConfig, useFlag, usePage, useValue } from '@edgevault/sdk/react'
 
 const { enabled, loading, error } = useFlag(edgevault, 'checkout-v2')
 const { data, loading, error } = useValue<number>(edgevault, 'timeout-ms')
 const { data, loading, error } = useConfig(edgevault, 'timeout-ms')
+const { data: html } = usePage(edgevault, 'doc.home') // pre-rendered content HTML
 ```
 
 Every hook takes the client as its **first argument** and returns

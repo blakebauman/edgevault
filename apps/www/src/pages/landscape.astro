@@ -1,0 +1,265 @@
+---
+import Base from '../layouts/Base.astro'
+
+const CONSOLE = 'https://console.edgevault.io'
+const GITHUB = 'https://github.com/blakebauman/edgevault'
+---
+
+<Base
+  title="EdgeVault — Where it sits in the landscape"
+  description="Most tools do one of config, secrets, or flags, or they run a region away from your users. EdgeVault is the only governed control plane that unifies all three at the edge — and you can run it yourself."
+  path="/landscape"
+  active="product"
+>
+  <section class="hero" data-section="hero" data-intent="frame the empty quadrant we occupy" data-layout="contained">
+    <div class="wrap">
+      <span class="eyebrow">Landscape</span>
+      <h1>One quadrant. Nobody else is in it.</h1>
+      <p class="sub body-ink">
+        Tools in this space pick a corner: a single primitive, or a region away from your users.
+        EdgeVault is the one governed control plane that unifies config, secrets, and flags — and
+        serves them from the edge.
+      </p>
+    </div>
+  </section>
+
+  <section data-section="map" data-intent="2x2 positioning map, generic categories only" data-layout="contained">
+    <div class="wrap">
+      <figure class="plot-fig" role="img"
+        aria-label="A positioning map with two axes. The horizontal axis runs from single primitive on the left to a unified config, secrets, and flags platform on the right. The vertical axis runs from centralized and region-bound at the bottom to edge-native at the top. The top-right quadrant — unified and edge-native — contains only EdgeVault. Native edge primitives sit top-left: fast but single-purpose. Broad cloud suites sit bottom-right: many services, not at the edge. Best-of-breed point tools sit bottom-left: one job each, a region away.">
+        <div class="plot">
+          <span class="axis ax-top">Edge-native · &lt;10ms reads</span>
+          <span class="axis ax-bottom">Centralized · a region away</span>
+          <span class="axis ax-left">Single primitive</span>
+          <span class="axis ax-right">Unified · config + secrets + flags</span>
+
+          <div class="grid">
+            <div class="q q-tl">
+              <span class="q-tag">edge, single-purpose</span>
+              <p class="q-title">Native edge primitives</p>
+              <p class="q-note">Fast flag or KV reads bundled into a platform. One job, no secrets, no governance.</p>
+            </div>
+
+            <div class="q q-tr is-us">
+              <span class="q-tag us">the open quadrant</span>
+              <p class="q-title us">EdgeVault</p>
+              <p class="q-note us">Config, secrets, and flags in one governed control plane — served from the edge, yours to run.</p>
+            </div>
+
+            <div class="q q-bl">
+              <span class="q-tag">point tools</span>
+              <p class="q-title">Best-of-breed, one each</p>
+              <p class="q-note">Excellent at flags, or secrets, or config — separately, and a region away from your users.</p>
+            </div>
+
+            <div class="q q-br">
+              <span class="q-tag">cloud suites</span>
+              <p class="q-title">Broad, off the edge</p>
+              <p class="q-note">Cover the categories across separate services with cloud lock-in — none of it at the edge.</p>
+            </div>
+          </div>
+        </div>
+        <figcaption class="cite">Positioning map · generic categories · EdgeVault holds the unified + edge-native corner</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section data-section="why" data-intent="name the two moves that put us in the corner" data-layout="grid" data-items="2">
+    <div class="wrap">
+      <div class="legend">
+        <div class="leg">
+          <span class="eyebrow">The horizontal move</span>
+          <h2>Three tools become one.</h2>
+          <p class="body-ink lede">
+            Most of the field manages a single primitive. EdgeVault unifies config, real
+            envelope-encrypted secrets, and typed flags in one workspace — with versioned revisions,
+            promotions, and approvals across all three. The secrets are the part nobody else in the
+            edge corner can hold. The same plane even serves edge content pages, on the same
+            governance.
+          </p>
+        </div>
+        <div class="leg">
+          <span class="eyebrow">The vertical move</span>
+          <h2>At the edge, not a region away.</h2>
+          <p class="body-ink lede">
+            Pre-resolved values served from KV behind an in-memory L1 in 300+ cities, under 10ms,
+            backed by a strong-consistency system of record per workspace. Latency and correctness,
+            not one at the expense of the other.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing" data-section="closing-cta" data-intent="drive action — both doors" data-layout="contained" data-fragment="dual-cta" data-fragment-role="reuse" data-fragment-source="/">
+    <div class="wrap">
+      <h2>See the whole system. Then ship on it.</h2>
+      <div class="cta-row closing-gap">
+        <a class="btn-fill" href={CONSOLE}>Start free</a>
+        <a class="btn-line" href={GITHUB}>Self-host it</a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  :root {
+    --heading-xxl: clamp(34px, 2.2rem + 1.8vw, 56px);
+    --heading-xl: clamp(28px, 1.6rem + 1vw, 40px);
+  }
+  .hero {
+    padding: 72px 0 40px;
+    border-bottom: none;
+  }
+  .hero h1 {
+    font-size: var(--heading-xxl);
+    font-weight: 500;
+  }
+  .hero .sub {
+    margin-top: var(--spacing-sm);
+    max-width: 60ch;
+  }
+  .cite {
+    font-family: var(--mono-font-family);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-relay);
+    margin-top: var(--spacing-md);
+  }
+  .lede {
+    margin-top: var(--spacing-sm);
+    max-width: 52ch;
+  }
+
+  /* ---- the plot: dark artifact panel, even on a light page ---- */
+  .plot-fig {
+    margin: var(--spacing-md) 0 0;
+  }
+  .plot {
+    position: relative;
+    background: var(--vault);
+    border-radius: var(--radius, 12px);
+    padding: clamp(40px, 5vw, 64px);
+    isolation: isolate;
+  }
+  .grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 1px;
+    aspect-ratio: 16 / 10;
+    background: rgba(224, 170, 255, 0.18); /* the crosshair, via gap */
+    border: 1px solid rgba(224, 170, 255, 0.18);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .q {
+    background: var(--vault);
+    padding: clamp(16px, 2.2vw, 28px);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 6px;
+    min-height: 0;
+  }
+  .q-tr {
+    justify-content: flex-start;
+  }
+  .q-tag {
+    font-family: var(--mono-font-family);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(243, 244, 246, 0.5);
+  }
+  .q-title {
+    font-family: var(--heading-font-family);
+    font-size: clamp(15px, 1.1rem + 0.3vw, 19px);
+    font-weight: 500;
+    color: rgba(243, 244, 246, 0.92);
+    line-height: 1.2;
+  }
+  .q-note {
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgba(243, 244, 246, 0.62);
+    max-width: 34ch;
+  }
+
+  /* our quadrant — the only one that glows */
+  .q-tr.is-us {
+    background: linear-gradient(180deg, rgba(123, 44, 191, 0.45), rgba(36, 0, 70, 0.2));
+    box-shadow: inset 0 0 0 1px var(--glow);
+  }
+  .q-tag.us {
+    color: var(--plaintext);
+  }
+  .q-title.us {
+    color: #fff;
+    font-size: clamp(20px, 1.4rem + 0.6vw, 28px);
+    font-weight: 600;
+  }
+  .q-note.us {
+    color: rgba(243, 244, 246, 0.85);
+  }
+
+  /* ---- axis captions around the plot ---- */
+  .axis {
+    position: absolute;
+    font-family: var(--mono-font-family);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--plaintext);
+    white-space: nowrap;
+  }
+  .ax-top {
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .ax-bottom {
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(224, 170, 255, 0.5);
+  }
+  .ax-left {
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%) rotate(180deg);
+    writing-mode: vertical-rl;
+    color: rgba(224, 170, 255, 0.5);
+  }
+  .ax-right {
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
+  }
+
+  /* ---- the two-move legend ---- */
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-lg);
+  }
+
+  .closing-gap {
+    margin-top: var(--spacing-lg);
+  }
+
+  @media (max-width: 560px) {
+    .grid {
+      aspect-ratio: 1 / 1;
+    }
+    .q-note {
+      display: none;
+    }
+    .axis {
+      font-size: 9px;
+    }
+  }
+</style>
