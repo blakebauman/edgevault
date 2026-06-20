@@ -16,3 +16,8 @@ INTERNAL_TOKEN='hex-or-base64url-here'
 
 # Console origin used when building user-facing links.
 CONSOLE_URL='https://console.edgevault.io'
+
+# Set to 1 to enable the local-dev seed endpoint (/internal/seed) used by
+# `pnpm seed:dev`. Leave UNSET in any deployed environment — its absence is what
+# keeps the seed endpoint inert in staging/prod.
+ALLOW_DEV_SEED='1'

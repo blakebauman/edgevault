@@ -7,6 +7,7 @@ import { requireAuth } from './middleware/auth'
 import { withDatabase } from './middleware/database'
 import { requireWorkspaceMember } from './middleware/workspace'
 import { customDomainRoutes } from './routes/custom-domains'
+import { devSeedRoutes } from './routes/dev-seed'
 import { invitationRoutes } from './routes/invitations'
 import { machineRoutes } from './routes/machine'
 import { organizationRoutes } from './routes/organizations'
@@ -95,6 +96,10 @@ app.route('/api/v1/invitations', invitationRoutes)
 app.route('/api/v1/shares', shareRoutes)
 // …and recipient consume, reachable only by the console BFF (INTERNAL_TOKEN).
 app.route('/internal/shares', internalShareRoutes)
+// Local-dev seed (DO + KV). Inert unless ALLOW_DEV_SEED=1 (set only in
+// .dev.vars, never deployed) and the INTERNAL_TOKEN matches.
+app.use('/internal/seed', withDatabase)
+app.route('/internal/seed', devSeedRoutes)
 // Machine surface (environment API keys, not JWTs): CLI/CI export incl. secrets.
 app.route('/machine', machineRoutes)
 
