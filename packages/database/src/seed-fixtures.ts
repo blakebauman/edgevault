@@ -243,9 +243,11 @@ const storefrontItems: SeedItem[] = [
     kind: 'secret',
     contentType: 'text',
     values: {
-      development: 'sk_test_51NwQz2Lk9dDevExampleKey00staging00abcd',
-      staging: 'sk_test_51NwQz2Lk9dStagingExampleKey00abcd1234',
-      production: 'sk_live_51NwQz2Lk9dProdExampleKey00abcd567890',
+      // Placeholder seed values, deliberately not real Stripe key shapes so
+      // secret scanners don't flag the fixtures.
+      development: 'dev-stripe-secret-placeholder',
+      staging: 'staging-stripe-secret-placeholder',
+      production: 'prod-stripe-secret-placeholder',
     },
   },
   {
