@@ -1,18 +1,24 @@
-import { DurableObject } from 'cloudflare:workers'
+import { AIChatAgent } from '@cloudflare/ai-chat'
 import { redactCredentials, searchConfigs } from '@edgevault/ai'
+import { convertToModelMessages, streamText, type ToolSet, tool } from 'ai'
+import { createWorkersAI } from 'workers-ai-provider'
+import { z } from 'zod'
 import { aiRunner, embeddingModel, textModel, vectorize } from '../ai'
 import type { ActivityEntry } from '../durable-objects/types'
 import type { VaultDurableObject } from '../durable-objects/vault'
 
 /**
- * EdgeVault Agent — a per-workspace assistant that answers "what changed and
- * why" grounded in the workspace's activity log, with persistent chat history
- * in its own SQLite. It uses the configured text model when available and
- * degrades to a deterministic summary of recent activity otherwise, so it is
- * useful (and testable) with or without live Workers AI.
+ * EdgeVault Agent — a per-workspace assistant grounded in the workspace's
+ * activity log and config content.
  *
- * This is the server-side agent; the console wraps it with a chat UI. A future
- * upgrade can adopt the Agents SDK for `useAgent` state-sync over WebSockets.
+ * Migration in progress (Phase A): the class now extends the Agents SDK's
+ * `AIChatAgent`, which gives it `onChatMessage` (streaming chat over WebSocket
+ * with model-chosen tools and SDK-managed message persistence). The legacy
+ * `ask()` RPC + `chat_turns` SQLite path is kept intact so the console keeps
+ * working unchanged until the client is migrated (Phase C). `ask()` retains the
+ * deterministic no-AI fallback; the streaming path is wired for when Workers AI
+ * is available. The agent instance name is `${workspaceId}` or
+ * `${workspaceId}:${userId}` — the workspace id is its first segment.
  */
 
 /** A config item the retrieval step surfaced for the question — the UI links it. */
@@ -64,13 +70,13 @@ function fallbackAnswer(events: ActivityEntry[], names: Map<string, string>): st
   return `Here are the most recent changes in this workspace:\n${recent}`
 }
 
-export class EdgeVaultAgent extends DurableObject<Env> {
-  private readonly sql: SqlStorage
-
+export class EdgeVaultAgent extends AIChatAgent<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
-    this.sql = ctx.storage.sql
-    this.sql.exec(`CREATE TABLE IF NOT EXISTS chat_turns (
+    // Legacy chat history for the RPC `ask()` path (the SDK manages its own
+    // message store for the streaming path). `sql` is a base-class method now,
+    // so raw queries go through ctx.storage.sql.
+    ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS chat_turns (
       id TEXT PRIMARY KEY,
       question TEXT NOT NULL,
       answer TEXT NOT NULL,
@@ -78,6 +84,85 @@ export class EdgeVaultAgent extends DurableObject<Env> {
       user_id TEXT,
       created_at INTEGER DEFAULT (unixepoch()) NOT NULL
     )`)
+  }
+
+  /** The workspace this agent instance serves (name is `wsId` or `wsId:userId`). */
+  private get workspaceId(): string {
+    return this.name.split(':')[0] ?? ''
+  }
+
+  /** Tools the model can call: semantic config search + recent activity. */
+  private chatTools() {
+    const workspaceId = this.workspaceId
+    return {
+      searchConfigs: tool({
+        description:
+          'Find config, flag, secret, or content items in this workspace by meaning. Use when the user is looking for a specific setting or value.',
+        inputSchema: z.object({ query: z.string().describe('what to look for') }),
+        execute: async ({ query }) => {
+          try {
+            const hits = await searchConfigs(
+              {
+                ai: aiRunner(this.env),
+                vectorize: vectorize(this.env),
+                embeddingModel: embeddingModel(this.env),
+              },
+              { workspaceId, query, topK: 5 },
+            )
+            return hits.map((h) => ({
+              key: h.key,
+              kind: h.kind,
+              environmentId: h.environmentId,
+              score: h.score,
+            }))
+          } catch {
+            return []
+          }
+        },
+      }),
+      recentActivity: tool({
+        description:
+          'List recent configuration changes in this workspace (what changed and by whom).',
+        inputSchema: z.object({ limit: z.number().int().max(25).optional() }),
+        execute: async ({ limit }) => {
+          const workspace = this.env.WORKSPACE.get(
+            this.env.WORKSPACE.idFromName(workspaceId),
+          ) as DurableObjectStub<VaultDurableObject>
+          const events = await workspace.listActivity(limit ?? 25)
+          return events.map((e) => ({
+            action: e.action,
+            resourceType: e.resourceType,
+            resourceId: e.resourceId,
+            at: e.createdAt,
+          }))
+        },
+      }),
+    }
+  }
+
+  /**
+   * Streaming chat (Agents SDK). The model decides when to call the tools above;
+   * messages are persisted by the SDK. Not yet wired to the console client
+   * (Phase C); the deterministic no-AI fallback still lives on `ask()`.
+   */
+  override async onChatMessage(
+    onFinish: Parameters<AIChatAgent<Env>['onChatMessage']>[0],
+    options?: Parameters<AIChatAgent<Env>['onChatMessage']>[1],
+  ): Promise<Response | undefined> {
+    const workersai = createWorkersAI({ binding: this.env.AI })
+    const result = streamText({
+      model: workersai(textModel(this.env) as Parameters<typeof workersai>[0]),
+      system:
+        "You are EdgeVault's assistant for a single workspace. Use the searchConfigs tool to find items by meaning and the recentActivity tool for what changed and why. Cite items by key; be concise; never invent keys or values.",
+      messages: await convertToModelMessages(this.messages),
+      // Widened to ToolSet so streamText doesn't narrow onFinish past the
+      // base-class callback signature; the executes run unchanged.
+      tools: this.chatTools() as ToolSet,
+      abortSignal: options?.abortSignal,
+      onFinish,
+      onError: (err) => console.error('onChatMessage stream error', err),
+    })
+    return result.toUIMessageStreamResponse()
   }
 
   async ask(input: { workspaceId: string; question: string; userId?: string }): Promise<AskResult> {
@@ -156,7 +241,7 @@ export class EdgeVaultAgent extends DurableObject<Env> {
       source = 'fallback'
     }
 
-    this.sql.exec(
+    this.ctx.storage.sql.exec(
       `INSERT INTO chat_turns (id, question, answer, source, user_id) VALUES (?, ?, ?, ?, ?)`,
       crypto.randomUUID(),
       input.question,
@@ -172,12 +257,12 @@ export class EdgeVaultAgent extends DurableObject<Env> {
    * for the full workspace history. */
   getHistory(userId?: string, limit = 50): ChatTurn[] {
     const rows = userId
-      ? this.sql.exec<ChatTurnRow>(
+      ? this.ctx.storage.sql.exec<ChatTurnRow>(
           `SELECT * FROM chat_turns WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`,
           userId,
           limit,
         )
-      : this.sql.exec<ChatTurnRow>(
+      : this.ctx.storage.sql.exec<ChatTurnRow>(
           `SELECT * FROM chat_turns ORDER BY created_at DESC, id DESC LIMIT ?`,
           limit,
         )
