@@ -133,7 +133,12 @@ app.use('/agents/*', withDatabase, requireAuth, async (c, next) => {
   await next()
 })
 app.all('/agents/*', async (c) => {
-  const agent = await getAgentByName(c.env.AGENT, agentInstanceName(c.req.raw))
+  // EdgeVaultAgent extends AIChatAgent, whose `Agent` base may resolve to a
+  // different `agents` package instance than getAgentByName's — a peer-instance
+  // type split no generic reconciles. Cast to the param type; it's correct at
+  // runtime (the binding is an Agent DO either way).
+  const namespace = c.env.AGENT as unknown as Parameters<typeof getAgentByName>[0]
+  const agent = await getAgentByName(namespace, agentInstanceName(c.req.raw))
   return agent.fetch(c.req.raw)
 })
 

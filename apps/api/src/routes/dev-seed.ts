@@ -1,13 +1,17 @@
 import { hashToken } from '@edgevault/auth'
 import { encryptSecret } from '@edgevault/crypto'
+import { apiKeys, notificationChannels } from '@edgevault/database/schema'
+// From the pg-free fixtures subpath, not the package root: the root re-exports
+// createDatabase (which eagerly imports `pg`), and a static import pulls `pg`
+// into the worker's module-eval — breaking the Workers test pool's CJS/ESM
+// shim. Runtime db access elsewhere uses dynamic import to stay lazy.
 import {
   SEED_ORGS,
   type SeedChannel,
   type SeedItem,
   type SeedOrg,
   type SeedWorkspace,
-} from '@edgevault/database'
-import { apiKeys, notificationChannels } from '@edgevault/database/schema'
+} from '@edgevault/database/seed-fixtures'
 import { customDomainCacheKey } from '@edgevault/edge-protocol'
 import { eq } from 'drizzle-orm'
 import { Hono, type MiddlewareHandler } from 'hono'
