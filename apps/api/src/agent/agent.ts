@@ -160,7 +160,15 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
       tools: this.chatTools() as ToolSet,
       abortSignal: options?.abortSignal,
       onFinish,
-      onError: (err) => console.error('onChatMessage stream error', err),
+      onError: ({ error }) => {
+        const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+        const cause = (error as { cause?: unknown })?.cause
+        console.error(
+          'onChatMessage stream error:',
+          detail,
+          cause ? `| cause: ${JSON.stringify(cause)}` : '',
+        )
+      },
     })
     return result.toUIMessageStreamResponse()
   }
