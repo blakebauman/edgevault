@@ -12,6 +12,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check ."
   },
@@ -20,10 +21,12 @@
     "pg": "^8.21.0"
   },
   "devDependencies": {
+    "@edgevault/auth": "workspace:*",
     "@edgevault/typescript-config": "workspace:*",
     "@types/pg": "^8.20.0",
     "dotenv": "^17.0.0",
     "drizzle-kit": "^0.31.10",
+    "tsx": "^4.19.2",
     "typescript": "^5.9.2"
   }
 }

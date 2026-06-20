@@ -16,6 +16,7 @@
     "db:up": "docker compose up -d --wait neon-local",
     "db:down": "docker compose down",
     "db:migrate:local": "DATABASE_URL='postgres://neon:npg@localhost:5432/neondb?sslmode=no-verify' pnpm --filter @edgevault/database db:migrate",
+    "db:seed:local": "DATABASE_URL='postgres://neon:npg@localhost:5432/neondb?sslmode=no-verify' pnpm --filter @edgevault/database db:seed",
     "lint": "biome lint .",
     "boundary": "node scripts/check-boundary.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",

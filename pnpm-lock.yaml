@@ -35,6 +35,9 @@ importers:
       '@edgevault/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@edgevault/blocks':
+        specifier: workspace:*
+        version: link:../../packages/blocks
       '@edgevault/config-formats':
         specifier: workspace:*
         version: link:../../packages/config-formats
@@ -61,16 +64,16 @@ importers:
         version: link:../../packages/scim
       '@hono/zod-openapi':
         specifier: ^1.1.0
-        version: 1.4.0(hono@4.12.25)(zod@4.4.3)
+        version: 1.4.0(hono@4.12.26)(zod@4.4.3)
       '@hono/zod-validator':
         specifier: ^0.7.0
-        version: 0.7.6(hono@4.12.25)(zod@4.4.3)
+        version: 0.7.6(hono@4.12.26)(zod@4.4.3)
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@types/pg@8.20.0)(pg@8.21.0)
       hono:
         specifier: ^4.12.25
-        version: 4.12.25
+        version: 4.12.26
       zod:
         specifier: ^4.0.17
         version: 4.4.3
@@ -132,7 +135,7 @@ importers:
         version: link:../../packages/sso-saml
       '@hono/zod-validator':
         specifier: ^0.7.0
-        version: 0.7.6(hono@4.12.25)(zod@4.4.3)
+        version: 0.7.6(hono@4.12.26)(zod@4.4.3)
       '@simplewebauthn/server':
         specifier: ^13.3.1
         version: 13.3.1
@@ -141,7 +144,7 @@ importers:
         version: 0.45.2(@types/pg@8.20.0)(pg@8.21.0)
       hono:
         specifier: ^4.12.25
-        version: 4.12.25
+        version: 4.12.26
       zod:
         specifier: ^4.0.17
         version: 4.4.3
@@ -161,6 +164,9 @@ importers:
 
   apps/console:
     dependencies:
+      '@edgevault/blocks':
+        specifier: workspace:*
+        version: link:../../packages/blocks
       '@edgevault/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
@@ -251,7 +257,7 @@ importers:
         version: link:../../packages/edge-protocol
       hono:
         specifier: ^4.12.25
-        version: 4.12.25
+        version: 4.12.26
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: ^0.16.12
@@ -313,7 +319,7 @@ importers:
         version: link:../../packages/edge-protocol
       hono:
         specifier: ^4.12.25
-        version: 4.12.25
+        version: 4.12.26
     devDependencies:
       '@edgevault/typescript-config':
         specifier: workspace:*
@@ -348,6 +354,22 @@ importers:
       jose:
         specifier: ^6.2.3
         version: 6.2.3
+    devDependencies:
+      '@edgevault/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.8
+        version: 4.1.8(@types/node@25.9.1)(happy-dom@20.10.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))
+
+  packages/blocks:
+    dependencies:
+      zod:
+        specifier: ^4.0.17
+        version: 4.4.3
     devDependencies:
       '@edgevault/typescript-config':
         specifier: workspace:*
@@ -426,6 +448,9 @@ importers:
         specifier: ^8.21.0
         version: 8.21.0
     devDependencies:
+      '@edgevault/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@edgevault/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
@@ -438,6 +463,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.4
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
@@ -3106,8 +3134,8 @@ packages:
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
 
-  hono@4.12.25:
-    resolution: {integrity: sha512-2NFaIyNVgJmBs/ecmtGzlmluTFs5cHEWGTdu0t1HBwYzoGXOL5nUQBRMXsXWla5i4KkG//QMzVP88m1+I3fdAQ==}
+  hono@4.12.26:
+    resolution: {integrity: sha512-uyZtpnYxM9CmQ7QsQknM4zN8EftNqhON1qYeIKM0Se67CCEe2c44xyGURwB0axX2fBDu1dqHrHAc1hmNT8ITkw==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@3.0.3:
@@ -5171,22 +5199,22 @@ snapshots:
 
   '@hexagon/base64@1.1.28': {}
 
-  '@hono/zod-openapi@1.4.0(hono@4.12.25)(zod@4.4.3)':
+  '@hono/zod-openapi@1.4.0(hono@4.12.26)(zod@4.4.3)':
     dependencies:
       '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
-      '@hono/zod-validator': 0.8.0(hono@4.12.25)(zod@4.4.3)
-      hono: 4.12.25
+      '@hono/zod-validator': 0.8.0(hono@4.12.26)(zod@4.4.3)
+      hono: 4.12.26
       openapi3-ts: 4.6.0
       zod: 4.4.3
 
-  '@hono/zod-validator@0.7.6(hono@4.12.25)(zod@4.4.3)':
+  '@hono/zod-validator@0.7.6(hono@4.12.26)(zod@4.4.3)':
     dependencies:
-      hono: 4.12.25
+      hono: 4.12.26
       zod: 4.4.3
 
-  '@hono/zod-validator@0.8.0(hono@4.12.25)(zod@4.4.3)':
+  '@hono/zod-validator@0.8.0(hono@4.12.26)(zod@4.4.3)':
     dependencies:
-      hono: 4.12.25
+      hono: 4.12.26
       zod: 4.4.3
 
   '@img/colour@1.1.0': {}
@@ -6624,7 +6652,7 @@ snapshots:
       property-information: 7.2.0
       space-separated-tokens: 2.0.2
 
-  hono@4.12.25: {}
+  hono@4.12.26: {}
 
   html-escaper@3.0.3: {}
 
