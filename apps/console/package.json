@@ -23,8 +23,9 @@
     "isbot": "^5.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
     "react-router": "^7.16.0",
-    "streamdown": "^2.5.0",
+    "remark-gfm": "^4.0.1",
     "use-stick-to-bottom": "^1.1.6"
   },
   "devDependencies": {

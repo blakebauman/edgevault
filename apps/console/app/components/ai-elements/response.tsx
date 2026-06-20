@@ -1,18 +1,36 @@
 import { cn } from '@edgevault/ui'
 import { type ComponentProps, memo } from 'react'
-import { Streamdown } from 'streamdown'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 /**
- * Vendored from AI Elements (ai-sdk.dev): markdown rendering via streamdown, so
- * assistant answers can carry lists, code, and links. Styled by `.ev-response`
- * in app.css to match the vault theme (no prose plugin needed). Lazy-loaded by
- * the assistant so streamdown stays out of the main/SSR bundle.
+ * Markdown rendering for assistant answers (lists, code, links). Adapted from
+ * AI Elements' Response, but on react-markdown + remark-gfm rather than
+ * streamdown — the agent emits prose, not diagrams or highlighted code, so we
+ * skip streamdown's mermaid/shiki/katex weight. react-markdown renders no raw
+ * HTML by default (safe); styling comes from `.ev-response` in app.css.
  */
-export type ResponseProps = ComponentProps<typeof Streamdown>
+export type ResponseProps = Omit<ComponentProps<'div'>, 'children'> & {
+  children: string
+}
 
 export const Response = memo(
-  ({ className, ...props }: ResponseProps) => (
-    <Streamdown className={cn('ev-response', className)} {...props} />
+  ({ className, children, ...props }: ResponseProps) => (
+    <div className={cn('ev-response', className)} {...props}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          // External links open safely; internal styling is handled by .ev-response.
+          a: ({ node: _node, ...a }) => (
+            <a {...a} rel="noopener noreferrer" target="_blank">
+              {a.children}
+            </a>
+          ),
+        }}
+      >
+        {children}
+      </ReactMarkdown>
+    </div>
   ),
   (prev, next) => prev.children === next.children,
 )
