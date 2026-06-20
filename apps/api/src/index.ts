@@ -1,5 +1,7 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+import { getAgentByName } from 'agents'
 import type { AppEnv } from './context'
+import { getMemberRole, getWorkspaceWithOrg } from './database/queries'
 import { mcpRoutes } from './mcp'
 import { requireAuth } from './middleware/auth'
 import { withDatabase } from './middleware/database'
@@ -27,6 +29,10 @@ export { PromotionWorkflow } from './workflows/promotion'
  * Queues, Secrets Store, KV) and the config/flag/secret modules are added in
  * later phases per the architecture plan.
  */
+
+/** The agent instance name from `/agents/<party>/<name>` — `<wsId>[:<userId>]`. */
+const agentInstanceName = (req: Request): string =>
+  decodeURIComponent(new URL(req.url).pathname.split('/')[3] ?? '')
 
 const app = new OpenAPIHono<AppEnv>()
 
@@ -100,6 +106,31 @@ app.route('/scim', scimRoutes)
 // Remote MCP server (Streamable HTTP), one per workspace, same auth + membership.
 app.use('/mcp/:workspaceId', withDatabase, requireAuth, requireWorkspaceMember)
 app.route('/mcp', mcpRoutes)
+
+// --- Agent (Agents SDK) WebSocket surface ---
+// The browser connects to wss://api/agents/edge-vault-agent/<wsId>[:<userId>]
+// with the same minted-token model as the realtime /ws. We route with
+// getAgentByName (keeping the AGENT binding), which deliberately skips the SDK's
+// onBeforeConnect — so auth + workspace membership are enforced here (mirroring
+// requireWorkspaceMember), and a name's `:userId` segment must match the caller
+// (per-user threads can't be hijacked).
+app.use('/agents/*', withDatabase, requireAuth, async (c, next) => {
+  const name = agentInstanceName(c.req.raw)
+  const [workspaceId, wantedUser] = name.split(':')
+  if (!workspaceId) return c.json({ error: 'not_found' }, 404)
+  if (wantedUser && wantedUser !== c.var.userId) return c.json({ error: 'forbidden' }, 403)
+  const workspace = await getWorkspaceWithOrg(c.var.database, workspaceId)
+  if (!workspace) return c.json({ error: 'workspace_not_found' }, 404)
+  const role = await getMemberRole(c.var.database, workspace.organizationId, c.var.userId)
+  if (!role) return c.json({ error: 'forbidden' }, 403)
+  c.set('orgId', workspace.organizationId)
+  c.set('role', role)
+  await next()
+})
+app.all('/agents/*', async (c) => {
+  const agent = await getAgentByName(c.env.AGENT, agentInstanceName(c.req.raw))
+  return agent.fetch(c.req.raw)
+})
 
 // Unhandled errors stay server-side: log the real cause, return a generic body
 // (no message/stack passthrough to clients).
