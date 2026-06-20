@@ -3,7 +3,7 @@ import { handleItemAction, loadSection } from '../lib/items.server'
 import type { Route } from './+types/environment.flags'
 
 export function meta() {
-  return [{ title: 'Flags · EdgeVault' }]
+  return [{ title: 'Feature Flags · EdgeVault' }]
 }
 
 export function loader({ request, params, context }: Route.LoaderArgs) {

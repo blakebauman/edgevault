@@ -16,9 +16,9 @@ type EnvSummary = { id: string; name: string; slug: string }
 /** Env-scoped sidebar sections, in order. */
 const ENV_SECTIONS = [
   { seg: 'config', label: 'Config' },
-  { seg: 'flags', label: 'Flags' },
-  { seg: 'secrets', label: 'Secrets' },
+  { seg: 'flags', label: 'Feature Flags' },
   { seg: 'content', label: 'Content' },
+  { seg: 'secrets', label: 'Secrets' },
   { seg: 'keys', label: 'API keys' },
 ] as const
 
