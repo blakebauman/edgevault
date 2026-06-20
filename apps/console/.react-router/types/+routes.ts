@@ -139,16 +139,6 @@ type Pages = {
       "key": string;
     };
   };
-  "/dashboard/:workspaceId/assistant": {
-    params: {
-      "workspaceId": string;
-    };
-  };
-  "/dashboard/:workspaceId/assistant/history": {
-    params: {
-      "workspaceId": string;
-    };
-  };
   "/dashboard/:workspaceId/assistant/ws-token": {
     params: {
       "workspaceId": string;
@@ -202,7 +192,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/login" | "/login/mfa" | "/logout" | "/verify-email" | "/forgot-password" | "/reset-password" | "/account/mfa" | "/api/passkey" | "/api/reveal-token" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/environments" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/env/:envId/config" | "/dashboard/:workspaceId/env/:envId/flags" | "/dashboard/:workspaceId/env/:envId/secrets" | "/dashboard/:workspaceId/env/:envId/content" | "/dashboard/:workspaceId/env/:envId/keys" | "/dashboard/:workspaceId/env/:envId/pages/:key" | "/dashboard/:workspaceId/assistant" | "/dashboard/:workspaceId/assistant/history" | "/dashboard/:workspaceId/assistant/ws-token" | "/share" | "/s/:id" | "/invite/:id" | "/orgs/:orgId/members" | "/orgs/:orgId/billing" | "/orgs/:orgId/domains" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
+    page: "/" | "/login" | "/login/mfa" | "/logout" | "/verify-email" | "/forgot-password" | "/reset-password" | "/account/mfa" | "/api/passkey" | "/api/reveal-token" | "/sso/:orgId/start" | "/sso/:orgId/callback" | "/saml/:orgId/start" | "/saml/:orgId/acs" | "/oauth/:provider/start" | "/oauth/:provider/callback" | "/dashboard/:workspaceId" | "/dashboard/:workspaceId/environments" | "/dashboard/:workspaceId/compare" | "/dashboard/:workspaceId/audit" | "/dashboard/:workspaceId/notifications" | "/dashboard/:workspaceId/env/:envId" | "/dashboard/:workspaceId/env/:envId/config" | "/dashboard/:workspaceId/env/:envId/flags" | "/dashboard/:workspaceId/env/:envId/secrets" | "/dashboard/:workspaceId/env/:envId/content" | "/dashboard/:workspaceId/env/:envId/keys" | "/dashboard/:workspaceId/env/:envId/pages/:key" | "/dashboard/:workspaceId/assistant/ws-token" | "/share" | "/s/:id" | "/invite/:id" | "/orgs/:orgId/members" | "/orgs/:orgId/billing" | "/orgs/:orgId/domains" | "/orgs/:orgId/scim" | "/orgs/:orgId/sso" | "/orgs/:orgId/saml";
   };
   "routes/home.tsx": {
     id: "routes/home";
@@ -324,14 +314,6 @@ type RouteFiles = {
     id: "routes/content-page";
     page: "/dashboard/:workspaceId/env/:envId/pages/:key";
   };
-  "routes/assistant.tsx": {
-    id: "routes/assistant";
-    page: "/dashboard/:workspaceId/assistant";
-  };
-  "routes/assistant.history.tsx": {
-    id: "routes/assistant.history";
-    page: "/dashboard/:workspaceId/assistant/history";
-  };
   "routes/assistant.ws-token.tsx": {
     id: "routes/assistant.ws-token";
     page: "/dashboard/:workspaceId/assistant/ws-token";
@@ -406,8 +388,6 @@ type RouteModules = {
   "routes/environment.content": typeof import("./app/routes/environment.content.tsx");
   "routes/environment.keys": typeof import("./app/routes/environment.keys.tsx");
   "routes/content-page": typeof import("./app/routes/content-page.tsx");
-  "routes/assistant": typeof import("./app/routes/assistant.tsx");
-  "routes/assistant.history": typeof import("./app/routes/assistant.history.tsx");
   "routes/assistant.ws-token": typeof import("./app/routes/assistant.ws-token.tsx");
   "routes/share": typeof import("./app/routes/share.tsx");
   "routes/share.view": typeof import("./app/routes/share.view.tsx");

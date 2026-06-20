@@ -33,8 +33,6 @@ export default [
     ]),
     route('env/:envId/pages/:key', 'routes/content-page.tsx'),
   ]),
-  route('dashboard/:workspaceId/assistant', 'routes/assistant.tsx'),
-  route('dashboard/:workspaceId/assistant/history', 'routes/assistant.history.tsx'),
   route('dashboard/:workspaceId/assistant/ws-token', 'routes/assistant.ws-token.tsx'),
   route('share', 'routes/share.tsx'),
   route('s/:id', 'routes/share.view.tsx'),
