@@ -153,6 +153,20 @@ export function GlobalAssistant() {
                       <Suspense fallback={<div className="ev-response">{m.content}</div>}>
                         <Response>{m.content}</Response>
                       </Suspense>
+                      {m.citations && m.citations.length > 0 && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="font-mono text-xs text-muted-foreground">Sources:</span>
+                          {m.citations.map((c) => (
+                            <Link
+                              key={`${c.environmentId}:${c.key}`}
+                              to={`/dashboard/${workspaceId}/env/${c.environmentId}`}
+                              className="rounded-sm bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground no-underline transition-colors hover:text-accent"
+                            >
+                              {c.key}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ),
                 )}

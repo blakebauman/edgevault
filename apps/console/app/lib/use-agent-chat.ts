@@ -12,6 +12,14 @@ import { useCallback, useState } from 'react'
  * a drop-in here once EdgeVaultAgent extends the SDK's `Agent`.
  */
 
+/** A config item the assistant surfaced for the question — rendered as a source. */
+export interface Citation {
+  key: string
+  environmentId: string
+  kind: string
+  score: number
+}
+
 export interface AgentMessage {
   id: string
   role: 'user' | 'assistant'
@@ -20,12 +28,15 @@ export interface AgentMessage {
   source?: 'ai' | 'fallback'
   /** Assistant turns: how many activity-log events grounded the answer. */
   groundedOnEvents?: number
+  /** Assistant turns: config items the retrieval step surfaced. */
+  citations?: Citation[]
 }
 
 interface AskResult {
   answer: string
   source: 'ai' | 'fallback'
   groundedOnEvents: number
+  citations?: Citation[]
 }
 
 export interface UseAgentChat {
@@ -83,6 +94,7 @@ export function useAgentChat(workspaceId: string): UseAgentChat {
             content: result.answer,
             source: result.source,
             groundedOnEvents: result.groundedOnEvents,
+            citations: result.citations ?? [],
           },
         ])
       } catch {

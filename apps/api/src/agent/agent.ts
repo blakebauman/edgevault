@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers'
-import { redactCredentials } from '@edgevault/ai'
-import { aiRunner, textModel } from '../ai'
+import { redactCredentials, searchConfigs } from '@edgevault/ai'
+import { aiRunner, embeddingModel, textModel, vectorize } from '../ai'
 import type { ActivityEntry } from '../durable-objects/types'
 import type { VaultDurableObject } from '../durable-objects/vault'
 
@@ -15,10 +15,20 @@ import type { VaultDurableObject } from '../durable-objects/vault'
  * upgrade can adopt the Agents SDK for `useAgent` state-sync over WebSockets.
  */
 
+/** A config item the retrieval step surfaced for the question — the UI links it. */
+export interface Citation {
+  key: string
+  environmentId: string
+  kind: string
+  score: number
+}
+
 export interface AskResult {
   answer: string
   source: 'ai' | 'fallback'
   groundedOnEvents: number
+  /** Config items relevant to the question (semantic search); may be empty. */
+  citations: Citation[]
 }
 
 export interface ChatTurn {
@@ -76,6 +86,24 @@ export class EdgeVaultAgent extends DurableObject<Env> {
     ) as DurableObjectStub<VaultDurableObject>
     const events = await workspace.listActivity(25)
 
+    // Retrieval-augment: pull the config items most relevant to the question so
+    // the agent can answer "find …" and cite real keys, not just narrate
+    // activity. Degrades to no citations when Vectorize/AI is unavailable (e.g.
+    // local dev) or indexing is off — the search namespace is simply empty.
+    let citations: Citation[] = []
+    try {
+      citations = await searchConfigs(
+        {
+          ai: aiRunner(this.env),
+          vectorize: vectorize(this.env),
+          embeddingModel: embeddingModel(this.env),
+        },
+        { workspaceId: input.workspaceId, query: input.question, topK: 5 },
+      )
+    } catch {
+      // retrieval unavailable — answer from activity alone
+    }
+
     // The model (and the fallback) speak about people, not UUIDs — resolve
     // actor ids to names before anything reaches a prompt. Best-effort: on
     // lookup failure the ids degrade through gracefully.
@@ -104,14 +132,20 @@ export class EdgeVaultAgent extends DurableObject<Env> {
       const context = redactCredentials(
         events.map((event) => describeEvent(event, names)).join('\n'),
       ).text
+      const matchLines = citations.length
+        ? citations.map((m) => `- ${m.kind} "${m.key}"`).join('\n')
+        : '(no matching items)'
       const result = (await aiRunner(this.env).run(textModel(this.env), {
         messages: [
           {
             role: 'system',
             content:
-              "You are EdgeVault's assistant. Answer questions about recent configuration changes using ONLY the provided activity log. Be concise and cite the relevant changes.",
+              "You are EdgeVault's assistant for a single workspace. Answer using the recent activity log and the matching config items provided. When the user is looking for something, point them to the relevant items by key. Be concise; never invent keys or values.",
           },
-          { role: 'user', content: `Recent activity:\n${context}\n\nQuestion: ${input.question}` },
+          {
+            role: 'user',
+            content: `Matching config items:\n${matchLines}\n\nRecent activity:\n${context}\n\nQuestion: ${input.question}`,
+          },
         ],
       })) as { response?: string }
       answer = (result.response ?? '').trim()
@@ -131,7 +165,7 @@ export class EdgeVaultAgent extends DurableObject<Env> {
       input.userId ?? null,
     )
 
-    return { answer, source, groundedOnEvents: events.length }
+    return { answer, source, groundedOnEvents: events.length, citations }
   }
 
   getHistory(limit = 50): ChatTurn[] {
