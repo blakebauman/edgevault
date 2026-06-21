@@ -17,7 +17,6 @@ import {
 } from '@edgevault/ui'
 import { Form, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
-import { Crumbs } from '../components/crumbs'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
@@ -136,13 +135,6 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
     <section className="panel">
       <header className="panel-head">
         <div>
-          <Crumbs
-            items={[
-              { label: 'workspaces', to: '/' },
-              { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
-              { label: 'notifications' },
-            ]}
-          />
           <p className="eyebrow">Notifications</p>
           <h1>{workspaceName ?? workspaceId}</h1>
         </div>

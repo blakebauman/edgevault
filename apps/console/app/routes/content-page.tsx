@@ -9,7 +9,6 @@ import { useWorkspaceEvents } from '@edgevault/realtime/react'
 import { Button, ErrorNote, Field, StatusNote, Textarea } from '@edgevault/ui'
 import { useMemo, useState } from 'react'
 import { Form, Link, redirect, useNavigation, useRevalidator } from 'react-router'
-import { Crumbs } from '../components/crumbs'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/content-page'
@@ -142,13 +141,10 @@ export default function ContentPage({ loaderData, actionData }: Route.ComponentP
   return (
     <section className="panel">
       <header className="panel-head">
-        <Crumbs
-          items={[
-            { label: 'workspace', to: `/dashboard/${workspaceId}` },
-            { label: 'environment', to: `/dashboard/${workspaceId}/env/${envId}` },
-            { label: key },
-          ]}
-        />
+        <div>
+          <p className="eyebrow">Content page</p>
+          <h1 className="font-mono">{key}</h1>
+        </div>
         <Button variant="secondary" size="compact" asChild>
           <Link to={`/dashboard/${workspaceId}/env/${envId}`}>Back to environment</Link>
         </Button>

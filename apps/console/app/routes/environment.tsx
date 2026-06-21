@@ -1,6 +1,5 @@
 import { Outlet, useParams, useRouteLoaderData } from 'react-router'
 import { CopyButton } from '../components/copy-button'
-import { Crumbs } from '../components/crumbs'
 import type { loader as workspaceLoader } from './workspace'
 
 /**
@@ -22,13 +21,6 @@ export default function EnvironmentLayout() {
     <section className="panel">
       <header className="panel-head">
         <div>
-          <Crumbs
-            items={[
-              { label: 'workspaces', to: '/' },
-              { label: workspaceName, to: `/dashboard/${workspaceId}` },
-              { label: envName },
-            ]}
-          />
           <p className="eyebrow">Environment</p>
           <h1>
             {workspaceName} <span className="text-muted-foreground">{envName}</span>

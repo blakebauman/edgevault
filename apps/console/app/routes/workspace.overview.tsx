@@ -14,7 +14,6 @@ import {
 } from '@edgevault/ui'
 import { useState } from 'react'
 import { Form, Link, redirect, useNavigation, useRouteLoaderData } from 'react-router'
-import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
 import { friendlyError } from '../lib/errors'
 import { humanizeAction } from '../lib/format'
@@ -218,7 +217,6 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
     <section className="panel">
       <header className="panel-head">
         <div>
-          <Crumbs items={[{ label: 'workspaces', to: '/' }, { label: workspaceName }]} />
           <p className="eyebrow">Workspace</p>
           <h1>{workspaceName}</h1>
         </div>

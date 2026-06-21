@@ -14,7 +14,6 @@ import {
 } from '@edgevault/ui'
 import { useState } from 'react'
 import { Form, redirect, useNavigation, useSearchParams } from 'react-router'
-import { Crumbs } from '../components/crumbs'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
@@ -193,13 +192,6 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
     <section className="panel">
       <header className="panel-head">
         <div>
-          <Crumbs
-            items={[
-              { label: 'workspaces', to: '/' },
-              { label: workspaceName ?? 'workspace', to: `/dashboard/${workspaceId}` },
-              { label: 'compare' },
-            ]}
-          />
           <p className="eyebrow">Compare environments</p>
           <h1>{workspaceName ?? workspaceId}</h1>
         </div>
