@@ -921,6 +921,56 @@ function ItemDetail({
   )
 }
 
+/** Compact revision history for the detail panel — the wide table doesn't fit
+ * the column, so revisions stack vertically; revert is unchanged. */
+function ItemHistory({
+  historyKey,
+  revisions,
+  busy,
+  baseSearch,
+}: {
+  historyKey: string
+  revisions: Revision[]
+  busy: boolean
+  baseSearch: (extra: Record<string, string>) => string
+}) {
+  return (
+    <aside className="item-detail" aria-label={`History for ${historyKey}`}>
+      <div className="item-detail-head">
+        <Chip variant="neutral">history</Chip>
+        <span className="dk">{historyKey}</span>
+        <Button variant="linklike" size="compact" asChild>
+          <Link to={baseSearch({})}>Close</Link>
+        </Button>
+      </div>
+      <div className="item-detail-body">
+        {revisions.length === 0 ? (
+          <p className="m-0 text-sm text-muted-foreground">No revisions recorded.</p>
+        ) : (
+          <ol className="rev-list">
+            {revisions.map((rev) => (
+              <li key={rev.id} className="rev">
+                <div className="rev-top">
+                  <span className="rev-ver">v{rev.version}</span>
+                  <Chip variant="neutral">{rev.changeType}</Chip>
+                  <span className="rev-time">
+                    <LocalTime epoch={rev.createdAt} />
+                  </span>
+                </div>
+                <div className="rev-by">
+                  {rev.actor ?? <span className="font-mono">{rev.createdBy.slice(0, 8)}</span>}
+                  {rev.summary ? ` · ${rev.summary}` : ''}
+                </div>
+                <RevertControl revisionId={rev.id} version={rev.version} busy={busy} />
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </aside>
+  )
+}
+
 /** Revert overwrites the current value (as a new revision) — danger voice. */
 function RevertControl({
   revisionId,
@@ -1134,6 +1184,13 @@ export function ItemSection({
                   />
                 </div>
               </div>
+            ) : historyKey && revisions ? (
+              <ItemHistory
+                historyKey={historyKey}
+                revisions={revisions}
+                busy={busy}
+                baseSearch={baseSearch}
+              />
             ) : selectedItem ? (
               <ItemDetail
                 item={selectedItem}
@@ -1153,16 +1210,17 @@ export function ItemSection({
           </div>
         </div>
       ) : (
-        <RecentlyDeleted deleted={deletedConfigs} busy={busy} baseSearch={baseSearch} />
-      )}
-
-      {historyKey && revisions && (
-        <RevisionHistory
-          historyKey={historyKey}
-          revisions={revisions}
-          busy={busy}
-          baseSearch={baseSearch}
-        />
+        <>
+          <RecentlyDeleted deleted={deletedConfigs} busy={busy} baseSearch={baseSearch} />
+          {historyKey && revisions && (
+            <RevisionHistory
+              historyKey={historyKey}
+              revisions={revisions}
+              busy={busy}
+              baseSearch={baseSearch}
+            />
+          )}
+        </>
       )}
     </>
   )

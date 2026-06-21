@@ -1019,6 +1019,53 @@
     line-height: 1.5;
   }
 
+  /* compact revision history (in the detail panel) */
+  .rev-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .rev {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rev:first-child {
+    padding-top: 0;
+  }
+
+  .rev:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .rev-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .rev-ver {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--foreground);
+  }
+
+  .rev-time {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--muted-foreground-subtle);
+  }
+
+  .rev-by {
+    font-size: 0.78rem;
+    color: var(--muted-foreground);
+    margin: 0.3rem 0 0.45rem;
+  }
+
   @media (max-width: 860px) {
     .ws-shell {
       grid-template-columns: 1fr;
