@@ -497,6 +497,7 @@ export function ItemForm({
   allKeys,
   lockedKind,
   onDone,
+  inPanel,
 }: {
   editing: ConfigRow | null
   loading: boolean
@@ -505,6 +506,8 @@ export function ItemForm({
   /** When set, the form pins this kind (no kind picker) — the section owns it. */
   lockedKind?: ItemKind
   onDone: () => void
+  /** Rendered inside the detail panel — the wrapper supplies top spacing. */
+  inPanel?: boolean
 }) {
   const initialKind: ItemKind = editing?.kind ?? lockedKind ?? 'config'
   const [kind, setKind] = useState<string>(initialKind)
@@ -577,7 +580,11 @@ export function ItemForm({
   const showKindPicker = !lockedKind
 
   return (
-    <Form method="post" className="mt-6 flex max-w-xl flex-col gap-3" onSubmit={validate}>
+    <Form
+      method="post"
+      className={cn('flex max-w-xl flex-col gap-3', !inPanel && 'mt-6')}
+      onSubmit={validate}
+    >
       <input type="hidden" name="intent" value="save" />
       {lockedKind && <input type="hidden" name="kind" value={kind} />}
       <Field label="Key">
@@ -1017,6 +1024,7 @@ export function ItemSection({
   const [searchParams] = useSearchParams()
   const [editing, setEditing] = useState<ConfigRow | null>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   const [tab, setTab] = useState<'items' | 'deleted'>('items')
   const selection = useItemSelection()
 
@@ -1029,6 +1037,22 @@ export function ItemSection({
   const referenceableKeys = configs.filter((c) => c.kind !== 'secret').map((c) => c.key)
   const noun = KIND_NOUN[kind]
   const selectedItem = selectedKey ? (configs.find((c) => c.key === selectedKey) ?? null) : null
+
+  // The detail panel hosts the read view, the edit form, or the create form.
+  const startEdit = (item: ConfigRow) => {
+    setEditing(item)
+    setSelectedKey(item.key)
+    setCreating(false)
+  }
+  const startCreate = () => {
+    setCreating(true)
+    setEditing(null)
+    setSelectedKey(null)
+  }
+  const closeForm = () => {
+    setEditing(null)
+    setCreating(false)
+  }
 
   const baseSearch = (extra: Record<string, string>) => {
     const next = new URLSearchParams(searchParams)
@@ -1043,7 +1067,7 @@ export function ItemSection({
 
   const defaultEmpty =
     emptyHint ??
-    `No ${noun.one}s here yet. Add your first ${noun.add} below — it's live at the edge seconds after saving.`
+    `No ${noun.one}s here yet. Add your first ${noun.add} with "New ${noun.add}" — it's live at the edge seconds after saving.`
 
   return (
     <>
@@ -1062,6 +1086,11 @@ export function ItemSection({
       {tab === 'items' ? (
         <div className="item-split">
           <div className="item-list-col">
+            <div className="item-list-head">
+              <Button type="button" size="compact" onClick={startCreate}>
+                New {noun.add}
+              </Button>
+            </div>
             <BulkDeleteBar selected={selection.selected} busy={busy} onCleared={selection.clear} />
             <ItemsTable
               configs={configs}
@@ -1072,28 +1101,52 @@ export function ItemSection({
               revealPendingKey={reveal.pending ? reveal.pendingKey : null}
               baseSearch={baseSearch}
               pageHref={pageHref}
-              onEdit={setEditing}
+              onEdit={startEdit}
               onReveal={reveal.reveal}
               empty={defaultEmpty}
               selectedKey={selectedKey}
-              onSelect={(item) => setSelectedKey(item.key)}
+              onSelect={(item) => {
+                setSelectedKey(item.key)
+                closeForm()
+              }}
             />
           </div>
           <div className="item-detail-col">
-            {selectedItem ? (
+            {editing || creating ? (
+              <div className="item-detail">
+                <div className="item-detail-head">
+                  <span className="dk">{editing ? `Edit ${editing.key}` : `New ${noun.add}`}</span>
+                  <Button type="button" variant="linklike" size="compact" onClick={closeForm}>
+                    Close
+                  </Button>
+                </div>
+                <div className="item-detail-body">
+                  <ItemForm
+                    key={editing?.key ?? 'new'}
+                    editing={editing}
+                    loading={savingItem}
+                    successKey={savedKey}
+                    allKeys={referenceableKeys}
+                    lockedKind={kind}
+                    onDone={closeForm}
+                    inPanel
+                  />
+                </div>
+              </div>
+            ) : selectedItem ? (
               <ItemDetail
                 item={selectedItem}
                 busy={busy}
                 revealing={reveal.pending && reveal.pendingKey === selectedItem.key}
                 baseSearch={baseSearch}
                 pageHref={pageHref(selectedItem.key)}
-                onEdit={() => setEditing(selectedItem)}
+                onEdit={() => startEdit(selectedItem)}
                 onReveal={() => reveal.reveal(selectedItem.key)}
                 onClose={() => setSelectedKey(null)}
               />
             ) : (
               <div className="item-detail-empty">
-                Select a {noun.one} to see its value, metadata, and actions.
+                Select a {noun.one} to see its value and actions, or add a {noun.add}.
               </div>
             )}
           </div>
@@ -1110,17 +1163,6 @@ export function ItemSection({
           baseSearch={baseSearch}
         />
       )}
-
-      <h2>{editing ? `Edit "${editing.key}"` : `Add a ${noun.add}`}</h2>
-      <ItemForm
-        key={editing?.key ?? 'new'}
-        editing={editing}
-        loading={savingItem}
-        successKey={savedKey}
-        allKeys={referenceableKeys}
-        lockedKind={kind}
-        onDone={() => setEditing(null)}
-      />
     </>
   )
 }

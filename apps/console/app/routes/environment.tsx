@@ -18,7 +18,7 @@ export default function EnvironmentLayout() {
   const workspaceName = workspace?.workspaceName ?? workspaceId
 
   return (
-    <section className="panel">
+    <section className="panel is-wide">
       <header className="panel-head">
         <div>
           <p className="eyebrow">Environment</p>

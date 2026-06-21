@@ -90,6 +90,11 @@
     width: min(64rem, 100%);
   }
 
+  /* env sections run wider so the list + detail split has room to breathe */
+  .panel.is-wide {
+    width: min(84rem, 100%);
+  }
+
   .panel-head {
     display: flex;
     align-items: center;
@@ -905,7 +910,7 @@
 
   @media (min-width: 1100px) {
     .item-split {
-      grid-template-columns: minmax(0, 1fr) 23rem;
+      grid-template-columns: minmax(0, 1fr) 28rem;
     }
 
     .item-detail-col {
