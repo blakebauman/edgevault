@@ -1,16 +1,10 @@
 import { useAgentChat } from '@cloudflare/ai-chat/react'
-import { Button, cn, ErrorNote } from '@edgevault/ui'
+import { ErrorNote } from '@edgevault/ui'
 import { useAgent } from 'agents/react'
 import { type FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useMatches, useRouteLoaderData } from 'react-router'
 import type { loader as rootLoader } from '../root'
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from './ai-elements/conversation'
 import { Loader } from './ai-elements/loader'
-import { Suggestion, Suggestions } from './ai-elements/suggestion'
 
 const Response = lazy(() => import('./ai-elements/response').then((m) => ({ default: m.Response })))
 
@@ -29,8 +23,27 @@ function isConfigHits(v: unknown): v is ConfigHit[] {
   return Array.isArray(v) && v.every((h) => h && typeof (h as ConfigHit).key === 'string')
 }
 
+function Spark({ size = 15 }: { size?: number }) {
+  return (
+    <svg
+      className="spark"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
+    </svg>
+  )
+}
+
 /**
- * The workspace assistant in the top bar — now on the Cloudflare Agents SDK.
+ * The workspace assistant in the top bar — on the Cloudflare Agents SDK.
  * `useAgent` opens an authed WebSocket straight to the api's per-workspace agent
  * (browser→api, like the realtime /ws); `useAgentChat` streams turns with
  * model-chosen tools and SDK-managed history. The chat hooks live in a child
@@ -74,51 +87,59 @@ export function GlobalAssistant() {
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="text-sm text-muted-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 aria-expanded:text-accent"
+        className="asst-trigger"
       >
+        <Spark />
         Assistant
       </button>
 
       {open && (
-        <aside
-          aria-label="Workspace assistant"
-          className="ev-drawer-in fixed right-0 top-0 z-50 flex h-dvh w-[min(28rem,92vw)] flex-col border-l border-border bg-card"
-        >
-          <header className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
-            <div className="flex flex-col">
-              <span className="font-display font-semibold">Assistant</span>
-              <span className="truncate font-mono text-xs text-muted-foreground">
-                {workspaceId
-                  ? `Workspace · ${workspaceName ?? workspaceId.slice(0, 8)}`
-                  : 'No workspace in context'}
+        <>
+          <button
+            type="button"
+            className="asst-scrim"
+            aria-label="Close assistant"
+            onClick={() => setOpen(false)}
+          />
+          <aside aria-label="Workspace assistant" className="ev-assistant ev-drawer-in">
+            <div className="asst-head">
+              <span className="ttl">
+                <Spark size={16} />
+                Assistant
               </span>
+              {workspaceId && (
+                <span className="asst-scope">{workspaceName ?? workspaceId.slice(0, 8)}</span>
+              )}
+              <span className="grow" />
+              <button
+                type="button"
+                className="asst-close"
+                onClick={() => setOpen(false)}
+                aria-label="Close assistant"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="Close assistant"
-              className="text-muted-foreground transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-            >
-              ✕
-            </button>
-          </header>
 
-          {ready && workspaceId && apiHost && userId ? (
-            <AgentChat workspaceId={workspaceId} name={`${workspaceId}:${userId}`} host={apiHost} />
-          ) : (
-            <div className="flex flex-1 flex-col gap-3 p-4">
-              <p className="m-0 text-sm text-muted-foreground">
-                Open a workspace to ask about its config and changes — that's where the assistant's
-                tools get their context.
-              </p>
-              <Button variant="secondary" className="self-start" asChild>
-                <Link to="/" onClick={() => setOpen(false)}>
+            {ready && workspaceId && apiHost && userId ? (
+              <AgentChat
+                workspaceId={workspaceId}
+                name={`${workspaceId}:${userId}`}
+                host={apiHost}
+              />
+            ) : (
+              <div className="asst-body">
+                <p className="asst-intro">
+                  Open a workspace to ask about its config and changes — that's where the
+                  assistant's tools get their context.
+                </p>
+                <Link to="/" onClick={() => setOpen(false)} className="sugg self-start">
                   Go to workspaces
                 </Link>
-              </Button>
-            </div>
-          )}
-        </aside>
+              </div>
+            )}
+          </aside>
+        </>
       )}
     </>
   )
@@ -135,6 +156,7 @@ function AgentChat({
 }) {
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
 
   // The access token is httpOnly — fetch a fresh one from the BFF on each
   // (re)connect for the ?token= the api verifies.
@@ -158,6 +180,12 @@ function AgentChat({
     inputRef.current?.focus()
   }, [])
 
+  // Keep the latest turn in view as it streams.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on every message update
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight })
+  }, [messages])
+
   function submit(text: string) {
     const q = text.trim()
     if (!q || busy) return
@@ -167,48 +195,48 @@ function AgentChat({
 
   return (
     <>
-      <Conversation>
-        <ConversationContent>
-          {messages.length === 0 && (
-            <div className="flex flex-col gap-3">
-              <p className="m-0 text-sm text-muted-foreground">
-                Ask what changed in this workspace, or find a config by meaning.
-              </p>
-              <Suggestions>
-                {STARTERS.map((s) => (
-                  <Suggestion key={s} suggestion={s} onClick={submit} />
-                ))}
-              </Suggestions>
+      <div className="asst-body" ref={bodyRef}>
+        {messages.length === 0 && (
+          <>
+            <p className="asst-intro">
+              Ask what changed in this workspace, or find a config by meaning.
+            </p>
+            <div className="asst-sugg">
+              {STARTERS.map((s) => (
+                <button key={s} type="button" className="sugg" onClick={() => submit(s)}>
+                  {s}
+                </button>
+              ))}
             </div>
-          )}
+          </>
+        )}
 
-          {messages.map((m) => (
-            <MessageView
-              key={m.id}
-              role={m.role}
-              parts={m.parts as unknown as AnyPart[]}
-              ws={workspaceId}
-            />
-          ))}
+        {messages.map((m) => (
+          <MessageView
+            key={m.id}
+            role={m.role}
+            parts={m.parts as unknown as AnyPart[]}
+            ws={workspaceId}
+          />
+        ))}
 
-          {busy && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader /> Thinking…
-            </div>
-          )}
-          {error && <ErrorNote>{error.message}</ErrorNote>}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+        {busy && (
+          <div className="msg ai flex items-center gap-2">
+            <Loader /> Thinking…
+          </div>
+        )}
+        {error && <ErrorNote>{error.message}</ErrorNote>}
+      </div>
 
       <form
+        className="asst-foot"
         onSubmit={(e: FormEvent) => {
           e.preventDefault()
           submit(input)
         }}
-        className="border-t border-border p-3"
       >
-        <div className="flex items-end gap-2">
+        <div className="asst-input">
+          <Spark />
           <textarea
             ref={inputRef}
             value={input}
@@ -219,18 +247,31 @@ function AgentChat({
                 submit(input)
               }
             }}
-            rows={2}
+            rows={1}
             placeholder="Ask the assistant…  (Enter to send)"
             aria-label="Ask the assistant"
             disabled={busy}
-            className={cn(
-              'max-h-32 flex-1 resize-none rounded-sm border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground',
-              'focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-55',
-            )}
           />
-          <Button type="submit" loading={busy} disabled={!input.trim()}>
-            Ask
-          </Button>
+          <button
+            type="submit"
+            className="asst-send"
+            disabled={busy || !input.trim()}
+            aria-label="Send"
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </button>
         </div>
       </form>
     </>
@@ -238,44 +279,47 @@ function AgentChat({
 }
 
 function MessageView({ role, parts, ws }: { role: string; parts: AnyPart[]; ws: string }) {
-  if (role === 'user') {
-    const text = parts
-      .filter((p) => p.type === 'text')
-      .map((p) => p.text ?? '')
-      .join('')
-    return (
-      <div className="flex flex-col items-end gap-1">
-        <span className="font-mono text-xs text-muted-foreground">You</span>
-        <div className="max-w-[85%] rounded-sm bg-muted px-3 py-2 text-sm">{text}</div>
-      </div>
-    )
-  }
-
   const text = parts
     .filter((p) => p.type === 'text')
     .map((p) => p.text ?? '')
     .join('')
+
+  if (role === 'user') {
+    return <div className="msg user">{text}</div>
+  }
+
   const sources = parts.flatMap((p) =>
     p.type.startsWith('tool-') && isConfigHits(p.output) ? p.output : [],
   )
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className="font-mono text-xs text-muted-foreground">Agent</span>
+    <div className="msg ai">
       {text && (
         <Suspense fallback={<div className="ev-response">{text}</div>}>
           <Response>{text}</Response>
         </Suspense>
       )}
       {sources.length > 0 && (
-        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <span className="font-mono text-xs text-muted-foreground">Sources:</span>
+        <div className="hits">
           {sources.map((c) => (
             <Link
               key={`${c.environmentId}:${c.key}`}
               to={`/dashboard/${ws}/env/${c.environmentId}`}
-              className="rounded-sm bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground no-underline transition-colors hover:text-accent"
+              className="hit"
             >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M12 2 3 7v10l9 5 9-5V7z" />
+              </svg>
               {c.key}
             </Link>
           ))}
