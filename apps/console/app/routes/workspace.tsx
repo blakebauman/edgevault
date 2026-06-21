@@ -10,6 +10,7 @@ import {
   useParams,
   useRouteLoaderData,
 } from 'react-router'
+import { VaultMark } from '../components/brand'
 import { CommandPalette } from '../components/command-palette'
 import { GlobalAssistant } from '../components/global-assistant'
 import { ORG_LINKS } from '../components/org-nav'
@@ -223,6 +224,11 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
   return (
     <main className="ws-shell">
       <aside className="ws-sidebar">
+        <Link to="/" className="ws-brand" aria-label="EdgeVault — all workspaces">
+          <VaultMark />
+          <span className="ws-brand-name">EdgeVault</span>
+        </Link>
+
         <Link to="/" className="ws-switch" aria-label="All workspaces">
           <span className="ws-mark" aria-hidden="true">
             {initial}
