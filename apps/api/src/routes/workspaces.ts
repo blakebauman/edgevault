@@ -235,6 +235,21 @@ export const workspaceRoutes = new Hono<AppEnv>()
       throw error
     }
   })
+  // One key's value across every environment — the "across environments" matrix
+  // in the console's item detail. Secrets report presence + version only (their
+  // ciphertext is never decrypted or returned).
+  .get('/:workspaceId/configs/:key/across-environments', async (c) => {
+    const key = c.req.param('key')
+    const stub = stubFor(c, c.req.param('workspaceId'))
+    const environments = await stub.listEnvironments()
+    const rows = await Promise.all(
+      environments.map(async (env) => {
+        const item = await stub.getConfig(env.id, key)
+        return { id: env.id, name: env.name, slug: env.slug, item: item ? redact(item) : null }
+      }),
+    )
+    return c.json({ key, environments: rows })
+  })
 
   // --- Config items ---
   .post(

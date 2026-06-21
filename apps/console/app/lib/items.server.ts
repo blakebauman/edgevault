@@ -61,6 +61,30 @@ export function api(env: Env, token: string, path: string, init?: RequestInit) {
   })
 }
 
+export type AcrossEnvRow = {
+  id: string
+  name: string
+  slug: string
+  item: { kind: ItemKind; contentType: string; content: string; version: number } | null
+}
+
+/** One key's value across every environment (the item-detail matrix). The api
+ * redacts secret content, so secrets surface as presence + version only. */
+export async function loadAcrossEnvironments(
+  env: Env,
+  token: string,
+  workspaceId: string,
+  key: string,
+): Promise<{ key: string; environments: AcrossEnvRow[] }> {
+  const res = await api(
+    env,
+    token,
+    `/${workspaceId}/configs/${encodeURIComponent(key)}/across-environments`,
+  )
+  if (!res.ok) return { key, environments: [] }
+  return (await res.json()) as { key: string; environments: AcrossEnvRow[] }
+}
+
 /** List an environment's items, optionally narrowed to a single kind. */
 export async function loadItems(
   env: Env,

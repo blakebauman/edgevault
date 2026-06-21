@@ -21,6 +21,30 @@ describe('VaultDurableObject', () => {
     expect(await workspace('ws-b').listEnvironments()).toHaveLength(0)
   })
 
+  it('resolves a key across every environment (the matrix building blocks)', async () => {
+    const ws = workspace('ws-matrix')
+    const dev = await ws.createEnvironment({ name: 'Dev', slug: 'dev', userId: 'u1' })
+    const prod = await ws.createEnvironment({ name: 'Prod', slug: 'prod', userId: 'u1' })
+
+    // The key lives in dev but not (yet) in prod.
+    await ws.setConfig({
+      environmentId: dev.id,
+      key: 'api.base',
+      content: '{"url":"https://dev"}',
+      userId: 'u1',
+    })
+
+    const envs = await ws.listEnvironments()
+    expect(envs.map((e) => e.slug).sort()).toEqual(['dev', 'prod'])
+
+    // The route loops getConfig per environment to build the matrix row set.
+    expect(await ws.getConfig(dev.id, 'api.base')).toMatchObject({
+      key: 'api.base',
+      content: '{"url":"https://dev"}',
+    })
+    expect(await ws.getConfig(prod.id, 'api.base')).toBeNull()
+  })
+
   it('versions config writes and records revisions + activity', async () => {
     const ws = workspace('ws-versions')
     const env1 = await ws.createEnvironment({

@@ -17,7 +17,7 @@ import {
 } from '@edgevault/ui'
 import { useEffect, useRef, useState } from 'react'
 import { Form, Link, useFetcher, useNavigation, useSearchParams } from 'react-router'
-import type { ConfigRow, DeletedRow, ItemKind, Revision } from '../lib/items.server'
+import type { AcrossEnvRow, ConfigRow, DeletedRow, ItemKind, Revision } from '../lib/items.server'
 import { HeaderActions } from './header-actions'
 import { LocalTime } from './local-time'
 import { RevealField } from './reveal-field'
@@ -834,6 +834,12 @@ function ItemActions({
  * through the audited Reveal, which surfaces in the section's RevealRegion.
  * Actions mirror the row's so either entry point works.
  */
+/** A single-line value preview for the across-environments matrix. */
+function preview(content: string): string {
+  const s = content.replace(/\s+/g, ' ').trim()
+  return s.length > 32 ? `${s.slice(0, 31)}…` : s
+}
+
 function ItemDetail({
   item,
   busy,
@@ -843,6 +849,9 @@ function ItemDetail({
   onEdit,
   onReveal,
   onClose,
+  currentEnvId,
+  matrix,
+  matrixLoading,
 }: {
   item: ConfigRow
   busy: boolean
@@ -852,6 +861,9 @@ function ItemDetail({
   onEdit: () => void
   onReveal: () => void
   onClose: () => void
+  currentEnvId: string
+  matrix: { key: string; environments: AcrossEnvRow[] } | null
+  matrixLoading: boolean
 }) {
   const isSecret = item.kind === 'secret'
   return (
@@ -872,6 +884,38 @@ function ItemDetail({
             <pre className="item-detail-value">{item.content}</pre>
           )}
         </div>
+        <div className="item-detail-sec">
+          <p className="item-detail-label">Across environments</p>
+          {matrix && matrix.key === item.key ? (
+            <div className="env-matrix">
+              {matrix.environments.map((e) => {
+                const present = Boolean(e.item)
+                const isCur = e.id === currentEnvId
+                const differs = present && !isSecret && e.item?.content !== item.content
+                return (
+                  <div key={e.id} className={cn('env-mrow', isCur && 'cur')}>
+                    <span className="env-name">{e.name}</span>
+                    <span className={cn('env-val', !present && 'unset', differs && 'drift')}>
+                      {!present
+                        ? 'not set'
+                        : isSecret
+                          ? `set · v${e.item?.version}`
+                          : preview(e.item?.content ?? '')}
+                    </span>
+                    {isCur ? (
+                      <span className="env-tag cur">current</span>
+                    ) : differs ? (
+                      <span className="env-tag drift">differs</span>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="m-0 text-sm text-muted-foreground">{matrixLoading ? 'Loading…' : '—'}</p>
+          )}
+        </div>
+
         <div className="item-detail-sec item-detail-meta">
           <span>Version v{item.version}</span>
           <span>
@@ -1072,6 +1116,7 @@ export function ItemSection({
   const busy = navigation.state !== 'idle'
   const pendingIntent = navigation.formData?.get('intent')
   const reveal = useReveal()
+  const matrixFetcher = useFetcher<{ key: string; environments: AcrossEnvRow[] }>()
   const [searchParams] = useSearchParams()
   const [editing, setEditing] = useState<ConfigRow | null>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
@@ -1104,6 +1149,16 @@ export function ItemSection({
     setEditing(null)
     setCreating(false)
   }
+
+  // Load the across-environments matrix for the selected key, on demand.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reload only when the selection changes
+  useEffect(() => {
+    if (selectedKey) {
+      matrixFetcher.load(
+        `/dashboard/${workspaceId}/configs/${encodeURIComponent(selectedKey)}/across`,
+      )
+    }
+  }, [selectedKey, workspaceId])
 
   const baseSearch = (extra: Record<string, string>) => {
     const next = new URLSearchParams(searchParams)
@@ -1201,6 +1256,9 @@ export function ItemSection({
                 onEdit={() => startEdit(selectedItem)}
                 onReveal={() => reveal.reveal(selectedItem.key)}
                 onClose={() => setSelectedKey(null)}
+                currentEnvId={envId}
+                matrix={matrixFetcher.data ?? null}
+                matrixLoading={matrixFetcher.state !== 'idle'}
               />
             ) : (
               <div className="item-detail-empty">

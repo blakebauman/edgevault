@@ -1019,6 +1019,75 @@
     line-height: 1.5;
   }
 
+  /* across-environments matrix (in the detail panel) */
+  .env-matrix {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .env-mrow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+
+  .env-mrow:last-child {
+    border-bottom: 0;
+  }
+
+  .env-mrow.cur {
+    background: color-mix(in srgb, var(--relay) 12%, transparent);
+  }
+
+  .env-name {
+    width: 6.5rem;
+    flex: none;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .env-val {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-mono);
+    color: var(--foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .env-val.unset {
+    font-family: var(--font-body);
+    font-style: italic;
+    color: var(--muted-foreground-subtle);
+  }
+
+  .env-val.drift {
+    color: var(--warn);
+  }
+
+  .env-tag {
+    flex: none;
+    font-family: var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.6rem;
+  }
+
+  .env-tag.cur {
+    color: var(--plaintext);
+  }
+
+  .env-tag.drift {
+    color: var(--warn);
+  }
+
   /* compact revision history (in the detail panel) */
   .rev-list {
     list-style: none;
