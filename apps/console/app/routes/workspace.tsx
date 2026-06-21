@@ -1,5 +1,5 @@
 import { cn, Select } from '@edgevault/ui'
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import {
   Link,
   NavLink,
@@ -10,6 +10,7 @@ import {
   useParams,
   useRouteLoaderData,
 } from 'react-router'
+import { CommandPalette } from '../components/command-palette'
 import { GlobalAssistant } from '../components/global-assistant'
 import { UserMenu } from '../components/user-menu'
 import { getToken } from '../lib/session.server'
@@ -161,6 +162,7 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const root = useRouteLoaderData<typeof rootLoader>('root')
+  const [paletteOpen, setPaletteOpen] = useState(false)
 
   const envBase = activeEnvId ? `/dashboard/${workspaceId}/env/${activeEnvId}` : null
   const switcherValue = params.envId ?? activeEnvId ?? ''
@@ -207,6 +209,25 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
             <path d="m8 9 4-4 4 4M16 15l-4 4-4-4" />
           </svg>
         </Link>
+
+        <button type="button" className="ws-search" onClick={() => setPaletteOpen(true)}>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="7" />
+            <path d="m21 21-4.3-4.3" />
+          </svg>
+          <span className="ws-search-label">Search or jump to…</span>
+          <kbd className="ws-search-kbd">⌘K</kbd>
+        </button>
 
         <nav className="ws-nav" aria-label="Workspace">
           <div className="ws-nav-group">
@@ -314,6 +335,14 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
           <Outlet />
         </div>
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        workspaceId={workspaceId}
+        envId={activeEnvId}
+        environments={environments}
+      />
     </main>
   )
 }
