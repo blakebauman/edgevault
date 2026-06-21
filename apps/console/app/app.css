@@ -677,6 +677,15 @@
     flex: 1;
   }
 
+  .ws-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .ws-header-actions:empty {
+    display: none;
+  }
+
   .ws-content {
     flex: 1;
     min-width: 0;
@@ -894,13 +903,6 @@
   }
 
   /* --- Item list + read-detail split (config / flags / secrets) --------------- */
-  .item-list-head {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    margin: 0.75rem 0 0.5rem;
-  }
-
   .item-split {
     display: grid;
     grid-template-columns: minmax(0, 1fr);

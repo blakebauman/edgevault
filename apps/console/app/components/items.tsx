@@ -18,6 +18,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { Form, Link, useFetcher, useNavigation, useSearchParams } from 'react-router'
 import type { ConfigRow, DeletedRow, ItemKind, Revision } from '../lib/items.server'
+import { HeaderActions } from './header-actions'
 import { LocalTime } from './local-time'
 import { RevealField } from './reveal-field'
 import { StepUpPrompt } from './step-up-prompt'
@@ -1085,12 +1086,12 @@ export function ItemSection({
 
       {tab === 'items' ? (
         <div className="item-split">
+          <HeaderActions>
+            <Button type="button" size="compact" onClick={startCreate}>
+              New {noun.add}
+            </Button>
+          </HeaderActions>
           <div className="item-list-col">
-            <div className="item-list-head">
-              <Button type="button" size="compact" onClick={startCreate}>
-                New {noun.add}
-              </Button>
-            </div>
             <BulkDeleteBar selected={selection.selected} busy={busy} onCleared={selection.clear} />
             <ItemsTable
               configs={configs}
