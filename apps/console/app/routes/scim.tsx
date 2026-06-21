@@ -88,81 +88,72 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
   const error = actionData && 'error' in actionData ? actionData.error : null
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <div>
-            <p className="eyebrow">SCIM provisioning</p>
-            <h1>{org.name}</h1>
-          </div>
-          <Button variant="secondary" asChild>
-            <Link to="/">← All workspaces</Link>
+    <section className="panel">
+      <header className="panel-head">
+        <div>
+          <p className="eyebrow">SCIM provisioning</p>
+          <h1>{org.name}</h1>
+        </div>
+        <Button variant="secondary" asChild>
+          <Link to="/">← All workspaces</Link>
+        </Button>
+      </header>
+
+      <p className="lede">
+        Generate a bearer token for your identity provider (Okta, Entra ID, …) to provision users
+        into this organization over SCIM 2.0. Paste it into your IdP’s SCIM connector as the secret
+        token.
+      </p>
+
+      {error && <ErrorNote>{error}</ErrorNote>}
+
+      {scimToken ? (
+        <TokenBox
+          note={
+            <>
+              Copy this now — it is shown <strong>only once</strong> and cannot be retrieved later.
+            </>
+          }
+        >
+          <TokenValue>{scimToken}</TokenValue>
+        </TokenBox>
+      ) : revoked ? (
+        <p className="text-muted-foreground">
+          The SCIM token has been revoked. Existing IdP syncs will now fail.
+        </p>
+      ) : (
+        <p className="text-muted-foreground">
+          {status.configured
+            ? 'A SCIM token is configured for this organization. Rotate it to issue a new one.'
+            : 'No SCIM token has been generated yet.'}
+        </p>
+      )}
+
+      <ActionGroup className="mt-6">
+        <Form method="post">
+          <Button type="submit" name="intent" value="generate">
+            {status.configured ? 'Rotate token' : 'Generate token'}
           </Button>
-        </header>
-
-        <p className="lede">
-          Generate a bearer token for your identity provider (Okta, Entra ID, …) to provision users
-          into this organization over SCIM 2.0. Paste it into your IdP’s SCIM connector as the
-          secret token.
-        </p>
-
-        {error && <ErrorNote>{error}</ErrorNote>}
-
-        {scimToken ? (
-          <TokenBox
-            note={
-              <>
-                Copy this now — it is shown <strong>only once</strong> and cannot be retrieved
-                later.
-              </>
-            }
+        </Form>
+        {status.configured && (
+          <TwoStepConfirm
+            trigger="Revoke token"
+            note="Provisioning stops until a new token is configured in your IdP."
           >
-            <TokenValue>{scimToken}</TokenValue>
-          </TokenBox>
-        ) : revoked ? (
-          <p className="text-muted-foreground">
-            The SCIM token has been revoked. Existing IdP syncs will now fail.
-          </p>
-        ) : (
-          <p className="text-muted-foreground">
-            {status.configured
-              ? 'A SCIM token is configured for this organization. Rotate it to issue a new one.'
-              : 'No SCIM token has been generated yet.'}
-          </p>
+            {(close) => (
+              <Form method="post" onSubmit={close}>
+                <Button type="submit" name="intent" value="revoke" variant="danger" size="compact">
+                  Confirm revoke
+                </Button>
+              </Form>
+            )}
+          </TwoStepConfirm>
         )}
+      </ActionGroup>
 
-        <ActionGroup className="mt-6">
-          <Form method="post">
-            <Button type="submit" name="intent" value="generate">
-              {status.configured ? 'Rotate token' : 'Generate token'}
-            </Button>
-          </Form>
-          {status.configured && (
-            <TwoStepConfirm
-              trigger="Revoke token"
-              note="Provisioning stops until a new token is configured in your IdP."
-            >
-              {(close) => (
-                <Form method="post" onSubmit={close}>
-                  <Button
-                    type="submit"
-                    name="intent"
-                    value="revoke"
-                    variant="danger"
-                    size="compact"
-                  >
-                    Confirm revoke
-                  </Button>
-                </Form>
-              )}
-            </TwoStepConfirm>
-          )}
-        </ActionGroup>
-
-        <p className="mt-4 text-sm text-muted-foreground">
-          Generating a new token immediately invalidates the previous one.
-        </p>
-      </section>
-    </main>
+      <p className="mt-4 text-sm text-muted-foreground">
+        Generating a new token immediately invalidates the previous one.
+      </p>
+    </section>
   )
 }

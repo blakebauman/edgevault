@@ -14,7 +14,6 @@ import {
 import { useEffect } from 'react'
 import { Form, redirect, useRevalidator } from 'react-router'
 import { CopyButton } from '../components/copy-button'
-import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
@@ -141,103 +140,98 @@ export default function Domains({ loaderData, actionData }: Route.ComponentProps
   }, [hasPending, revalidator])
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <div>
-            <Crumbs
-              items={[{ label: 'workspaces', to: '/' }, { label: org.name }, { label: 'domains' }]}
-            />
-            <p className="eyebrow">Custom domains</p>
-            <h1>{org.name}</h1>
-          </div>
-          {enabled && domains.length > 0 && (
-            <Button type="button" variant="secondary" onClick={() => revalidator.revalidate()}>
-              {revalidator.state === 'loading' ? 'Checking…' : 'Check status'}
-            </Button>
-          )}
-        </header>
-
-        {!enabled ? (
-          <>
-            <p className="lede">Custom domains aren't enabled on this deployment.</p>
-            <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-              Self-hosting? Set <code className="font-mono">CF_ZONE_ID</code> and{' '}
-              <code className="font-mono">CF_SAAS_API_TOKEN</code> on the api worker to provision
-              hostnames through Cloudflare for SaaS — this page lights up once they're configured.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="lede">
-              Serve configs from your own hostname. CNAME it to{' '}
-              <code className="font-mono">{cnameTarget}</code>.
-            </p>
-
-            {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
-            {actionData && 'added' in actionData && (
-              <StatusNote>
-                {actionData.added} added — create the DNS records below to activate it.
-              </StatusNote>
-            )}
-            {actionData && 'removed' in actionData && <StatusNote>Domain removed.</StatusNote>}
-
-            {domains.length === 0 ? (
-              <p className="text-muted-foreground">No custom domains yet.</p>
-            ) : (
-              <CardTable label="Custom domains">
-                <thead>
-                  <tr>
-                    <Th>Hostname</Th>
-                    <Th>Status</Th>
-                    <Th>Added</Th>
-                    <Th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {domains.map((d) => {
-                    const chip = STATUS_CHIP[d.status]
-                    return (
-                      <DomainRows
-                        key={d.id}
-                        domain={d}
-                        chip={chip}
-                        cnameTarget={cnameTarget}
-                        canRemove={isAdmin}
-                        orgName={org.name}
-                      />
-                    )
-                  })}
-                </tbody>
-              </CardTable>
-            )}
-
-            {isAdmin && (
-              <>
-                <h2>Add a domain</h2>
-                <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-                  Add the hostname here first, then create the DNS records it asks for. Certificates
-                  issue automatically once DNS verifies — usually within a few minutes.
-                </p>
-                <Form method="post" className="mt-4 flex max-w-md flex-wrap items-end gap-3">
-                  <input type="hidden" name="intent" value="add" />
-                  <Field label="Hostname" className="flex-1">
-                    <Input type="text" name="hostname" required placeholder="config.example.com" />
-                  </Field>
-                  <Button type="submit">Add domain</Button>
-                </Form>
-              </>
-            )}
-
-            {!isAdmin && (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Only owners and admins manage custom domains.
-              </p>
-            )}
-          </>
+    <section className="panel">
+      <header className="panel-head">
+        <div>
+          <p className="eyebrow">Custom domains</p>
+          <h1>{org.name}</h1>
+        </div>
+        {enabled && domains.length > 0 && (
+          <Button type="button" variant="secondary" onClick={() => revalidator.revalidate()}>
+            {revalidator.state === 'loading' ? 'Checking…' : 'Check status'}
+          </Button>
         )}
-      </section>
-    </main>
+      </header>
+
+      {!enabled ? (
+        <>
+          <p className="lede">Custom domains aren't enabled on this deployment.</p>
+          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+            Self-hosting? Set <code className="font-mono">CF_ZONE_ID</code> and{' '}
+            <code className="font-mono">CF_SAAS_API_TOKEN</code> on the api worker to provision
+            hostnames through Cloudflare for SaaS — this page lights up once they're configured.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="lede">
+            Serve configs from your own hostname. CNAME it to{' '}
+            <code className="font-mono">{cnameTarget}</code>.
+          </p>
+
+          {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
+          {actionData && 'added' in actionData && (
+            <StatusNote>
+              {actionData.added} added — create the DNS records below to activate it.
+            </StatusNote>
+          )}
+          {actionData && 'removed' in actionData && <StatusNote>Domain removed.</StatusNote>}
+
+          {domains.length === 0 ? (
+            <p className="text-muted-foreground">No custom domains yet.</p>
+          ) : (
+            <CardTable label="Custom domains">
+              <thead>
+                <tr>
+                  <Th>Hostname</Th>
+                  <Th>Status</Th>
+                  <Th>Added</Th>
+                  <Th />
+                </tr>
+              </thead>
+              <tbody>
+                {domains.map((d) => {
+                  const chip = STATUS_CHIP[d.status]
+                  return (
+                    <DomainRows
+                      key={d.id}
+                      domain={d}
+                      chip={chip}
+                      cnameTarget={cnameTarget}
+                      canRemove={isAdmin}
+                      orgName={org.name}
+                    />
+                  )
+                })}
+              </tbody>
+            </CardTable>
+          )}
+
+          {isAdmin && (
+            <>
+              <h2>Add a domain</h2>
+              <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                Add the hostname here first, then create the DNS records it asks for. Certificates
+                issue automatically once DNS verifies — usually within a few minutes.
+              </p>
+              <Form method="post" className="mt-4 flex max-w-md flex-wrap items-end gap-3">
+                <input type="hidden" name="intent" value="add" />
+                <Field label="Hostname" className="flex-1">
+                  <Input type="text" name="hostname" required placeholder="config.example.com" />
+                </Field>
+                <Button type="submit">Add domain</Button>
+              </Form>
+            </>
+          )}
+
+          {!isAdmin && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Only owners and admins manage custom domains.
+            </p>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 

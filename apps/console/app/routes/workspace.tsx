@@ -12,6 +12,7 @@ import {
 } from 'react-router'
 import { CommandPalette } from '../components/command-palette'
 import { GlobalAssistant } from '../components/global-assistant'
+import { ORG_LINKS } from '../components/org-nav'
 import { UserMenu } from '../components/user-menu'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceMeta } from '../lib/workspace.server'
@@ -116,6 +117,42 @@ const SECTION_LABEL: Record<string, string> = {
   notifications: 'Notifications',
 }
 
+/** Small icons for the rail's Organization group, keyed by ORG_LINKS slug. */
+const ORG_ICON: Record<string, ReactNode> = {
+  members: (
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </>
+  ),
+  billing: (
+    <>
+      <rect x="2" y="5" width="20" height="14" rx="2" />
+      <path d="M2 10h20" />
+    </>
+  ),
+  domains: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20" />
+    </>
+  ),
+  oidc: (
+    <>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </>
+  ),
+  saml: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+  scim: (
+    <>
+      <path d="M21 12a9 9 0 1 1-3-6.7L21 8" />
+      <path d="M21 3v5h-5" />
+    </>
+  ),
+}
+
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
@@ -137,6 +174,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     workspaceId: params.workspaceId,
     workspaceName: meta.name,
     role: meta.role,
+    organizationId: meta.organizationId,
     environments,
     // The env the sidebar's type-section links target: the one in the URL, else
     // the first environment.
@@ -157,7 +195,8 @@ function currentSection(pathname: string): string {
 const navClass = ({ isActive }: { isActive: boolean }) => cn('ws-nav-link', isActive && 'active')
 
 export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
-  const { workspaceId, workspaceName, role, environments, activeEnvId } = loaderData
+  const { workspaceId, workspaceName, role, organizationId, environments, activeEnvId } = loaderData
+  const isOrgAdmin = role === 'owner' || role === 'admin'
   const params = useParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -308,6 +347,18 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
               Notifications
             </NavLink>
           </div>
+
+          {isOrgAdmin && organizationId && (
+            <div className="ws-nav-group">
+              <p className="ws-nav-label">Organization</p>
+              {ORG_LINKS.map((l) => (
+                <Link key={l.slug} to={`/orgs/${organizationId}/${l.path}`} className="ws-nav-link">
+                  <NavIcon>{ORG_ICON[l.slug]}</NavIcon>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          )}
         </nav>
 
         <div className="ws-foot">
