@@ -145,11 +145,11 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
           </Select>
         </Field>
         <Button type="submit">Query</Button>
-        <span className="flex gap-3 pb-2.5">
+        <span className="flex gap-2 pb-1.5">
           {presets.map((preset) => (
             <Link
               key={preset.label}
-              className="font-mono text-xs text-accent underline underline-offset-4"
+              className="rounded-sm border border-border px-2.5 py-1 font-mono text-xs text-muted-foreground no-underline transition-colors hover:border-accent hover:text-accent"
               to={`?from=${preset.from}&to=${preset.to}${envId ? `&env=${envId}` : ''}`}
             >
               {preset.label}
@@ -202,9 +202,11 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
               ))}
               {events.length === 0 && (
                 <tr>
-                  <Td colSpan={5} className="text-muted-foreground">
-                    No events in this range. Widen the dates, or make a change and check back — the
-                    warehouse fills from the audit queue within seconds.
+                  <Td colSpan={5} className="py-10 text-center text-muted-foreground">
+                    <span className="mx-auto block max-w-md text-pretty">
+                      No events in this range. Widen the dates, or make a change and check back —
+                      the warehouse fills from the audit queue within seconds.
+                    </span>
                   </Td>
                 </tr>
               )}

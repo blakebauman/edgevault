@@ -2,6 +2,7 @@ import {
   Button,
   CardTable,
   Checkbox,
+  Chip,
   ErrorNote,
   Field,
   Input,
@@ -146,11 +147,22 @@ export default function KeysSection({ loaderData, actionData }: Route.ComponentP
                 <Td label="Prefix">
                   <span className="font-mono text-xs">{k.prefix}…</span>
                 </Td>
-                <Td label="Scopes" className="font-mono text-xs">
-                  {k.scopes.join(', ')}
-                  {k.allowedCidrs.length > 0 && (
-                    <span className="text-muted-foreground"> · ip-restricted</span>
-                  )}
+                <Td label="Scopes">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {k.scopes.map((scope) => (
+                      <Chip
+                        key={scope}
+                        variant={scope === 'secrets:read' ? 'kind-secret' : 'neutral'}
+                      >
+                        {scope}
+                      </Chip>
+                    ))}
+                    {k.allowedCidrs.length > 0 && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        · ip-restricted
+                      </span>
+                    )}
+                  </span>
                 </Td>
                 <Td label="Expires" className="text-muted-foreground">
                   <KeyExpiry expiresAt={k.expiresAt} />

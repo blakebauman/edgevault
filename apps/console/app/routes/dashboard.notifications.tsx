@@ -198,7 +198,7 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
               ))}
               {channels.length === 0 && (
                 <tr>
-                  <Td colSpan={4} className="text-muted-foreground">
+                  <Td colSpan={4} className="py-10 text-center text-muted-foreground">
                     No channels yet — add Slack or a webhook below.
                   </Td>
                 </tr>
