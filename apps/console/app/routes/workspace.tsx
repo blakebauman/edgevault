@@ -329,6 +329,26 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
             <span className="cur">{sectionLabel}</span>
           </nav>
           <span className="ws-header-spacer" />
+          {envScoped && activeEnv && (
+            <div className="ws-envpill">
+              <span className="ws-envpill-dot" aria-hidden="true" />
+              <select
+                aria-label="Switch environment"
+                value={switcherValue}
+                onChange={(e) =>
+                  navigate(
+                    `/dashboard/${workspaceId}/env/${e.target.value}/${currentSection(location.pathname)}`,
+                  )
+                }
+              >
+                {environments.map((env) => (
+                  <option key={env.id} value={env.id}>
+                    {env.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="ws-header-actions" id="ws-header-actions" />
           <GlobalAssistant />
         </header>
