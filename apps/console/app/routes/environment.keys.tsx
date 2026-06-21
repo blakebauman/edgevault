@@ -104,7 +104,7 @@ export default function KeysSection({ loaderData, actionData }: Route.ComponentP
         </Field>
         <fieldset className="flex flex-col gap-1.5">
           <legend className="mb-1.5 text-sm text-muted-foreground">Scopes</legend>
-          <div className="grid gap-2 rounded-sm border border-input p-3">
+          <div className="flex flex-wrap gap-x-8 gap-y-2 rounded-sm border border-input p-3">
             {/* biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label */}
             <label className="flex items-center gap-2 font-mono text-xs">
               <Checkbox name="scopes" value="read" defaultChecked /> read

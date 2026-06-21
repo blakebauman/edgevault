@@ -232,7 +232,7 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
                 <p className="field-hint mb-2">
                   Leave every box unchecked to deliver all event types.
                 </p>
-                <div className="grid gap-2">
+                <div className="flex flex-wrap gap-x-8 gap-y-2">
                   {EVENT_OPTIONS.map((event) => (
                     // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label
                     <label key={event} className="flex items-center gap-2 font-mono text-xs">
