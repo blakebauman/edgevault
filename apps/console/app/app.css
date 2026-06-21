@@ -686,6 +686,37 @@
     display: none;
   }
 
+  /* per-view environment switcher pill (header, env-scoped views) */
+  .ws-envpill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.15rem 0.45rem 0.15rem 0.55rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .ws-envpill-dot {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 99px;
+    background: var(--ok);
+  }
+  .ws-envpill select {
+    background: none;
+    border: 0;
+    outline: 0;
+    color: var(--foreground);
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+  }
+  .ws-envpill select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
   .ws-content {
     flex: 1;
     min-width: 0;
