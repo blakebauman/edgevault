@@ -332,8 +332,8 @@ export function ItemsTable({
         ))}
         {configs.length === 0 && (
           <tr>
-            <Td colSpan={6} className="text-muted-foreground">
-              {empty}
+            <Td colSpan={6} className="py-10 text-center text-muted-foreground">
+              <span className="mx-auto block max-w-md text-pretty">{empty}</span>
             </Td>
           </tr>
         )}
