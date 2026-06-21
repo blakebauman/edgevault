@@ -12,6 +12,7 @@ import {
 } from '@edgevault/ui'
 import { Form, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
+import { HeaderActions } from '../components/header-actions'
 import { KeyExpiry } from '../components/items'
 import { handleItemAction, loadApiKeys } from '../lib/items.server'
 import { getToken } from '../lib/session.server'
@@ -51,6 +52,20 @@ export default function KeysSection({ loaderData, actionData }: Route.ComponentP
 
   return (
     <>
+      <HeaderActions>
+        <Button
+          type="button"
+          size="compact"
+          onClick={() => {
+            const el = document.getElementById('mint-key-name')
+            el?.scrollIntoView({ block: 'center' })
+            el?.focus()
+          }}
+        >
+          New key
+        </Button>
+      </HeaderActions>
+
       {error && <ErrorNote>{error}</ErrorNote>}
 
       <h2>Environment API keys</h2>
@@ -78,7 +93,13 @@ export default function KeysSection({ loaderData, actionData }: Route.ComponentP
       <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
         <input type="hidden" name="intent" value="mint-key" />
         <Field label="Key name">
-          <Input type="text" name="name" required placeholder="e.g. production server" />
+          <Input
+            id="mint-key-name"
+            type="text"
+            name="name"
+            required
+            placeholder="e.g. production server"
+          />
         </Field>
         <fieldset className="grid gap-1.5 rounded-sm border border-input p-3">
           <legend className="text-muted-foreground">Scopes</legend>
