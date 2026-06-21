@@ -101,79 +101,77 @@ export default function SamlAdmin({ loaderData, actionData }: Route.ComponentPro
   const saved = actionData && 'saved' in actionData ? actionData.saved : false
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <div>
-            <p className="eyebrow">Enterprise SSO (SAML 2.0)</p>
-            <h1>{org.name}</h1>
-          </div>
-          <Button variant="secondary" asChild>
-            <Link to="/">← All workspaces</Link>
-          </Button>
-        </header>
+    <section className="panel">
+      <header className="panel-head">
+        <div>
+          <p className="eyebrow">Enterprise SSO (SAML 2.0)</p>
+          <h1>{org.name}</h1>
+        </div>
+        <Button variant="secondary" asChild>
+          <Link to="/">← All workspaces</Link>
+        </Button>
+      </header>
 
-        {!isAdmin && <Forbidden subject="configure SSO" />}
+      {!isAdmin && <Forbidden subject="configure SSO" />}
 
-        {isAdmin && (
-          <>
-            <p className="lede">
-              Register your SAML identity provider. Give your IdP the SP values below, then paste
-              the IdP’s metadata values (entity id, SSO URL, signing certificate) here.
+      {isAdmin && (
+        <>
+          <p className="lede">
+            Register your SAML identity provider. Give your IdP the SP values below, then paste the
+            IdP’s metadata values (entity id, SSO URL, signing certificate) here.
+          </p>
+          {saved && (
+            <p className="text-muted-foreground">
+              Connection saved. Members can now sign in via SAML.
             </p>
-            {saved && (
-              <p className="text-muted-foreground">
-                Connection saved. Members can now sign in via SAML.
-              </p>
-            )}
-            {error && <ErrorNote>{error}</ErrorNote>}
+          )}
+          {error && <ErrorNote>{error}</ErrorNote>}
 
-            <TokenBox className="mt-6" note="ACS (Assertion Consumer Service) URL:">
-              <TokenValue>{suggestedAcsUrl}</TokenValue>
-            </TokenBox>
+          <TokenBox className="mt-6" note="ACS (Assertion Consumer Service) URL:">
+            <TokenValue>{suggestedAcsUrl}</TokenValue>
+          </TokenBox>
 
-            <Form method="post" className="mt-6 flex max-w-md flex-col gap-3 stack-gap">
-              <Field label="IdP Entity ID">
-                <Input name="idpEntityId" defaultValue={connection.idpEntityId ?? ''} required />
-              </Field>
-              <Field label="IdP SSO URL">
-                <Input
-                  name="idpSsoUrl"
-                  type="url"
-                  defaultValue={connection.idpSsoUrl ?? ''}
-                  required
-                />
-              </Field>
-              <Field label="IdP signing certificate (PEM)">
-                <Textarea
-                  name="idpCertificate"
-                  rows={6}
-                  placeholder="-----BEGIN CERTIFICATE-----"
-                  required
-                />
-              </Field>
-              <Field label="SP Entity ID">
-                <Input
-                  name="spEntityId"
-                  defaultValue={connection.spEntityId ?? suggestedSpEntityId}
-                  required
-                />
-              </Field>
-              <Field label="ACS URL">
-                <Input
-                  name="acsUrl"
-                  type="url"
-                  defaultValue={connection.acsUrl ?? suggestedAcsUrl}
-                  required
-                />
-              </Field>
-              <Button type="submit" className="self-start">
-                {connection.configured ? 'Update connection' : 'Save connection'}
-              </Button>
-            </Form>
-          </>
-        )}
-      </section>
-    </main>
+          <Form method="post" className="mt-6 flex max-w-md flex-col gap-3 stack-gap">
+            <Field label="IdP Entity ID">
+              <Input name="idpEntityId" defaultValue={connection.idpEntityId ?? ''} required />
+            </Field>
+            <Field label="IdP SSO URL">
+              <Input
+                name="idpSsoUrl"
+                type="url"
+                defaultValue={connection.idpSsoUrl ?? ''}
+                required
+              />
+            </Field>
+            <Field label="IdP signing certificate (PEM)">
+              <Textarea
+                name="idpCertificate"
+                rows={6}
+                placeholder="-----BEGIN CERTIFICATE-----"
+                required
+              />
+            </Field>
+            <Field label="SP Entity ID">
+              <Input
+                name="spEntityId"
+                defaultValue={connection.spEntityId ?? suggestedSpEntityId}
+                required
+              />
+            </Field>
+            <Field label="ACS URL">
+              <Input
+                name="acsUrl"
+                type="url"
+                defaultValue={connection.acsUrl ?? suggestedAcsUrl}
+                required
+              />
+            </Field>
+            <Button type="submit" className="self-start">
+              {connection.configured ? 'Update connection' : 'Save connection'}
+            </Button>
+          </Form>
+        </>
+      )}
+    </section>
   )
 }

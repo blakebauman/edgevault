@@ -136,85 +136,79 @@ export default function Billing({ loaderData, actionData }: Route.ComponentProps
   const error = actionData && 'error' in actionData ? actionData.error : null
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <div>
-            <p className="eyebrow">Billing &amp; plan</p>
-            <h1>{org.name}</h1>
-          </div>
-          <Button variant="secondary" asChild>
-            <Link to="/">← All workspaces</Link>
-          </Button>
-        </header>
+    <section className="panel">
+      <header className="panel-head">
+        <div>
+          <p className="eyebrow">Billing &amp; plan</p>
+          <h1>{org.name}</h1>
+        </div>
+        <Button variant="secondary" asChild>
+          <Link to="/">← All workspaces</Link>
+        </Button>
+      </header>
 
-        {!isAdmin && <Forbidden subject="manage billing" />}
-        {isAdmin && !billingAvailable && (
-          <p className="text-muted-foreground">
-            This deployment is self-hosted: it runs the full open-core platform, with no hosted
-            billing. Every feature — including SSO/SAML and SCIM — is available here.
-          </p>
-        )}
+      {!isAdmin && <Forbidden subject="manage billing" />}
+      {isAdmin && !billingAvailable && (
+        <p className="text-muted-foreground">
+          This deployment is self-hosted: it runs the full open-core platform, with no hosted
+          billing. Every feature — including SSO/SAML and SCIM — is available here.
+        </p>
+      )}
 
-        {isAdmin && billingAvailable && (
-          <>
-            {checkoutResult === 'success' && (
-              <p className="text-muted-foreground">
-                Payment received — thank you! Your plan can take up to a minute to update while we
-                confirm the subscription with Stripe. Refresh this page to see it.
-              </p>
-            )}
-            {checkoutResult === 'cancelled' && <StatusNote>Checkout cancelled.</StatusNote>}
-            {error && <ErrorNote>{error}</ErrorNote>}
-
-            <p className="lede">
-              Current plan: <strong>{status?.plan ?? 'free'}</strong>
+      {isAdmin && billingAvailable && (
+        <>
+          {checkoutResult === 'success' && (
+            <p className="text-muted-foreground">
+              Payment received — thank you! Your plan can take up to a minute to update while we
+              confirm the subscription with Stripe. Refresh this page to see it.
             </p>
+          )}
+          {checkoutResult === 'cancelled' && <StatusNote>Checkout cancelled.</StatusNote>}
+          {error && <ErrorNote>{error}</ErrorNote>}
 
-            <div className="plan-cards">
-              {(['pro', 'team'] as const).map((plan) => (
-                <TokenBox note={PLAN_COPY[plan]?.title} key={plan}>
-                  <div className="flex flex-1 flex-col gap-2">
-                    <p className="text-muted-foreground">{PLAN_COPY[plan]?.blurb}</p>
-                    {status?.plan === plan ? (
-                      <p className="text-muted-foreground">This is your current plan.</p>
-                    ) : (
-                      <Form method="post">
-                        <input type="hidden" name="intent" value="checkout" />
-                        <input type="hidden" name="plan" value={plan} />
-                        <Button
-                          type="submit"
-                          className="self-start"
-                          disabled={!status?.plans[plan]}
-                        >
-                          {status?.plans[plan]
-                            ? `Upgrade to ${PLAN_COPY[plan]?.title}`
-                            : 'Coming soon'}
-                        </Button>
-                      </Form>
-                    )}
-                  </div>
-                </TokenBox>
-              ))}
-              <TokenBox note="Enterprise">
-                <p className="text-muted-foreground">
-                  Volume pricing, SLAs, and dedicated support. Sales-led —{' '}
-                  <a href="mailto:sales@edgevault.io">contact sales</a>.
-                </p>
+          <p className="lede">
+            Current plan: <strong>{status?.plan ?? 'free'}</strong>
+          </p>
+
+          <div className="plan-cards">
+            {(['pro', 'team'] as const).map((plan) => (
+              <TokenBox note={PLAN_COPY[plan]?.title} key={plan}>
+                <div className="flex flex-1 flex-col gap-2">
+                  <p className="text-muted-foreground">{PLAN_COPY[plan]?.blurb}</p>
+                  {status?.plan === plan ? (
+                    <p className="text-muted-foreground">This is your current plan.</p>
+                  ) : (
+                    <Form method="post">
+                      <input type="hidden" name="intent" value="checkout" />
+                      <input type="hidden" name="plan" value={plan} />
+                      <Button type="submit" className="self-start" disabled={!status?.plans[plan]}>
+                        {status?.plans[plan]
+                          ? `Upgrade to ${PLAN_COPY[plan]?.title}`
+                          : 'Coming soon'}
+                      </Button>
+                    </Form>
+                  )}
+                </div>
               </TokenBox>
-            </div>
+            ))}
+            <TokenBox note="Enterprise">
+              <p className="text-muted-foreground">
+                Volume pricing, SLAs, and dedicated support. Sales-led —{' '}
+                <a href="mailto:sales@edgevault.io">contact sales</a>.
+              </p>
+            </TokenBox>
+          </div>
 
-            {status?.hasCustomer && (
-              <Form method="post" className="stack-gap">
-                <input type="hidden" name="intent" value="portal" />
-                <Button type="submit" variant="secondary">
-                  Manage billing (invoices, payment method, cancel)
-                </Button>
-              </Form>
-            )}
-          </>
-        )}
-      </section>
-    </main>
+          {status?.hasCustomer && (
+            <Form method="post" className="stack-gap">
+              <input type="hidden" name="intent" value="portal" />
+              <Button type="submit" variant="secondary">
+                Manage billing (invoices, payment method, cancel)
+              </Button>
+            </Form>
+          )}
+        </>
+      )}
+    </section>
   )
 }

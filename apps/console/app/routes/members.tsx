@@ -15,7 +15,6 @@ import {
 } from '@edgevault/ui'
 import { useState } from 'react'
 import { Form, redirect } from 'react-router'
-import { Crumbs } from '../components/crumbs'
 import { LocalTime } from '../components/local-time'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
@@ -202,234 +201,228 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
   const ownerCount = members.filter((m) => m.role === 'owner').length
 
   return (
-    <main className="shell">
-      <section className="panel">
-        <header className="panel-head">
-          <div>
-            <Crumbs
-              items={[{ label: 'workspaces', to: '/' }, { label: org.name }, { label: 'members' }]}
-            />
-            <p className="eyebrow">Members</p>
-            <h1>{org.name}</h1>
-          </div>
-        </header>
+    <section className="panel">
+      <header className="panel-head">
+        <div>
+          <p className="eyebrow">Members</p>
+          <h1>{org.name}</h1>
+        </div>
+      </header>
 
-        {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
-        {actionData && 'added' in actionData && <StatusNote>Member added.</StatusNote>}
-        {actionData && 'invited' in actionData && (
-          <StatusNote>
-            Invitation sent to {actionData.invited} — they'll get an email link, good for 7 days.
-          </StatusNote>
-        )}
-        {actionData && 'resent' in actionData && (
-          <StatusNote>Invitation re-sent with a fresh 7-day expiry.</StatusNote>
-        )}
-        {actionData && 'revoked' in actionData && <StatusNote>Invitation revoked.</StatusNote>}
-        {actionData && 'roleChanged' in actionData && <StatusNote>Role updated.</StatusNote>}
-        {actionData && 'removed' in actionData && <StatusNote>Member removed.</StatusNote>}
-        {actionData && 'securitySaved' in actionData && (
-          <StatusNote>Security policy updated.</StatusNote>
-        )}
+      {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
+      {actionData && 'added' in actionData && <StatusNote>Member added.</StatusNote>}
+      {actionData && 'invited' in actionData && (
+        <StatusNote>
+          Invitation sent to {actionData.invited} — they'll get an email link, good for 7 days.
+        </StatusNote>
+      )}
+      {actionData && 'resent' in actionData && (
+        <StatusNote>Invitation re-sent with a fresh 7-day expiry.</StatusNote>
+      )}
+      {actionData && 'revoked' in actionData && <StatusNote>Invitation revoked.</StatusNote>}
+      {actionData && 'roleChanged' in actionData && <StatusNote>Role updated.</StatusNote>}
+      {actionData && 'removed' in actionData && <StatusNote>Member removed.</StatusNote>}
+      {actionData && 'securitySaved' in actionData && (
+        <StatusNote>Security policy updated.</StatusNote>
+      )}
 
-        <CardTable label="Members">
-          <thead>
-            <tr>
-              <Th>Member</Th>
-              <Th>Role</Th>
-              <Th>Joined</Th>
-              <Th />
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((m) => {
-              const isSelf = m.userId === viewerId
-              // The last owner can't be demoted or removed — match the api guard
-              // so the UI never offers an action that will 409.
-              const lastOwner = m.role === 'owner' && ownerCount <= 1
-              return (
-                <tr key={m.userId}>
-                  <Td>
-                    <span className="flex items-center gap-2.5">
-                      <span
-                        aria-hidden="true"
-                        className="grid size-7 flex-none place-items-center rounded-sm border border-border bg-vault text-xs font-semibold text-plaintext"
-                      >
-                        {(m.name ?? m.email).trim()[0]?.toUpperCase() ?? '?'}
-                      </span>
-                      <span className="min-w-0 leading-tight">
-                        <span className="block truncate text-sm font-medium text-foreground">
-                          {m.name ?? m.email}
-                          {isSelf && <span className="text-muted-foreground"> · you</span>}
-                        </span>
-                        {m.name && (
-                          <span className="block truncate font-mono text-xs text-muted-foreground">
-                            {m.email}
-                          </span>
-                        )}
-                      </span>
+      <CardTable label="Members">
+        <thead>
+          <tr>
+            <Th>Member</Th>
+            <Th>Role</Th>
+            <Th>Joined</Th>
+            <Th />
+          </tr>
+        </thead>
+        <tbody>
+          {members.map((m) => {
+            const isSelf = m.userId === viewerId
+            // The last owner can't be demoted or removed — match the api guard
+            // so the UI never offers an action that will 409.
+            const lastOwner = m.role === 'owner' && ownerCount <= 1
+            return (
+              <tr key={m.userId}>
+                <Td>
+                  <span className="flex items-center gap-2.5">
+                    <span
+                      aria-hidden="true"
+                      className="grid size-7 flex-none place-items-center rounded-sm border border-border bg-vault text-xs font-semibold text-plaintext"
+                    >
+                      {(m.name ?? m.email).trim()[0]?.toUpperCase() ?? '?'}
                     </span>
-                  </Td>
-                  <Td label="Role">
-                    {isAdmin && !lastOwner ? (
-                      <RoleControl member={m} canGrantOwner={isOwner} />
-                    ) : (
-                      <Chip variant={ROLE_CHIP[m.role]}>{m.role}</Chip>
-                    )}
-                  </Td>
-                  <Td label="Joined" className="text-muted-foreground">
-                    <LocalTime epoch={Date.parse(m.joinedAt)} />
-                  </Td>
-                  <Td>
-                    {isAdmin && !lastOwner && !isSelf ? (
-                      <TwoStepConfirm trigger="Remove" note={`Remove ${m.email} from ${org.name}?`}>
-                        {(close) => (
-                          <Form method="post" onSubmit={close}>
-                            <input type="hidden" name="intent" value="remove" />
-                            <input type="hidden" name="userId" value={m.userId} />
-                            <Button type="submit" variant="danger" size="compact">
-                              Confirm remove
-                            </Button>
-                          </Form>
-                        )}
-                      </TwoStepConfirm>
-                    ) : null}
-                  </Td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </CardTable>
+                    <span className="min-w-0 leading-tight">
+                      <span className="block truncate text-sm font-medium text-foreground">
+                        {m.name ?? m.email}
+                        {isSelf && <span className="text-muted-foreground"> · you</span>}
+                      </span>
+                      {m.name && (
+                        <span className="block truncate font-mono text-xs text-muted-foreground">
+                          {m.email}
+                        </span>
+                      )}
+                    </span>
+                  </span>
+                </Td>
+                <Td label="Role">
+                  {isAdmin && !lastOwner ? (
+                    <RoleControl member={m} canGrantOwner={isOwner} />
+                  ) : (
+                    <Chip variant={ROLE_CHIP[m.role]}>{m.role}</Chip>
+                  )}
+                </Td>
+                <Td label="Joined" className="text-muted-foreground">
+                  <LocalTime epoch={Date.parse(m.joinedAt)} />
+                </Td>
+                <Td>
+                  {isAdmin && !lastOwner && !isSelf ? (
+                    <TwoStepConfirm trigger="Remove" note={`Remove ${m.email} from ${org.name}?`}>
+                      {(close) => (
+                        <Form method="post" onSubmit={close}>
+                          <input type="hidden" name="intent" value="remove" />
+                          <input type="hidden" name="userId" value={m.userId} />
+                          <Button type="submit" variant="danger" size="compact">
+                            Confirm remove
+                          </Button>
+                        </Form>
+                      )}
+                    </TwoStepConfirm>
+                  ) : null}
+                </Td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </CardTable>
 
-        {isAdmin && invitations.length > 0 && (
-          <>
-            <h2>Pending invitations</h2>
-            <CardTable label="Pending invitations">
-              <thead>
-                <tr>
-                  <Th>Email</Th>
-                  <Th>Role</Th>
-                  <Th>Expires</Th>
-                  <Th />
-                </tr>
-              </thead>
-              <tbody>
-                {invitations.map((inv) => {
-                  const expired = Date.parse(inv.expiresAt) < Date.now()
-                  return (
-                    <tr key={inv.id}>
-                      <Td>
-                        <span className="font-mono text-xs">{inv.email}</span>
-                      </Td>
-                      <Td label="Role">
-                        <Chip variant={ROLE_CHIP[inv.role]}>{inv.role}</Chip>
-                      </Td>
-                      <Td label="Expires" className="text-muted-foreground">
-                        <LocalTime epoch={Date.parse(inv.expiresAt)} />
-                        {expired && <span className="text-xs"> · expired</span>}
-                      </Td>
-                      <Td>
-                        <ActionGroup>
-                          <Form method="post" className="inline">
-                            <input type="hidden" name="intent" value="resend-invite" />
-                            <input type="hidden" name="invitationId" value={inv.id} />
-                            <Button type="submit" variant="secondary" size="compact">
-                              Resend
-                            </Button>
-                          </Form>
-                          <TwoStepConfirm trigger="Revoke" note={`Revoke ${inv.email}'s invite?`}>
-                            {(close) => (
-                              <Form method="post" onSubmit={close}>
-                                <input type="hidden" name="intent" value="revoke-invite" />
-                                <input type="hidden" name="invitationId" value={inv.id} />
-                                <Button type="submit" variant="danger" size="compact">
-                                  Confirm revoke
-                                </Button>
-                              </Form>
-                            )}
-                          </TwoStepConfirm>
-                        </ActionGroup>
-                      </Td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </CardTable>
-          </>
-        )}
+      {isAdmin && invitations.length > 0 && (
+        <>
+          <h2>Pending invitations</h2>
+          <CardTable label="Pending invitations">
+            <thead>
+              <tr>
+                <Th>Email</Th>
+                <Th>Role</Th>
+                <Th>Expires</Th>
+                <Th />
+              </tr>
+            </thead>
+            <tbody>
+              {invitations.map((inv) => {
+                const expired = Date.parse(inv.expiresAt) < Date.now()
+                return (
+                  <tr key={inv.id}>
+                    <Td>
+                      <span className="font-mono text-xs">{inv.email}</span>
+                    </Td>
+                    <Td label="Role">
+                      <Chip variant={ROLE_CHIP[inv.role]}>{inv.role}</Chip>
+                    </Td>
+                    <Td label="Expires" className="text-muted-foreground">
+                      <LocalTime epoch={Date.parse(inv.expiresAt)} />
+                      {expired && <span className="text-xs"> · expired</span>}
+                    </Td>
+                    <Td>
+                      <ActionGroup>
+                        <Form method="post" className="inline">
+                          <input type="hidden" name="intent" value="resend-invite" />
+                          <input type="hidden" name="invitationId" value={inv.id} />
+                          <Button type="submit" variant="secondary" size="compact">
+                            Resend
+                          </Button>
+                        </Form>
+                        <TwoStepConfirm trigger="Revoke" note={`Revoke ${inv.email}'s invite?`}>
+                          {(close) => (
+                            <Form method="post" onSubmit={close}>
+                              <input type="hidden" name="intent" value="revoke-invite" />
+                              <input type="hidden" name="invitationId" value={inv.id} />
+                              <Button type="submit" variant="danger" size="compact">
+                                Confirm revoke
+                              </Button>
+                            </Form>
+                          )}
+                        </TwoStepConfirm>
+                      </ActionGroup>
+                    </Td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </CardTable>
+        </>
+      )}
 
-        {isAdmin && (
-          <>
-            <h2>Add a member</h2>
-            <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-              Existing EdgeVault accounts join immediately. Anyone else gets an email invitation — a
-              link bound to their address, good for 7 days.
-            </p>
-            <Form method="post" className="mt-4 flex max-w-md flex-wrap items-end gap-3">
-              <input type="hidden" name="intent" value="add" />
-              <Field label="Email" className="flex-1">
-                <Input type="email" name="email" required placeholder="teammate@example.com" />
-              </Field>
-              <Field label="Role">
-                <Select name="role" defaultValue="member">
-                  <option value="member">member</option>
-                  <option value="admin">admin</option>
-                  {isOwner && <option value="owner">owner</option>}
-                </Select>
-              </Field>
-              <Button type="submit">Add</Button>
-            </Form>
-          </>
-        )}
+      {isAdmin && (
+        <>
+          <h2>Add a member</h2>
+          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+            Existing EdgeVault accounts join immediately. Anyone else gets an email invitation — a
+            link bound to their address, good for 7 days.
+          </p>
+          <Form method="post" className="mt-4 flex max-w-md flex-wrap items-end gap-3">
+            <input type="hidden" name="intent" value="add" />
+            <Field label="Email" className="flex-1">
+              <Input type="email" name="email" required placeholder="teammate@example.com" />
+            </Field>
+            <Field label="Role">
+              <Select name="role" defaultValue="member">
+                <option value="member">member</option>
+                <option value="admin">admin</option>
+                {isOwner && <option value="owner">owner</option>}
+              </Select>
+            </Field>
+            <Button type="submit">Add</Button>
+          </Form>
+        </>
+      )}
 
-        {isAdmin && (
-          <>
-            <h2>Security</h2>
-            {!security.requireStepUpForReveal && (
-              <StatusNote>
-                Secrets in this organization can currently be revealed without a fresh second
-                factor. New organizations require step-up by default — consider turning it on.
-              </StatusNote>
-            )}
-            <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-              Step-up asks for a fresh second factor (passkey or authenticator code) before any
-              secret is revealed — being signed in isn't enough. Machine API keys (CLI / CI) are
-              unaffected. Require-MFA and SSO-only gate every member's access to this organization
-              at sign-in.
-            </p>
-            <Form method="post" className="mt-4 flex flex-col gap-2">
-              <input type="hidden" name="intent" value="security" />
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="requireStepUpForReveal"
-                  defaultChecked={security.requireStepUpForReveal}
-                />
-                Require step-up to reveal secrets
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="requireMfa" defaultChecked={security.requireMfa} />
-                Require two-factor auth (TOTP or passkey) for all members
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="ssoOnly" defaultChecked={security.ssoOnly} />
-                SSO-only — members must sign in through this org's identity provider
-              </label>
-              <Button type="submit" variant="secondary" size="compact" className="self-start">
-                Save
-              </Button>
-            </Form>
-          </>
-        )}
+      {isAdmin && (
+        <>
+          <h2>Security</h2>
+          {!security.requireStepUpForReveal && (
+            <StatusNote>
+              Secrets in this organization can currently be revealed without a fresh second factor.
+              New organizations require step-up by default — consider turning it on.
+            </StatusNote>
+          )}
+          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+            Step-up asks for a fresh second factor (passkey or authenticator code) before any secret
+            is revealed — being signed in isn't enough. Machine API keys (CLI / CI) are unaffected.
+            Require-MFA and SSO-only gate every member's access to this organization at sign-in.
+          </p>
+          <Form method="post" className="mt-4 flex flex-col gap-2">
+            <input type="hidden" name="intent" value="security" />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="requireStepUpForReveal"
+                defaultChecked={security.requireStepUpForReveal}
+              />
+              Require step-up to reveal secrets
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="requireMfa" defaultChecked={security.requireMfa} />
+              Require two-factor auth (TOTP or passkey) for all members
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="ssoOnly" defaultChecked={security.ssoOnly} />
+              SSO-only — members must sign in through this org's identity provider
+            </label>
+            <Button type="submit" variant="secondary" size="compact" className="self-start">
+              Save
+            </Button>
+          </Form>
+        </>
+      )}
 
-        {!isAdmin && (
-          <ActionGroup className="mt-2">
-            <span className="text-sm text-muted-foreground">
-              You're a member of this organization. Only owners and admins manage the roster.
-            </span>
-          </ActionGroup>
-        )}
-      </section>
-    </main>
+      {!isAdmin && (
+        <ActionGroup className="mt-2">
+          <span className="text-sm text-muted-foreground">
+            You're a member of this organization. Only owners and admins manage the roster.
+          </span>
+        </ActionGroup>
+      )}
+    </section>
   )
 }
 
