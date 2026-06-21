@@ -22,11 +22,11 @@ import type { Route } from './+types/workspace.overview'
 import type { loader as workspaceLoader } from './workspace'
 
 /**
- * The workspace overview: a box-score of every environment (counts by kind, last
- * change), semantic search over the workspace's configs, the activity history
- * with live events streaming on top, and recent promotions. Density is the point
- * — this is a data product. Navigation (type sections, env switcher) and the
- * workspace identity live in the surrounding shell.
+ * The workspace overview (home): an attention banner for parked promotions, a
+ * two-column board — recent activity (live events on top) + semantic search on
+ * the left, the environment board + workspace facts on the right — and the
+ * promotions table with its approval gate. Navigation and the workspace identity
+ * live in the surrounding shell.
  */
 
 type EnvSummary = { id: string; name: string; slug: string }
@@ -212,13 +212,19 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
   )
   const envSlug = (id: string) => scores.find((s) => s.id === id)?.slug ?? id.slice(0, 8)
   const busy = useNavigation().state !== 'idle'
+  const totalItems = scores.reduce((n, s) => n + s.configs + s.flags + s.secrets, 0)
+  const pendingCount = promotions.filter((p) => p.status === 'pending').length
 
   return (
-    <section className="panel">
+    <section className="panel is-wide">
       <header className="panel-head">
         <div>
           <p className="eyebrow">Workspace</p>
           <h1>{workspaceName}</h1>
+          <p className="ov-sub">
+            {scores.length} environment{scores.length === 1 ? '' : 's'} · {totalItems} item
+            {totalItems === 1 ? '' : 's'}
+          </p>
         </div>
       </header>
 
@@ -233,135 +239,175 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
         <StatusNote>Rejected — the promotion is closed; nothing was applied.</StatusNote>
       )}
 
-      <h2>Environments</h2>
-      {scores.length === 0 && (
-        <p className="mb-2 max-w-prose text-sm text-muted-foreground">
-          Environments scope your values — development, staging, production. Create your first one
-          under <Link to={`/dashboard/${workspaceId}/environments`}>Environments</Link>; configs,
-          flags, secrets, and content live inside it.
-        </p>
+      {pendingCount > 0 && (
+        <Link to={`/dashboard/${workspaceId}/compare`} className="attention">
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M10.3 3.6 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0z" />
+            <path d="M12 9v4M12 17h.01" />
+          </svg>
+          <span className="grow">
+            <b>
+              {pendingCount} promotion{pendingCount === 1 ? '' : 's'}
+            </b>{' '}
+            awaiting approval at the risk gate.
+          </span>
+          <span className="go">Review →</span>
+        </Link>
       )}
-      <CardTable label="Environments">
-        <thead>
-          <tr>
-            <Th>Environment</Th>
-            <Th>Configs</Th>
-            <Th>Flags</Th>
-            <Th>Secrets</Th>
-            <Th>Last change</Th>
-            <Th />
-          </tr>
-        </thead>
-        <tbody>
-          {scores.map((s) => (
-            <tr key={s.id}>
-              <Td>
-                <Link to={`/dashboard/${workspaceId}/env/${s.id}/config`}>{s.name}</Link>{' '}
-                <span className="font-mono text-sm text-muted-foreground">/{s.slug}</span>
-              </Td>
-              <Td label="Configs" className="text-muted-foreground">
-                {s.configs}
-              </Td>
-              <Td label="Flags" className="text-muted-foreground">
-                {s.flags}
-              </Td>
-              <Td label="Secrets" className="text-muted-foreground">
-                {s.secrets}
-              </Td>
-              <Td label="Last change" className="text-muted-foreground">
-                {s.lastChange ? <LocalTime epoch={s.lastChange} /> : '—'}
-              </Td>
-              <Td>
-                <Button variant="secondary" size="compact" asChild>
-                  <Link to={`/dashboard/${workspaceId}/env/${s.id}/config`}>Open →</Link>
-                </Button>
-              </Td>
-            </tr>
-          ))}
-          {scores.length === 0 && (
-            <tr>
-              <Td colSpan={6} className="text-muted-foreground">
-                No environments yet — create one under Environments.
-              </Td>
-            </tr>
-          )}
-        </tbody>
-      </CardTable>
 
-      <div className="grid dash-grid">
+      <div className="home-grid">
         <div>
-          <h2>Search</h2>
-          <p className="mb-2 text-sm text-muted-foreground">
-            Semantic — find config by meaning, not key name.
-          </p>
-          <Form method="get" className="my-2 flex gap-2">
-            <Input
-              type="search"
-              name="q"
-              className="flex-1"
-              defaultValue={query ?? ''}
-              placeholder='e.g. "the timeout we raised during the incident"'
-              aria-label="Search configs"
-            />
-            <Button type="submit">Search</Button>
-          </Form>
-          {searchError && <ErrorNote>{searchError}</ErrorNote>}
-          {hits && (
-            <ul className="feed" aria-label="Search results">
-              {hits.map((hit) => (
-                <li key={`${hit.environmentId}:${hit.key}`}>
-                  <Link to={`/dashboard/${workspaceId}/env/${hit.environmentId}/config`}>
-                    <span className="font-mono text-sm">{hit.key}</span>
-                  </Link>{' '}
-                  <span className="font-mono text-sm text-muted-foreground">
-                    /{envSlug(hit.environmentId)} · {hit.kind} · {hit.score.toFixed(2)}
-                  </span>
-                </li>
-              ))}
-              {hits.length === 0 && (
-                <li className="text-muted-foreground">No matches for "{query}".</li>
+          <div className="ov-panel">
+            <div className="ov-panel-head">
+              <h2>Recent activity</h2>
+              <span className={`dot ${status}`} role="status">
+                <span aria-hidden="true">● </span>
+                {status}
+              </span>
+              <Link className="more" to={`/dashboard/${workspaceId}/audit`}>
+                Audit log
+              </Link>
+            </div>
+            <div className="ov-panel-body">
+              <ul className="feed">
+                {events.map(({ k, e }) => (
+                  <li key={k} className="feed-live">
+                    <span className="live-dot" aria-hidden="true">
+                      ●{' '}
+                    </span>
+                    <span className="visually-hidden">live: </span>
+                    {describe(e)}
+                  </li>
+                ))}
+                {activity.map((entry) => (
+                  <li key={entry.id}>
+                    {describeActivity(entry, envSlug)}
+                    {entry.environmentId && (
+                      <span className="font-mono text-sm text-muted-foreground">
+                        {' '}
+                        /{envSlug(entry.environmentId)}
+                      </span>
+                    )}{' '}
+                    <span className="text-xs text-muted-foreground">
+                      {entry.actor ? `${entry.actor} · ` : ''}
+                      <LocalTime epoch={entry.createdAt} />
+                    </span>
+                  </li>
+                ))}
+                {events.length === 0 && activity.length === 0 && (
+                  <li className="text-muted-foreground">No changes recorded yet.</li>
+                )}
+              </ul>
+            </div>
+          </div>
+
+          <div className="ov-panel">
+            <div className="ov-panel-head">
+              <h2>Search</h2>
+            </div>
+            <div className="ov-panel-body">
+              <p className="m-0 mb-2 text-sm text-muted-foreground">
+                Semantic — find config by meaning, not key name.
+              </p>
+              <Form method="get" className="flex gap-2">
+                <Input
+                  type="search"
+                  name="q"
+                  className="flex-1"
+                  defaultValue={query ?? ''}
+                  placeholder='e.g. "the timeout we raised during the incident"'
+                  aria-label="Search configs"
+                />
+                <Button type="submit">Search</Button>
+              </Form>
+              {searchError && <ErrorNote>{searchError}</ErrorNote>}
+              {hits && (
+                <ul className="feed" aria-label="Search results">
+                  {hits.map((hit) => (
+                    <li key={`${hit.environmentId}:${hit.key}`}>
+                      <Link to={`/dashboard/${workspaceId}/env/${hit.environmentId}/config`}>
+                        <span className="font-mono text-sm">{hit.key}</span>
+                      </Link>{' '}
+                      <span className="font-mono text-sm text-muted-foreground">
+                        /{envSlug(hit.environmentId)} · {hit.kind} · {hit.score.toFixed(2)}
+                      </span>
+                    </li>
+                  ))}
+                  {hits.length === 0 && (
+                    <li className="text-muted-foreground">No matches for "{query}".</li>
+                  )}
+                </ul>
               )}
-            </ul>
-          )}
+            </div>
+          </div>
         </div>
 
         <div>
-          <h2>
-            Activity{' '}
-            <span className={`dot ${status}`} role="status">
-              <span aria-hidden="true">● </span>
-              {status}
-            </span>
-          </h2>
-          <ul className="feed">
-            {events.map(({ k, e }) => (
-              <li key={k} className="feed-live">
-                <span className="live-dot" aria-hidden="true">
-                  ●{' '}
-                </span>
-                <span className="visually-hidden">live: </span>
-                {describe(e)}
-              </li>
-            ))}
-            {activity.map((entry) => (
-              <li key={entry.id}>
-                {describeActivity(entry, envSlug)}
-                {entry.environmentId && (
-                  <span className="font-mono text-sm text-muted-foreground">
-                    {' '}
-                    /{envSlug(entry.environmentId)}
-                  </span>
-                )}{' '}
-                <span className="text-xs text-muted-foreground">
-                  {entry.actor ? `${entry.actor} · ` : ''}
-                  <LocalTime epoch={entry.createdAt} />
-                </span>
-              </li>
-            ))}
-            {events.length === 0 && activity.length === 0 && (
-              <li className="text-muted-foreground">No changes recorded yet.</li>
-            )}
-          </ul>
+          <div className="ov-panel">
+            <div className="ov-panel-head">
+              <h2>Environments</h2>
+              <Link className="more" to={`/dashboard/${workspaceId}/compare`}>
+                Compare
+              </Link>
+            </div>
+            <div className="ov-panel-body">
+              {scores.length === 0 ? (
+                <p className="m-0 text-sm text-muted-foreground">
+                  No environments yet —{' '}
+                  <Link to={`/dashboard/${workspaceId}/environments`}>create one</Link> to add
+                  config, flags, secrets, and content.
+                </p>
+              ) : (
+                scores.map((s) => (
+                  <div key={s.id} className="envmini">
+                    <span className="nm">
+                      <Link to={`/dashboard/${workspaceId}/env/${s.id}/config`}>{s.name}</Link>
+                    </span>
+                    <span className="ct" title="configs · flags · secrets">
+                      {s.configs} · {s.flags} · {s.secrets}
+                    </span>
+                    <Button variant="secondary" size="compact" asChild>
+                      <Link to={`/dashboard/${workspaceId}/env/${s.id}/config`}>Open →</Link>
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="ov-panel">
+            <div className="ov-panel-head">
+              <h2>This workspace</h2>
+            </div>
+            <div className="ov-panel-body">
+              <div className="fact">
+                <span className="lbl">Environments</span>
+                <span className="val">{scores.length}</span>
+              </div>
+              <div className="fact">
+                <span className="lbl">Items</span>
+                <span className="val">{totalItems}</span>
+              </div>
+              <div className="fact">
+                <span className="lbl">Pending promotions</span>
+                <span className="val">{pendingCount}</span>
+              </div>
+              <div className="fact">
+                <span className="lbl">Live updates</span>
+                <span className="val">{status}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
