@@ -226,15 +226,21 @@ export default function Notifications({ loaderData, actionData }: Route.Componen
                 placeholder="https://hooks.slack.com/services/…"
               />
             </Field>
-            <fieldset className="grid gap-1.5 rounded-sm border border-input p-3">
-              <legend className="text-muted-foreground">Events to deliver</legend>
-              <p className="field-hint">Leave every box unchecked to deliver all event types.</p>
-              {EVENT_OPTIONS.map((event) => (
-                // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label
-                <label key={event} className="flex items-center gap-2 font-mono text-xs">
-                  <Checkbox name="events" value={event} /> {event}
-                </label>
-              ))}
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="mb-1.5 text-sm text-muted-foreground">Events to deliver</legend>
+              <div className="rounded-sm border border-input p-3">
+                <p className="field-hint mb-2">
+                  Leave every box unchecked to deliver all event types.
+                </p>
+                <div className="grid gap-2">
+                  {EVENT_OPTIONS.map((event) => (
+                    // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label
+                    <label key={event} className="flex items-center gap-2 font-mono text-xs">
+                      <Checkbox name="events" value={event} /> {event}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </fieldset>
             <Button type="submit" className="self-start" disabled={busy}>
               {busy ? 'Saving…' : 'Add channel'}

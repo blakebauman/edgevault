@@ -102,16 +102,18 @@ export default function KeysSection({ loaderData, actionData }: Route.ComponentP
             placeholder="e.g. production server"
           />
         </Field>
-        <fieldset className="grid gap-1.5 rounded-sm border border-input p-3">
-          <legend className="text-muted-foreground">Scopes</legend>
-          {/* biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label */}
-          <label className="flex items-center gap-2 font-mono text-xs">
-            <Checkbox name="scopes" value="read" defaultChecked /> read
-          </label>
-          {/* biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label */}
-          <label className="flex items-center gap-2 font-mono text-xs">
-            <Checkbox name="scopes" value="secrets:read" /> secrets:read
-          </label>
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="mb-1.5 text-sm text-muted-foreground">Scopes</legend>
+          <div className="grid gap-2 rounded-sm border border-input p-3">
+            {/* biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label */}
+            <label className="flex items-center gap-2 font-mono text-xs">
+              <Checkbox name="scopes" value="read" defaultChecked /> read
+            </label>
+            {/* biome-ignore lint/a11y/noLabelWithoutControl: Checkbox renders a native input inside the label */}
+            <label className="flex items-center gap-2 font-mono text-xs">
+              <Checkbox name="scopes" value="secrets:read" /> secrets:read
+            </label>
+          </div>
         </fieldset>
         <Field label="Expires after (days, optional)">
           <Input type="number" name="expiresInDays" min={1} max={365} placeholder="never" />
