@@ -1,6 +1,5 @@
 import { Button, CardTable, ErrorNote, Field, Input, StatusNote, Td, Th } from '@edgevault/ui'
 import { Form, Link, redirect, useNavigation } from 'react-router'
-import { Crumbs } from '../components/crumbs'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/workspace.environments'
@@ -62,13 +61,6 @@ export default function Environments({ loaderData, actionData }: Route.Component
     <section className="panel">
       <header className="panel-head">
         <div>
-          <Crumbs
-            items={[
-              { label: 'workspaces', to: '/' },
-              { label: 'workspace', to: `/dashboard/${workspaceId}` },
-              { label: 'environments' },
-            ]}
-          />
           <p className="eyebrow">Workspace</p>
           <h1>Environments</h1>
         </div>

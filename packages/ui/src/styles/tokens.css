@@ -43,6 +43,9 @@
   --secondary-foreground: var(--ink);
   --muted: rgba(15, 23, 42, 0.06);
   --muted-foreground: rgba(15, 23, 42, 0.6);
+  /* a dimmer text step for tertiary labels/icons (nav eyebrows, meta) — sits
+     between --muted-foreground and --border on the legibility ramp */
+  --muted-foreground-subtle: rgba(15, 23, 42, 0.45);
   --body-ink: rgba(15, 23, 42, 0.78);
   --accent: var(--relay);
   --accent-foreground: #ffffff;
@@ -70,6 +73,7 @@
   --secondary-foreground: var(--glow);
   --muted: rgba(243, 244, 246, 0.08);
   --muted-foreground: rgba(243, 244, 246, 0.65);
+  --muted-foreground-subtle: rgba(243, 244, 246, 0.5);
   --body-ink: var(--ground);
   --accent: var(--glow); /* readable accent on the night ground */
   --accent-foreground: #10002b;

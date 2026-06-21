@@ -15,7 +15,16 @@ const ITEM =
  * outside-click, Escape (returning focus to the trigger), and navigation;
  * arrow keys move between items.
  */
-export function UserMenu({ email, orgs }: { email?: string; orgs: OrgSummary[] }) {
+export function UserMenu({
+  email,
+  orgs,
+  variant = 'topbar',
+}: {
+  email?: string
+  orgs: OrgSummary[]
+  variant?: 'topbar' | 'sidebar'
+}) {
+  const sidebar = variant === 'sidebar'
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -65,34 +74,72 @@ export function UserMenu({ email, orgs }: { email?: string; orgs: OrgSummary[] }
 
   const adminOrgs = orgs.filter((o) => o.role === 'owner' || o.role === 'admin')
 
+  const initial = (email?.trim()[0] ?? 'A').toUpperCase()
+
   return (
-    <div ref={ref} className="relative">
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          'flex items-center gap-1 bg-transparent text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2',
-          open ? 'text-accent' : 'text-muted-foreground hover:text-accent',
-        )}
-      >
-        Account
-        <span
-          aria-hidden="true"
-          className={cn('text-xs transition-transform', open && 'rotate-180')}
+    <div ref={ref} className={cn('relative', sidebar && 'w-full')}>
+      {sidebar ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            'flex w-full items-center gap-2.5 rounded-sm px-2 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2',
+            open ? 'bg-surface-2' : 'hover:bg-surface-2',
+          )}
         >
-          ▾
-        </span>
-      </button>
+          <span
+            aria-hidden="true"
+            className="grid size-7 flex-none place-items-center rounded-sm border border-border bg-vault text-xs font-semibold text-plaintext"
+          >
+            {initial}
+          </span>
+          <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">
+            {email ?? 'Account'}
+          </span>
+          <span
+            aria-hidden="true"
+            className={cn(
+              'flex-none text-xs text-muted-foreground-subtle transition-transform',
+              open && 'rotate-180',
+            )}
+          >
+            ▾
+          </span>
+        </button>
+      ) : (
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            'flex items-center gap-1 bg-transparent text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2',
+            open ? 'text-accent' : 'text-muted-foreground hover:text-accent',
+          )}
+        >
+          Account
+          <span
+            aria-hidden="true"
+            className={cn('text-xs transition-transform', open && 'rotate-180')}
+          >
+            ▾
+          </span>
+        </button>
+      )}
       {open && (
         <div
           ref={panelRef}
           role="menu"
           aria-label="Account and organization settings"
           onKeyDown={onPanelKeyDown}
-          className="ev-menu-in absolute right-0 top-full z-50 mt-2 flex max-h-[min(70vh,32rem)] w-64 max-w-[calc(100vw-2rem)] flex-col gap-0.5 overflow-y-auto rounded-sm border border-border bg-card p-2"
+          className={cn(
+            'ev-menu-in absolute z-50 flex max-h-[min(70vh,32rem)] w-64 max-w-[calc(100vw-2rem)] flex-col gap-0.5 overflow-y-auto rounded-sm border border-border bg-card p-2',
+            sidebar ? 'bottom-full left-0 mb-2' : 'right-0 top-full mt-2',
+          )}
         >
           {email && (
             <p className="m-0 truncate px-2 pb-1 font-mono text-xs text-muted-foreground">
