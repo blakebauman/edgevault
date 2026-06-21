@@ -249,11 +249,25 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
               return (
                 <tr key={m.userId}>
                   <Td>
-                    <span className="text-foreground">{m.name ?? m.email}</span>
-                    {m.name && (
-                      <span className="font-mono text-xs text-muted-foreground"> {m.email}</span>
-                    )}
-                    {isSelf && <span className="text-xs text-muted-foreground"> · you</span>}
+                    <span className="flex items-center gap-2.5">
+                      <span
+                        aria-hidden="true"
+                        className="grid size-7 flex-none place-items-center rounded-sm border border-border bg-vault text-xs font-semibold text-plaintext"
+                      >
+                        {(m.name ?? m.email).trim()[0]?.toUpperCase() ?? '?'}
+                      </span>
+                      <span className="min-w-0 leading-tight">
+                        <span className="block truncate text-sm font-medium text-foreground">
+                          {m.name ?? m.email}
+                          {isSelf && <span className="text-muted-foreground"> · you</span>}
+                        </span>
+                        {m.name && (
+                          <span className="block truncate font-mono text-xs text-muted-foreground">
+                            {m.email}
+                          </span>
+                        )}
+                      </span>
+                    </span>
                   </Td>
                   <Td label="Role">
                     {isAdmin && !lastOwner ? (

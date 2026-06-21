@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 /** The org-settings sections, in one place so the workspaces list and every org
  * page share the same set and order. `path` is the route segment; `slug` keys
  * the active section. "oidc" is the friendly label for the /sso route. */
-const ORG_LINKS = [
+export const ORG_LINKS = [
   { slug: 'members', label: 'Members', path: 'members' },
   { slug: 'billing', label: 'Billing', path: 'billing' },
   { slug: 'domains', label: 'Domains', path: 'domains' },
