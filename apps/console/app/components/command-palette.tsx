@@ -6,9 +6,10 @@ type Cmd = { id: string; label: string; group: string; keywords?: string; to: st
 
 /**
  * The workspace command palette (⌘K): keyboard-first navigation across the
- * workspace and a quick environment switcher. Navigation-only for now — actions
- * (create item, promote, reveal) can graft onto the same list later. Always
- * mounted inside the rail so the ⌘K shortcut works from any in-workspace page.
+ * workspace, a quick environment switcher, and actions (create config/flag/
+ * secret via ?new, promote). Every command is a link; the create actions hand
+ * off to ItemSection, which opens the create form on ?new=1. Always mounted in
+ * the rail so the ⌘K shortcut works from any in-workspace page.
  */
 export function CommandPalette({
   open,
@@ -66,7 +67,37 @@ export function CommandPalette({
         { id: 'secrets', label: 'Secrets', group: 'This environment', to: `${env}/secrets` },
         { id: 'keys', label: 'API keys', group: 'This environment', to: `${env}/keys` },
       )
+      cmds.push(
+        {
+          id: 'new-config',
+          label: 'Create config…',
+          group: 'Actions',
+          keywords: 'add new',
+          to: `${env}/config?new=1`,
+        },
+        {
+          id: 'new-flag',
+          label: 'Create flag…',
+          group: 'Actions',
+          keywords: 'add new feature',
+          to: `${env}/flags?new=1`,
+        },
+        {
+          id: 'new-secret',
+          label: 'Create secret…',
+          group: 'Actions',
+          keywords: 'add new',
+          to: `${env}/secrets?new=1`,
+        },
+      )
     }
+    cmds.push({
+      id: 'promote',
+      label: 'Promote between environments…',
+      group: 'Actions',
+      keywords: 'deploy drift compare',
+      to: `${ws}/compare`,
+    })
     // Switch environment, keeping the current section where possible.
     const seg = location.pathname.match(/\/env\/[^/]+\/([^/]+)/)?.[1]
     const section = !seg || seg === 'pages' ? 'config' : seg

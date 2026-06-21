@@ -16,7 +16,7 @@ import {
   TwoStepConfirm,
 } from '@edgevault/ui'
 import { useEffect, useRef, useState } from 'react'
-import { Form, Link, useFetcher, useNavigation, useSearchParams } from 'react-router'
+import { Form, Link, useFetcher, useNavigate, useNavigation, useSearchParams } from 'react-router'
 import type { AcrossEnvRow, ConfigRow, DeletedRow, ItemKind, Revision } from '../lib/items.server'
 import { HeaderActions } from './header-actions'
 import { LocalTime } from './local-time'
@@ -1118,6 +1118,9 @@ export function ItemSection({
   const reveal = useReveal()
   const matrixFetcher = useFetcher<{ key: string; environments: AcrossEnvRow[] }>()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  // The command palette opens the create form by linking here with ?new=1.
+  const wantNew = searchParams.get('new') === '1'
   const [editing, setEditing] = useState<ConfigRow | null>(null)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
@@ -1148,6 +1151,7 @@ export function ItemSection({
   const closeForm = () => {
     setEditing(null)
     setCreating(false)
+    if (searchParams.get('new')) navigate(baseSearch({}))
   }
 
   // Load the across-environments matrix for the selected key, on demand.
@@ -1164,6 +1168,7 @@ export function ItemSection({
     const next = new URLSearchParams(searchParams)
     next.delete('reveal')
     next.delete('history')
+    next.delete('new')
     for (const [k, v] of Object.entries(extra)) next.set(k, v)
     const qs = next.toString()
     return qs ? `?${qs}` : '.'
@@ -1218,7 +1223,7 @@ export function ItemSection({
             />
           </div>
           <div className="item-detail-col">
-            {editing || creating ? (
+            {editing || creating || wantNew ? (
               <div className="item-detail">
                 <div className="item-detail-head">
                   <span className="dk">{editing ? `Edit ${editing.key}` : `New ${noun.add}`}</span>
