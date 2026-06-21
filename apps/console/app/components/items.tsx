@@ -4,6 +4,7 @@ import {
   CardTable,
   Checkbox,
   Chip,
+  cn,
   ErrorNote,
   Field,
   Input,
@@ -16,7 +17,8 @@ import {
 } from '@edgevault/ui'
 import { useEffect, useRef, useState } from 'react'
 import { Form, Link, useFetcher, useNavigation, useSearchParams } from 'react-router'
-import type { ConfigRow, DeletedRow, ItemKind, Revision } from '../lib/items.server'
+import type { AcrossEnvRow, ConfigRow, DeletedRow, ItemKind, Revision } from '../lib/items.server'
+import { HeaderActions } from './header-actions'
 import { LocalTime } from './local-time'
 import { RevealField } from './reveal-field'
 import { StepUpPrompt } from './step-up-prompt'
@@ -251,6 +253,8 @@ export function ItemsTable({
   onEdit,
   onReveal,
   empty,
+  selectedKey,
+  onSelect,
 }: {
   configs: ConfigRow[]
   selected: ReadonlySet<string>
@@ -263,6 +267,9 @@ export function ItemsTable({
   onEdit: (item: ConfigRow) => void
   onReveal: (key: string) => void
   empty: React.ReactNode
+  selectedKey?: string | null
+  /** Row click opens the read-detail panel; interactive cells stop propagation. */
+  onSelect?: (item: ConfigRow) => void
 }) {
   const keys = configs.map((c) => c.key)
   return (
@@ -285,8 +292,15 @@ export function ItemsTable({
       </thead>
       <tbody>
         {configs.map((item) => (
-          <tr key={item.key}>
-            <Td>
+          <tr
+            key={item.key}
+            className={cn(
+              onSelect && 'item-row-clickable',
+              selectedKey === item.key && 'item-row-sel',
+            )}
+            onClick={onSelect ? () => onSelect(item) : undefined}
+          >
+            <Td onClick={(e) => e.stopPropagation()}>
               <Checkbox
                 checked={selected.has(item.key)}
                 onChange={() => onToggle(item.key)}
@@ -303,7 +317,7 @@ export function ItemsTable({
             <Td label="Updated" className="text-muted-foreground">
               <LocalTime epoch={item.updatedAt} />
             </Td>
-            <Td>
+            <Td onClick={(e) => e.stopPropagation()}>
               <ItemActions
                 item={item}
                 busy={busy}
@@ -484,6 +498,7 @@ export function ItemForm({
   allKeys,
   lockedKind,
   onDone,
+  inPanel,
 }: {
   editing: ConfigRow | null
   loading: boolean
@@ -492,6 +507,8 @@ export function ItemForm({
   /** When set, the form pins this kind (no kind picker) — the section owns it. */
   lockedKind?: ItemKind
   onDone: () => void
+  /** Rendered inside the detail panel — the wrapper supplies top spacing. */
+  inPanel?: boolean
 }) {
   const initialKind: ItemKind = editing?.kind ?? lockedKind ?? 'config'
   const [kind, setKind] = useState<string>(initialKind)
@@ -564,7 +581,11 @@ export function ItemForm({
   const showKindPicker = !lockedKind
 
   return (
-    <Form method="post" className="mt-6 flex max-w-xl flex-col gap-3" onSubmit={validate}>
+    <Form
+      method="post"
+      className={cn('flex max-w-xl flex-col gap-3', !inPanel && 'mt-6')}
+      onSubmit={validate}
+    >
       <input type="hidden" name="intent" value="save" />
       {lockedKind && <input type="hidden" name="kind" value={kind} />}
       <Field label="Key">
@@ -807,6 +828,193 @@ function ItemActions({
   )
 }
 
+/**
+ * Read-only detail for the selected item, shown beside the list. The value is
+ * inlined for config/flags; secrets stay masked — plaintext only ever arrives
+ * through the audited Reveal, which surfaces in the section's RevealRegion.
+ * Actions mirror the row's so either entry point works.
+ */
+/** A single-line value preview for the across-environments matrix. */
+function preview(content: string): string {
+  const s = content.replace(/\s+/g, ' ').trim()
+  return s.length > 32 ? `${s.slice(0, 31)}…` : s
+}
+
+function ItemDetail({
+  item,
+  busy,
+  revealing,
+  baseSearch,
+  pageHref,
+  onEdit,
+  onReveal,
+  onClose,
+  currentEnvId,
+  matrix,
+  matrixLoading,
+}: {
+  item: ConfigRow
+  busy: boolean
+  revealing: boolean
+  baseSearch: (extra: Record<string, string>) => string
+  pageHref: string
+  onEdit: () => void
+  onReveal: () => void
+  onClose: () => void
+  currentEnvId: string
+  matrix: { key: string; environments: AcrossEnvRow[] } | null
+  matrixLoading: boolean
+}) {
+  const isSecret = item.kind === 'secret'
+  return (
+    <aside className="item-detail" aria-label={`Details for ${item.key}`}>
+      <div className="item-detail-head">
+        <Chip variant={`kind-${item.kind}`}>{item.kind}</Chip>
+        <span className="dk">{item.key}</span>
+        <Button type="button" variant="linklike" size="compact" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+      <div className="item-detail-body">
+        <div className="item-detail-sec">
+          <p className="item-detail-label">Value</p>
+          {isSecret ? (
+            <p className="item-detail-value masked">•••••••••••••••• — encrypted; use Reveal</p>
+          ) : (
+            <pre className="item-detail-value">{item.content}</pre>
+          )}
+        </div>
+        <div className="item-detail-sec">
+          <p className="item-detail-label">Across environments</p>
+          {matrix && matrix.key === item.key ? (
+            <div className="env-matrix">
+              {matrix.environments.map((e) => {
+                const present = Boolean(e.item)
+                const isCur = e.id === currentEnvId
+                const differs = present && !isSecret && e.item?.content !== item.content
+                return (
+                  <div key={e.id} className={cn('env-mrow', isCur && 'cur')}>
+                    <span className="env-name">{e.name}</span>
+                    <span className={cn('env-val', !present && 'unset', differs && 'drift')}>
+                      {!present
+                        ? 'not set'
+                        : isSecret
+                          ? `set · v${e.item?.version}`
+                          : preview(e.item?.content ?? '')}
+                    </span>
+                    {isCur ? (
+                      <span className="env-tag cur">current</span>
+                    ) : differs ? (
+                      <span className="env-tag drift">differs</span>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="m-0 text-sm text-muted-foreground">{matrixLoading ? 'Loading…' : '—'}</p>
+          )}
+        </div>
+
+        <div className="item-detail-sec item-detail-meta">
+          <span>Version v{item.version}</span>
+          <span>
+            Updated <LocalTime epoch={item.updatedAt} />
+          </span>
+        </div>
+      </div>
+      <div className="item-detail-actions">
+        {!isSecret && (
+          <Button type="button" variant="secondary" size="compact" onClick={onEdit}>
+            Edit
+          </Button>
+        )}
+        {item.kind === 'content' && (
+          <Button variant="secondary" size="compact" asChild>
+            <Link to={pageHref}>Page</Link>
+          </Button>
+        )}
+        <Button variant="secondary" size="compact" asChild>
+          <Link to={baseSearch({ history: item.key })}>History</Link>
+        </Button>
+        {isSecret && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            disabled={busy}
+            loading={revealing}
+            onClick={onReveal}
+          >
+            Reveal
+          </Button>
+        )}
+        <TwoStepConfirm trigger="Delete" disabled={busy} note={`Delete "${item.key}"?`}>
+          {(close) => (
+            <Form method="post" onSubmit={close}>
+              <input type="hidden" name="intent" value="delete" />
+              <input type="hidden" name="key" value={item.key} />
+              <Button type="submit" variant="danger" size="compact" disabled={busy}>
+                Confirm delete
+              </Button>
+            </Form>
+          )}
+        </TwoStepConfirm>
+      </div>
+    </aside>
+  )
+}
+
+/** Compact revision history for the detail panel — the wide table doesn't fit
+ * the column, so revisions stack vertically; revert is unchanged. */
+function ItemHistory({
+  historyKey,
+  revisions,
+  busy,
+  baseSearch,
+}: {
+  historyKey: string
+  revisions: Revision[]
+  busy: boolean
+  baseSearch: (extra: Record<string, string>) => string
+}) {
+  return (
+    <aside className="item-detail" aria-label={`History for ${historyKey}`}>
+      <div className="item-detail-head">
+        <Chip variant="neutral">history</Chip>
+        <span className="dk">{historyKey}</span>
+        <Button variant="linklike" size="compact" asChild>
+          <Link to={baseSearch({})}>Close</Link>
+        </Button>
+      </div>
+      <div className="item-detail-body">
+        {revisions.length === 0 ? (
+          <p className="m-0 text-sm text-muted-foreground">No revisions recorded.</p>
+        ) : (
+          <ol className="rev-list">
+            {revisions.map((rev) => (
+              <li key={rev.id} className="rev">
+                <div className="rev-top">
+                  <span className="rev-ver">v{rev.version}</span>
+                  <Chip variant="neutral">{rev.changeType}</Chip>
+                  <span className="rev-time">
+                    <LocalTime epoch={rev.createdAt} />
+                  </span>
+                </div>
+                <div className="rev-by">
+                  {rev.actor ?? <span className="font-mono">{rev.createdBy.slice(0, 8)}</span>}
+                  {rev.summary ? ` · ${rev.summary}` : ''}
+                </div>
+                <RevertControl revisionId={rev.id} version={rev.version} busy={busy} />
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </aside>
+  )
+}
+
 /** Revert overwrites the current value (as a new revision) — danger voice. */
 function RevertControl({
   revisionId,
@@ -908,8 +1116,11 @@ export function ItemSection({
   const busy = navigation.state !== 'idle'
   const pendingIntent = navigation.formData?.get('intent')
   const reveal = useReveal()
+  const matrixFetcher = useFetcher<{ key: string; environments: AcrossEnvRow[] }>()
   const [searchParams] = useSearchParams()
   const [editing, setEditing] = useState<ConfigRow | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   const [tab, setTab] = useState<'items' | 'deleted'>('items')
   const selection = useItemSelection()
 
@@ -921,6 +1132,33 @@ export function ItemSection({
   const savedKey = saved ? `${saved.key}@${saved.version}` : undefined
   const referenceableKeys = configs.filter((c) => c.kind !== 'secret').map((c) => c.key)
   const noun = KIND_NOUN[kind]
+  const selectedItem = selectedKey ? (configs.find((c) => c.key === selectedKey) ?? null) : null
+
+  // The detail panel hosts the read view, the edit form, or the create form.
+  const startEdit = (item: ConfigRow) => {
+    setEditing(item)
+    setSelectedKey(item.key)
+    setCreating(false)
+  }
+  const startCreate = () => {
+    setCreating(true)
+    setEditing(null)
+    setSelectedKey(null)
+  }
+  const closeForm = () => {
+    setEditing(null)
+    setCreating(false)
+  }
+
+  // Load the across-environments matrix for the selected key, on demand.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reload only when the selection changes
+  useEffect(() => {
+    if (selectedKey) {
+      matrixFetcher.load(
+        `/dashboard/${workspaceId}/configs/${encodeURIComponent(selectedKey)}/across`,
+      )
+    }
+  }, [selectedKey, workspaceId])
 
   const baseSearch = (extra: Record<string, string>) => {
     const next = new URLSearchParams(searchParams)
@@ -935,7 +1173,7 @@ export function ItemSection({
 
   const defaultEmpty =
     emptyHint ??
-    `No ${noun.one}s here yet. Add your first ${noun.add} below — it's live at the edge seconds after saving.`
+    `No ${noun.one}s here yet. Add your first ${noun.add} with "New ${noun.add}" — it's live at the edge seconds after saving.`
 
   return (
     <>
@@ -952,45 +1190,96 @@ export function ItemSection({
       />
 
       {tab === 'items' ? (
-        <>
-          <BulkDeleteBar selected={selection.selected} busy={busy} onCleared={selection.clear} />
-          <ItemsTable
-            configs={configs}
-            selected={selection.selected}
-            onToggle={selection.toggle}
-            onToggleAll={selection.toggleAll}
-            busy={busy}
-            revealPendingKey={reveal.pending ? reveal.pendingKey : null}
-            baseSearch={baseSearch}
-            pageHref={pageHref}
-            onEdit={setEditing}
-            onReveal={reveal.reveal}
-            empty={defaultEmpty}
-          />
-        </>
+        <div className="item-split">
+          <HeaderActions>
+            <Button type="button" size="compact" onClick={startCreate}>
+              New {noun.add}
+            </Button>
+          </HeaderActions>
+          <div className="item-list-col">
+            <BulkDeleteBar selected={selection.selected} busy={busy} onCleared={selection.clear} />
+            <ItemsTable
+              configs={configs}
+              selected={selection.selected}
+              onToggle={selection.toggle}
+              onToggleAll={selection.toggleAll}
+              busy={busy}
+              revealPendingKey={reveal.pending ? reveal.pendingKey : null}
+              baseSearch={baseSearch}
+              pageHref={pageHref}
+              onEdit={startEdit}
+              onReveal={reveal.reveal}
+              empty={defaultEmpty}
+              selectedKey={selectedKey}
+              onSelect={(item) => {
+                setSelectedKey(item.key)
+                closeForm()
+              }}
+            />
+          </div>
+          <div className="item-detail-col">
+            {editing || creating ? (
+              <div className="item-detail">
+                <div className="item-detail-head">
+                  <span className="dk">{editing ? `Edit ${editing.key}` : `New ${noun.add}`}</span>
+                  <Button type="button" variant="linklike" size="compact" onClick={closeForm}>
+                    Close
+                  </Button>
+                </div>
+                <div className="item-detail-body">
+                  <ItemForm
+                    key={editing?.key ?? 'new'}
+                    editing={editing}
+                    loading={savingItem}
+                    successKey={savedKey}
+                    allKeys={referenceableKeys}
+                    lockedKind={kind}
+                    onDone={closeForm}
+                    inPanel
+                  />
+                </div>
+              </div>
+            ) : historyKey && revisions ? (
+              <ItemHistory
+                historyKey={historyKey}
+                revisions={revisions}
+                busy={busy}
+                baseSearch={baseSearch}
+              />
+            ) : selectedItem ? (
+              <ItemDetail
+                item={selectedItem}
+                busy={busy}
+                revealing={reveal.pending && reveal.pendingKey === selectedItem.key}
+                baseSearch={baseSearch}
+                pageHref={pageHref(selectedItem.key)}
+                onEdit={() => startEdit(selectedItem)}
+                onReveal={() => reveal.reveal(selectedItem.key)}
+                onClose={() => setSelectedKey(null)}
+                currentEnvId={envId}
+                matrix={matrixFetcher.data ?? null}
+                matrixLoading={matrixFetcher.state !== 'idle'}
+              />
+            ) : (
+              <div className="item-detail-empty">
+                Select a {noun.one} to see its value and actions, or add a {noun.add}.
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
-        <RecentlyDeleted deleted={deletedConfigs} busy={busy} baseSearch={baseSearch} />
+        <>
+          <RecentlyDeleted deleted={deletedConfigs} busy={busy} baseSearch={baseSearch} />
+          {historyKey && revisions && (
+            <RevisionHistory
+              historyKey={historyKey}
+              revisions={revisions}
+              busy={busy}
+              baseSearch={baseSearch}
+            />
+          )}
+        </>
       )}
-
-      {historyKey && revisions && (
-        <RevisionHistory
-          historyKey={historyKey}
-          revisions={revisions}
-          busy={busy}
-          baseSearch={baseSearch}
-        />
-      )}
-
-      <h2>{editing ? `Edit "${editing.key}"` : `Add a ${noun.add}`}</h2>
-      <ItemForm
-        key={editing?.key ?? 'new'}
-        editing={editing}
-        loading={savingItem}
-        successKey={savedKey}
-        allKeys={referenceableKeys}
-        lockedKind={kind}
-        onDone={() => setEditing(null)}
-      />
     </>
   )
 }

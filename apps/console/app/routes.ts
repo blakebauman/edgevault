@@ -34,6 +34,7 @@ export default [
     route('env/:envId/pages/:key', 'routes/content-page.tsx'),
   ]),
   route('dashboard/:workspaceId/assistant/ws-token', 'routes/assistant.ws-token.tsx'),
+  route('dashboard/:workspaceId/configs/:key/across', 'routes/across.tsx'),
   route('share', 'routes/share.tsx'),
   route('s/:id', 'routes/share.view.tsx'),
   route('invite/:id', 'routes/invite.tsx'),

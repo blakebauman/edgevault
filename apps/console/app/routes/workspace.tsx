@@ -329,6 +329,7 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
             <span className="cur">{sectionLabel}</span>
           </nav>
           <span className="ws-header-spacer" />
+          <div className="ws-header-actions" id="ws-header-actions" />
           <GlobalAssistant />
         </header>
         <div className="ws-content">

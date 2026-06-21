@@ -1,5 +1,6 @@
 import { Button, CardTable, ErrorNote, Field, Input, StatusNote, Td, Th } from '@edgevault/ui'
 import { Form, Link, redirect, useNavigation } from 'react-router'
+import { HeaderActions } from '../components/header-actions'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/workspace.environments'
@@ -66,6 +67,20 @@ export default function Environments({ loaderData, actionData }: Route.Component
         </div>
       </header>
 
+      <HeaderActions>
+        <Button
+          type="button"
+          size="compact"
+          onClick={() => {
+            const el = document.getElementById('new-env-name')
+            el?.scrollIntoView({ block: 'center' })
+            el?.focus()
+          }}
+        >
+          New environment
+        </Button>
+      </HeaderActions>
+
       {actionData && 'error' in actionData && <ErrorNote>{actionData.error}</ErrorNote>}
       {actionData && 'created' in actionData && <StatusNote>Environment created.</StatusNote>}
 
@@ -106,7 +121,7 @@ export default function Environments({ loaderData, actionData }: Route.Component
       <h2>New environment</h2>
       <Form method="post" className="mt-4 flex max-w-xs flex-col gap-3">
         <Field label="Name">
-          <Input type="text" name="name" required placeholder="Production" />
+          <Input id="new-env-name" type="text" name="name" required placeholder="Production" />
         </Field>
         <Field label="Slug">
           <Input type="text" name="slug" required placeholder="production" />
