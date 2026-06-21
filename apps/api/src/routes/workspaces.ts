@@ -250,6 +250,33 @@ export const workspaceRoutes = new Hono<AppEnv>()
     )
     return c.json({ key, environments: rows })
   })
+  // The full drift matrix: every key's value across every environment, for the
+  // at-a-glance overview. Secrets are redacted (presence + version only).
+  .get('/:workspaceId/environments/matrix', async (c) => {
+    const stub = stubFor(c, c.req.param('workspaceId'))
+    const environments = await stub.listEnvironments()
+    const perEnv = await Promise.all(environments.map((e) => stub.listConfigs(e.id)))
+    const byKey = new Map<
+      string,
+      { key: string; kind: string; cells: Record<string, { version: number; content: string }> }
+    >()
+    environments.forEach((e, i) => {
+      for (const raw of perEnv[i] ?? []) {
+        const item = redact(raw)
+        let row = byKey.get(item.key)
+        if (!row) {
+          row = { key: item.key, kind: item.kind, cells: {} }
+          byKey.set(item.key, row)
+        }
+        row.cells[e.id] = { version: item.version, content: item.content }
+      }
+    })
+    const items = [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key))
+    return c.json({
+      environments: environments.map((e) => ({ id: e.id, name: e.name, slug: e.slug })),
+      items,
+    })
+  })
 
   // --- Config items ---
   .post(

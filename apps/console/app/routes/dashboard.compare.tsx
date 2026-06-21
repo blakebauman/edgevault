@@ -4,6 +4,7 @@ import {
   Checkbox,
   Chip,
   type ChipVariant,
+  cn,
   ErrorNote,
   Field,
   Select,
@@ -52,6 +53,36 @@ type Comparison = {
   }
 }
 
+type MatrixCell = { version: number; content: string }
+type MatrixItem = { key: string; kind: string; cells: Record<string, MatrixCell> }
+type DriftMatrix = {
+  environments: { id: string; name: string; slug: string }[]
+  items: MatrixItem[]
+}
+
+const DRIFT_STATUS: Record<'sync' | 'drift' | 'pending', { label: string; chip: ChipVariant }> = {
+  sync: { label: 'in sync', chip: 'drift-equal' },
+  drift: { label: 'drifted', chip: 'drift-drifted' },
+  pending: { label: 'pending', chip: 'drift-only' },
+}
+
+/** A row's drift status across all environments: present-everywhere-and-equal is
+ * in sync, present-everywhere-but-different is drift, present-in-some is pending.
+ * Secrets can't be value-compared, so they're judged on presence alone. */
+function driftStatus(item: MatrixItem, envIds: string[]): 'sync' | 'drift' | 'pending' {
+  const cells = envIds.map((id) => item.cells[id]).filter((c): c is MatrixCell => Boolean(c))
+  if (cells.length < envIds.length) return 'pending'
+  if (item.kind === 'secret') return 'sync'
+  const first = cells[0]?.content
+  return cells.every((c) => c.content === first) ? 'sync' : 'drift'
+}
+
+/** A single-line value preview for a matrix cell. */
+function cellPreview(content: string): string {
+  const s = content.replace(/\s+/g, ' ').trim()
+  return s.length > 28 ? `${s.slice(0, 27)}…` : s
+}
+
 export function meta(_: Route.MetaArgs) {
   return [{ title: 'Compare environments · EdgeVault' }]
 }
@@ -64,14 +95,18 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const headers = { authorization: `Bearer ${token}` }
 
-  const [envRes, workspaceName] = await Promise.all([
+  const [envRes, matrixRes, workspaceName] = await Promise.all([
     env.API_SERVICE.fetch(`${base}/environments`, { headers }),
+    env.API_SERVICE.fetch(`${base}/environments/matrix`, { headers }),
     getWorkspaceName(env, token, params.workspaceId),
   ])
   if (envRes.status === 401 || envRes.status === 403) throw redirect('/login')
   const environments = envRes.ok
     ? ((await envRes.json()) as { environments: EnvironmentSummary[] }).environments
     : []
+  const matrix: DriftMatrix = matrixRes.ok
+    ? ((await matrixRes.json()) as DriftMatrix)
+    : { environments: [], items: [] }
 
   const url = new URL(request.url)
   const source = url.searchParams.get('source')
@@ -92,7 +127,14 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     }
   }
 
-  return { workspaceId: params.workspaceId, workspaceName, environments, comparison, compareError }
+  return {
+    workspaceId: params.workspaceId,
+    workspaceName,
+    environments,
+    comparison,
+    compareError,
+    matrix,
+  }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
@@ -171,8 +213,9 @@ function entryLabel(entry: ComparisonEntry): string {
 }
 
 export default function CompareEnvironments({ loaderData, actionData }: Route.ComponentProps) {
-  const { workspaceId, workspaceName, environments, comparison, compareError } = loaderData
+  const { workspaceId, workspaceName, environments, comparison, compareError, matrix } = loaderData
   const [searchParams] = useSearchParams()
+  const [onlyDrift, setOnlyDrift] = useState(false)
   const navigation = useNavigation()
   const source = searchParams.get('source') ?? ''
   const target = searchParams.get('target') ?? ''
@@ -188,6 +231,15 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
       return next
     })
 
+  const matrixEnvIds = matrix.environments.map((e) => e.id)
+  const matrixRows = matrix.items.map((it) => ({ it, status: driftStatus(it, matrixEnvIds) }))
+  const driftCounts = {
+    sync: matrixRows.filter((r) => r.status === 'sync').length,
+    drift: matrixRows.filter((r) => r.status === 'drift').length,
+    pending: matrixRows.filter((r) => r.status === 'pending').length,
+  }
+  const visibleRows = onlyDrift ? matrixRows.filter((r) => r.status !== 'sync') : matrixRows
+
   return (
     <section className="panel">
       <header className="panel-head">
@@ -197,6 +249,82 @@ export default function CompareEnvironments({ loaderData, actionData }: Route.Co
         </div>
       </header>
 
+      {matrix.items.length > 0 && matrix.environments.length > 0 && (
+        <section className="mt-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2>Drift across environments</h2>
+            <Button
+              type="button"
+              variant="secondary"
+              size="compact"
+              onClick={() => setOnlyDrift((v) => !v)}
+            >
+              {onlyDrift ? 'Show all' : 'Only show drift'}
+            </Button>
+          </div>
+          <p className="mb-3 text-sm tabular-nums text-muted-foreground">
+            {matrix.items.length} keys · {driftCounts.sync} in sync · {driftCounts.drift} drifted ·{' '}
+            {driftCounts.pending} pending
+          </p>
+          <CardTable label="Drift matrix">
+            <thead>
+              <tr>
+                <Th>Key</Th>
+                <Th>Status</Th>
+                {matrix.environments.map((e) => (
+                  <Th key={e.id}>{e.name}</Th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.map(({ it, status }) => {
+                const baseline =
+                  matrixEnvIds.map((id) => it.cells[id]).find((c): c is MatrixCell => Boolean(c))
+                    ?.content ?? null
+                return (
+                  <tr key={it.key}>
+                    <Td className="font-mono text-sm">{it.key}</Td>
+                    <Td label="Status">
+                      <Chip variant={DRIFT_STATUS[status].chip}>{DRIFT_STATUS[status].label}</Chip>
+                    </Td>
+                    {matrix.environments.map((e) => {
+                      const cell = it.cells[e.id]
+                      if (!cell) {
+                        return (
+                          <Td key={e.id} label={e.name} className="italic text-muted-foreground">
+                            not set
+                          </Td>
+                        )
+                      }
+                      const differs = it.kind !== 'secret' && cell.content !== baseline
+                      return (
+                        <Td
+                          key={e.id}
+                          label={e.name}
+                          className={cn('font-mono text-xs', differs && 'text-warn')}
+                        >
+                          {it.kind === 'secret'
+                            ? `set · v${cell.version}`
+                            : cellPreview(cell.content)}
+                        </Td>
+                      )
+                    })}
+                  </tr>
+                )
+              })}
+              {visibleRows.length === 0 && (
+                <tr>
+                  <Td colSpan={matrix.environments.length + 2} className="text-muted-foreground">
+                    No drift — every key matches across environments.
+                  </Td>
+                </tr>
+              )}
+            </tbody>
+          </CardTable>
+        </section>
+      )}
+
+      <h2 className="mt-8">Compare two environments</h2>
       <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
         <Field label="Source">
           <Select name="source" defaultValue={source}>
