@@ -4,6 +4,7 @@ import {
   CardTable,
   Checkbox,
   Chip,
+  cn,
   ErrorNote,
   Field,
   Input,
@@ -251,6 +252,8 @@ export function ItemsTable({
   onEdit,
   onReveal,
   empty,
+  selectedKey,
+  onSelect,
 }: {
   configs: ConfigRow[]
   selected: ReadonlySet<string>
@@ -263,6 +266,9 @@ export function ItemsTable({
   onEdit: (item: ConfigRow) => void
   onReveal: (key: string) => void
   empty: React.ReactNode
+  selectedKey?: string | null
+  /** Row click opens the read-detail panel; interactive cells stop propagation. */
+  onSelect?: (item: ConfigRow) => void
 }) {
   const keys = configs.map((c) => c.key)
   return (
@@ -285,8 +291,15 @@ export function ItemsTable({
       </thead>
       <tbody>
         {configs.map((item) => (
-          <tr key={item.key}>
-            <Td>
+          <tr
+            key={item.key}
+            className={cn(
+              onSelect && 'item-row-clickable',
+              selectedKey === item.key && 'item-row-sel',
+            )}
+            onClick={onSelect ? () => onSelect(item) : undefined}
+          >
+            <Td onClick={(e) => e.stopPropagation()}>
               <Checkbox
                 checked={selected.has(item.key)}
                 onChange={() => onToggle(item.key)}
@@ -303,7 +316,7 @@ export function ItemsTable({
             <Td label="Updated" className="text-muted-foreground">
               <LocalTime epoch={item.updatedAt} />
             </Td>
-            <Td>
+            <Td onClick={(e) => e.stopPropagation()}>
               <ItemActions
                 item={item}
                 busy={busy}
@@ -807,6 +820,99 @@ function ItemActions({
   )
 }
 
+/**
+ * Read-only detail for the selected item, shown beside the list. The value is
+ * inlined for config/flags; secrets stay masked — plaintext only ever arrives
+ * through the audited Reveal, which surfaces in the section's RevealRegion.
+ * Actions mirror the row's so either entry point works.
+ */
+function ItemDetail({
+  item,
+  busy,
+  revealing,
+  baseSearch,
+  pageHref,
+  onEdit,
+  onReveal,
+  onClose,
+}: {
+  item: ConfigRow
+  busy: boolean
+  revealing: boolean
+  baseSearch: (extra: Record<string, string>) => string
+  pageHref: string
+  onEdit: () => void
+  onReveal: () => void
+  onClose: () => void
+}) {
+  const isSecret = item.kind === 'secret'
+  return (
+    <aside className="item-detail" aria-label={`Details for ${item.key}`}>
+      <div className="item-detail-head">
+        <Chip variant={`kind-${item.kind}`}>{item.kind}</Chip>
+        <span className="dk">{item.key}</span>
+        <Button type="button" variant="linklike" size="compact" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+      <div className="item-detail-body">
+        <div className="item-detail-sec">
+          <p className="item-detail-label">Value</p>
+          {isSecret ? (
+            <p className="item-detail-value masked">•••••••••••••••• — encrypted; use Reveal</p>
+          ) : (
+            <pre className="item-detail-value">{item.content}</pre>
+          )}
+        </div>
+        <div className="item-detail-sec item-detail-meta">
+          <span>Version v{item.version}</span>
+          <span>
+            Updated <LocalTime epoch={item.updatedAt} />
+          </span>
+        </div>
+      </div>
+      <div className="item-detail-actions">
+        {!isSecret && (
+          <Button type="button" variant="secondary" size="compact" onClick={onEdit}>
+            Edit
+          </Button>
+        )}
+        {item.kind === 'content' && (
+          <Button variant="secondary" size="compact" asChild>
+            <Link to={pageHref}>Page</Link>
+          </Button>
+        )}
+        <Button variant="secondary" size="compact" asChild>
+          <Link to={baseSearch({ history: item.key })}>History</Link>
+        </Button>
+        {isSecret && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="compact"
+            disabled={busy}
+            loading={revealing}
+            onClick={onReveal}
+          >
+            Reveal
+          </Button>
+        )}
+        <TwoStepConfirm trigger="Delete" disabled={busy} note={`Delete "${item.key}"?`}>
+          {(close) => (
+            <Form method="post" onSubmit={close}>
+              <input type="hidden" name="intent" value="delete" />
+              <input type="hidden" name="key" value={item.key} />
+              <Button type="submit" variant="danger" size="compact" disabled={busy}>
+                Confirm delete
+              </Button>
+            </Form>
+          )}
+        </TwoStepConfirm>
+      </div>
+    </aside>
+  )
+}
+
 /** Revert overwrites the current value (as a new revision) — danger voice. */
 function RevertControl({
   revisionId,
@@ -910,6 +1016,7 @@ export function ItemSection({
   const reveal = useReveal()
   const [searchParams] = useSearchParams()
   const [editing, setEditing] = useState<ConfigRow | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [tab, setTab] = useState<'items' | 'deleted'>('items')
   const selection = useItemSelection()
 
@@ -921,6 +1028,7 @@ export function ItemSection({
   const savedKey = saved ? `${saved.key}@${saved.version}` : undefined
   const referenceableKeys = configs.filter((c) => c.kind !== 'secret').map((c) => c.key)
   const noun = KIND_NOUN[kind]
+  const selectedItem = selectedKey ? (configs.find((c) => c.key === selectedKey) ?? null) : null
 
   const baseSearch = (extra: Record<string, string>) => {
     const next = new URLSearchParams(searchParams)
@@ -952,22 +1060,44 @@ export function ItemSection({
       />
 
       {tab === 'items' ? (
-        <>
-          <BulkDeleteBar selected={selection.selected} busy={busy} onCleared={selection.clear} />
-          <ItemsTable
-            configs={configs}
-            selected={selection.selected}
-            onToggle={selection.toggle}
-            onToggleAll={selection.toggleAll}
-            busy={busy}
-            revealPendingKey={reveal.pending ? reveal.pendingKey : null}
-            baseSearch={baseSearch}
-            pageHref={pageHref}
-            onEdit={setEditing}
-            onReveal={reveal.reveal}
-            empty={defaultEmpty}
-          />
-        </>
+        <div className="item-split">
+          <div className="item-list-col">
+            <BulkDeleteBar selected={selection.selected} busy={busy} onCleared={selection.clear} />
+            <ItemsTable
+              configs={configs}
+              selected={selection.selected}
+              onToggle={selection.toggle}
+              onToggleAll={selection.toggleAll}
+              busy={busy}
+              revealPendingKey={reveal.pending ? reveal.pendingKey : null}
+              baseSearch={baseSearch}
+              pageHref={pageHref}
+              onEdit={setEditing}
+              onReveal={reveal.reveal}
+              empty={defaultEmpty}
+              selectedKey={selectedKey}
+              onSelect={(item) => setSelectedKey(item.key)}
+            />
+          </div>
+          <div className="item-detail-col">
+            {selectedItem ? (
+              <ItemDetail
+                item={selectedItem}
+                busy={busy}
+                revealing={reveal.pending && reveal.pendingKey === selectedItem.key}
+                baseSearch={baseSearch}
+                pageHref={pageHref(selectedItem.key)}
+                onEdit={() => setEditing(selectedItem)}
+                onReveal={() => reveal.reveal(selectedItem.key)}
+                onClose={() => setSelectedKey(null)}
+              />
+            ) : (
+              <div className="item-detail-empty">
+                Select a {noun.one} to see its value, metadata, and actions.
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <RecentlyDeleted deleted={deletedConfigs} busy={busy} baseSearch={baseSearch} />
       )}
