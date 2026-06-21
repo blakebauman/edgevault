@@ -466,6 +466,31 @@
     border-right: 1px solid var(--border);
   }
 
+  /* brand strip (rail top) — restores the EdgeVault mark inside the shell;
+     height-matched to .ws-header so the rail top aligns with the content top */
+  .ws-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 3.25rem;
+    flex: none;
+    padding: 0 0.875rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
+    text-decoration: none;
+  }
+
+  .ws-brand-name {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: var(--logo-size);
+    letter-spacing: -0.01em;
+  }
+
+  .ws-brand:hover .ws-brand-name {
+    color: var(--accent);
+  }
+
   /* workspace switcher (rail top) */
   .ws-switch {
     display: flex;
