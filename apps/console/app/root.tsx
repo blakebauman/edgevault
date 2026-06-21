@@ -7,6 +7,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
   useRouteLoaderData,
 } from 'react-router'
 import type { Route } from './+types/root'
@@ -60,6 +61,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // Available in both the happy path and the ErrorBoundary render.
   const data = useRouteLoaderData<typeof loader>('root')
   const nonce = useNonce()
+  // Inside a workspace the rail (WorkspaceShell) owns the chrome — brand,
+  // workspace switcher, account menu, assistant — so the global TopBar is
+  // suppressed there to avoid a second header. Every other route keeps it.
+  const inWorkspace = /^\/dashboard\/[^/]+/.test(useLocation().pathname)
   return (
     <html lang="en" className="dark">
       <head>
@@ -76,7 +81,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <TopBar authed={data?.authed ?? false} orgs={data?.orgs ?? []} email={data?.email} />
+        {!inWorkspace && (
+          <TopBar authed={data?.authed ?? false} orgs={data?.orgs ?? []} email={data?.email} />
+        )}
         {children}
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
