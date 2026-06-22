@@ -332,8 +332,8 @@ export function ItemsTable({
         ))}
         {configs.length === 0 && (
           <tr>
-            <Td colSpan={6} className="text-muted-foreground">
-              {empty}
+            <Td colSpan={6} className="py-10 text-center text-muted-foreground">
+              <span className="mx-auto block max-w-md text-pretty">{empty}</span>
             </Td>
           </tr>
         )}
@@ -394,7 +394,12 @@ export function RecentlyDeleted({
   busy: boolean
   baseSearch: (extra: Record<string, string>) => string
 }) {
-  if (deleted.length === 0) return <p className="text-sm text-muted-foreground">Nothing deleted.</p>
+  if (deleted.length === 0)
+    return (
+      <p className="py-10 text-center text-sm text-muted-foreground">
+        Nothing deleted. Removed keys land here, ready to restore.
+      </p>
+    )
   return (
     <ul className="feed mt-3" aria-label="Recently deleted keys">
       {deleted.map((d) => (
@@ -476,7 +481,7 @@ export function RevisionHistory({
           ))}
           {revisions.length === 0 && (
             <tr>
-              <Td colSpan={6} className="text-muted-foreground">
+              <Td colSpan={6} className="py-10 text-center text-muted-foreground">
                 No revisions recorded.
               </Td>
             </tr>
