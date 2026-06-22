@@ -5,6 +5,7 @@ import { VaultMark } from '../components/brand'
 import { GlobalAssistant } from '../components/global-assistant'
 import { ORG_LINKS } from '../components/org-nav'
 import { UserMenu } from '../components/user-menu'
+import { WorkspaceSwitcher } from '../components/workspace-switcher'
 import { getToken } from '../lib/session.server'
 import type { loader as rootLoader } from '../root'
 import type { Route } from './+types/orgs'
@@ -113,29 +114,12 @@ export default function OrgShell({ loaderData }: Route.ComponentProps) {
           <span className="ws-brand-name">EdgeVault</span>
         </Link>
 
-        <Link to="/" className="ws-switch" aria-label="All workspaces">
-          <span className="ws-mark" aria-hidden="true">
-            {initial}
-          </span>
-          <span className="ws-switch-meta">
-            <span className="ws-switch-name">{orgName}</span>
-            <span className="ws-switch-sub">organization · all workspaces</span>
-          </span>
-          <svg
-            className="ws-chev"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="m8 9 4-4 4 4M16 15l-4 4-4-4" />
-          </svg>
-        </Link>
+        <WorkspaceSwitcher
+          orgs={root?.switcherOrgs ?? []}
+          name={orgName}
+          sublabel="organization · switch workspace"
+          initial={initial}
+        />
 
         <nav className="ws-nav" aria-label="Organization">
           <div className="ws-nav-group">

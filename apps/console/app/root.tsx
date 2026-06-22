@@ -7,6 +7,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  type ShouldRevalidateFunctionArgs,
   useLocation,
   useRouteLoaderData,
 } from 'react-router'
@@ -15,10 +16,12 @@ import { TopBar } from './components/brand'
 import type { OrgSummary } from './components/user-menu'
 import { useNonce } from './lib/nonce'
 import { getToken } from './lib/session.server'
+import { loadWorkspaceSwitcher, type SwitcherOrg } from './lib/workspace.server'
 import './app.css'
 
-/** Drives the TopBar's account menu: cookie-presence for the authed state, plus
- * the caller's orgs (id/name/role) so the dropdown can list org settings on
+/** Drives the TopBar's account menu and the rail's workspace switcher: cookie-
+ * presence for the authed state, plus the caller's orgs each with their
+ * workspaces, so the dropdown can switch workspace and list org settings on
  * every page. Best-effort — a slow or down api leaves the menu org-less rather
  * than blanking the whole shell. */
 export async function loader({ request, context }: Route.LoaderArgs) {
@@ -31,21 +34,22 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     return {
       authed: false as const,
       orgs: [] as OrgSummary[],
+      switcherOrgs: [] as SwitcherOrg[],
       email: undefined,
       userId: undefined,
       apiHost,
     }
   }
   const headers = { authorization: `Bearer ${token}` }
-  let orgs: OrgSummary[] = []
+  let switcherOrgs: SwitcherOrg[] = []
   let email: string | undefined
   let userId: string | undefined
   try {
-    const [orgsRes, meRes] = await Promise.all([
-      env.API_SERVICE.fetch('https://api/api/v1/organizations', { headers }),
+    const [orgsWithWorkspaces, meRes] = await Promise.all([
+      loadWorkspaceSwitcher(env, token),
       env.AUTH_SERVICE.fetch('https://auth/me', { headers }),
     ])
-    if (orgsRes.ok) orgs = ((await orgsRes.json()) as { organizations: OrgSummary[] }).organizations
+    switcherOrgs = orgsWithWorkspaces
     if (meRes.ok) {
       const user = ((await meRes.json()) as { user?: { email?: string; id?: string } }).user
       email = user?.email
@@ -54,7 +58,17 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   } catch {
     // best-effort — the shell renders without the org list / identity
   }
-  return { authed: true as const, orgs, email, userId, apiHost }
+  // The account menu only needs id/name/role; derive it from the richer list.
+  const orgs: OrgSummary[] = switcherOrgs.map(({ id, name, role }) => ({ id, name, role }))
+  return { authed: true as const, orgs, switcherOrgs, email, userId, apiHost }
+}
+
+/** Root data (auth, identity, the org/workspace list) is route-independent, so
+ * it only needs refetching after a mutation — not on every navigation. This
+ * keeps the rail switcher and account menu fresh after a create/delete while
+ * avoiding an orgs+workspaces fan-out on every page change. */
+export function shouldRevalidate({ formMethod }: ShouldRevalidateFunctionArgs) {
+  return formMethod != null && formMethod !== 'GET'
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {

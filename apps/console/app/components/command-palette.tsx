@@ -17,12 +17,15 @@ export function CommandPalette({
   workspaceId,
   envId,
   environments,
+  workspaces = [],
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   workspaceId: string
   envId: string | null
   environments: Env[]
+  /** Other workspaces the caller can jump to (current one excluded). */
+  workspaces?: { id: string; name: string; orgName: string }[]
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -111,8 +114,18 @@ export function CommandPalette({
         to: `${ws}/env/${e.id}/${section}`,
       })
     }
+    // Jump to another workspace (lands on its overview).
+    for (const w of workspaces) {
+      cmds.push({
+        id: `ws-${w.id}`,
+        label: `Switch to ${w.name}`,
+        group: 'Switch workspace',
+        keywords: `${w.orgName} workspace`,
+        to: `/dashboard/${w.id}`,
+      })
+    }
     return cmds
-  }, [workspaceId, envId, environments, location.pathname])
+  }, [workspaceId, envId, environments, workspaces, location.pathname])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()

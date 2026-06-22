@@ -28,6 +28,39 @@ export async function getWorkspaceMeta(
   }
 }
 
+/** An org plus the workspaces the caller can see in it — the data behind the
+ * rail's workspace switcher (and ⌘K cross-workspace jump). */
+export interface SwitcherOrg {
+  id: string
+  name: string
+  role: string
+  workspaces: { id: string; name: string; slug: string }[]
+}
+
+/** Fetch every org the caller belongs to, each with its workspaces, for the
+ * switcher. One request per org (same fan-out the home page uses); any failure
+ * degrades to an empty list rather than blocking the shell. */
+export async function loadWorkspaceSwitcher(env: Env, token: string): Promise<SwitcherOrg[]> {
+  const headers = { authorization: `Bearer ${token}` }
+  const res = await env.API_SERVICE.fetch('https://api/api/v1/organizations', { headers })
+  if (!res.ok) return []
+  const { organizations } = (await res.json()) as {
+    organizations: Array<{ id: string; name: string; role: string }>
+  }
+  return Promise.all(
+    organizations.map(async (org): Promise<SwitcherOrg> => {
+      const wsRes = await env.API_SERVICE.fetch(
+        `https://api/api/v1/organizations/${org.id}/workspaces`,
+        { headers },
+      )
+      const workspaces = wsRes.ok
+        ? ((await wsRes.json()) as { workspaces: SwitcherOrg['workspaces'] }).workspaces
+        : []
+      return { id: org.id, name: org.name, role: org.role, workspaces }
+    }),
+  )
+}
+
 /** Back-compat name-only accessor. */
 export async function getWorkspaceName(
   env: Env,
