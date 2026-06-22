@@ -15,6 +15,7 @@ import { CommandPalette } from '../components/command-palette'
 import { GlobalAssistant } from '../components/global-assistant'
 import { ORG_LINKS } from '../components/org-nav'
 import { UserMenu } from '../components/user-menu'
+import { WorkspaceSwitcher } from '../components/workspace-switcher'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceMeta } from '../lib/workspace.server'
 import type { loader as rootLoader } from '../root'
@@ -229,31 +230,13 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
           <span className="ws-brand-name">EdgeVault</span>
         </Link>
 
-        <Link to="/" className="ws-switch" aria-label="All workspaces">
-          <span className="ws-mark" aria-hidden="true">
-            {initial}
-          </span>
-          <span className="ws-switch-meta">
-            <span className="ws-switch-name">{workspaceName ?? 'Workspace'}</span>
-            <span className="ws-switch-sub">
-              {role ? `${role} · all workspaces` : 'All workspaces'}
-            </span>
-          </span>
-          <svg
-            className="ws-chev"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="m8 9 4-4 4 4M16 15l-4 4-4-4" />
-          </svg>
-        </Link>
+        <WorkspaceSwitcher
+          orgs={root?.switcherOrgs ?? []}
+          currentWorkspaceId={workspaceId}
+          name={workspaceName ?? 'Workspace'}
+          sublabel={role ? `${role} · switch workspace` : 'Switch workspace'}
+          initial={initial}
+        />
 
         <button type="button" className="ws-search" onClick={() => setPaletteOpen(true)}>
           <svg
@@ -420,6 +403,11 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
         workspaceId={workspaceId}
         envId={activeEnvId}
         environments={environments}
+        workspaces={(root?.switcherOrgs ?? []).flatMap((o) =>
+          o.workspaces
+            .filter((w) => w.id !== workspaceId)
+            .map((w) => ({ id: w.id, name: w.name, orgName: o.name })),
+        )}
       />
     </main>
   )

@@ -512,6 +512,20 @@
     border-color: var(--border);
   }
 
+  /* the switcher trigger is a <button>; reset it to the link's appearance */
+  .ws-switch-trigger {
+    width: calc(100% - 1.25rem);
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .ws-switch-trigger[aria-expanded="true"] {
+    background: var(--surface-2);
+    border-color: var(--border);
+  }
+
   .ws-mark {
     width: 1.75rem;
     height: 1.75rem;
