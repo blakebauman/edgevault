@@ -50,13 +50,14 @@
     padding-top: 0;
   }
 
+  .hero {
+    max-width: 46rem;
+  }
+
+  /* narrower, centered hero for the focused auth/error moments */
   .shell-center .hero {
     width: 100%;
     max-width: 28rem;
-  }
-
-  .hero {
-    max-width: 46rem;
   }
 
   .hero h1 {
@@ -428,10 +429,16 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    /* The reduced-motion reset is intentionally universal and !important: it must
+       override every animation/transition the app declares, regardless of source
+       order or specificity. Both biome checks are false positives here. */
+    /* biome-ignore lint/style/noDescendingSpecificity: a11y reset must match everything */
     *,
     *::before,
     *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: reduced-motion reset must win */
       transition-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: reduced-motion reset must win */
       animation-duration: 0.01ms !important;
     }
   }
@@ -1355,12 +1362,14 @@
     cursor: pointer;
   }
 
-  .item-row-clickable:hover > td {
-    background: var(--surface-2);
-  }
-
   .item-row-sel > td {
     background: color-mix(in srgb, var(--relay) 16%, transparent);
+  }
+
+  /* hover wins over the selected tint by specificity; ordered after .item-row-sel
+     so the cascade reads low→high (and biome's descending-specificity check). */
+  .item-row-clickable:hover > td {
+    background: var(--surface-2);
   }
 
   .item-detail {
