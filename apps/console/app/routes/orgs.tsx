@@ -1,5 +1,5 @@
 import { cn } from '@edgevault/ui'
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, redirect, useLocation, useRouteLoaderData } from 'react-router'
 import { VaultMark } from '../components/brand'
 import { GlobalAssistant } from '../components/global-assistant'
@@ -102,13 +102,26 @@ export default function OrgShell({ loaderData }: Route.ComponentProps) {
   const { orgId, orgName } = loaderData
   const root = useRouteLoaderData<typeof rootLoader>('root')
   const initial = (orgName.trim()[0] ?? 'O').toUpperCase()
+  const { pathname } = useLocation()
   // The section label for the breadcrumb, from the last path segment.
-  const seg = useLocation().pathname.match(/\/orgs\/[^/]+\/([^/]+)/)?.[1] ?? ''
+  const seg = pathname.match(/\/orgs\/[^/]+\/([^/]+)/)?.[1] ?? ''
   const sectionLabel = SECTION_LABEL[seg] ?? 'Settings'
+  // Mobile: the rail is an off-canvas drawer; close it on route change.
+  const [navOpen, setNavOpen] = useState(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: closing on pathname change is the intent
+  useEffect(() => setNavOpen(false), [pathname])
 
   return (
     <main className="ws-shell">
-      <aside className="ws-sidebar">
+      {navOpen && (
+        <button
+          type="button"
+          className="ws-scrim"
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+      <aside className={cn('ws-sidebar', navOpen && 'open')}>
         <Link to="/" className="ws-brand" aria-label="EdgeVault — all workspaces">
           <VaultMark />
           <span className="ws-brand-name">EdgeVault</span>
@@ -140,6 +153,26 @@ export default function OrgShell({ loaderData }: Route.ComponentProps) {
 
       <div className="ws-main">
         <header className="ws-header">
+          <button
+            type="button"
+            className="ws-burger"
+            aria-label="Open navigation"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen(true)}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M3 6h18M3 12h18M3 18h18" />
+            </svg>
+          </button>
           <nav className="ws-crumbs" aria-label="Breadcrumb">
             <Link to="/">Workspaces</Link>
             <span className="sep">/</span>
