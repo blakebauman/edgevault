@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "predev": "lsof -ti:8800-8807,9300-9305 | xargs kill -9 2>/dev/null || true",
     "dev": "turbo run dev",
     "deploy": "turbo run deploy",
     "db:up": "docker compose up -d --wait neon-local",

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "astro dev --port 8807",
     "build": "astro build && wrangler deploy --dry-run",
     "preview": "astro build && wrangler dev",
     "deploy": "astro build && wrangler deploy",
