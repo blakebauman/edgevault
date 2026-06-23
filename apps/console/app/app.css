@@ -66,6 +66,55 @@
     margin: 0 0 1rem;
   }
 
+  /* --- Auth: a single focused card, no app chrome -------------------------- */
+  .auth-shell {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 24rem;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+
+  .auth-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.75rem;
+    color: var(--foreground);
+    text-decoration: none;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: var(--logo-size);
+    letter-spacing: -0.01em;
+  }
+
+  .auth-brand:hover {
+    color: var(--accent);
+  }
+
+  .auth-title {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+
+  .auth-subtitle {
+    margin: 0.5rem 0 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
   .eyebrow {
     font-family: var(--font-mono);
     text-transform: uppercase;
