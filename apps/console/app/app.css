@@ -1705,6 +1705,26 @@
       display: block;
     }
 
+    /* The header can't fit breadcrumb + env switch + actions + assistant on one
+       3.25rem row at phone widths — the action button wraps and the crumb
+       truncates mid-word. Let it grow: breadcrumb on its own row, the controls
+       wrap onto a second. */
+    .ws-header {
+      height: auto;
+      min-height: 3.25rem;
+      flex-wrap: wrap;
+      padding: 0.5rem 1rem;
+      gap: 0.5rem 0.75rem;
+    }
+
+    .ws-crumbs {
+      flex: 1 1 100%;
+    }
+
+    .ws-header-spacer {
+      display: none;
+    }
+
     .ws-content {
       padding: 1.5rem 1rem 3rem;
     }
