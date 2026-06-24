@@ -50,19 +50,69 @@
     padding-top: 0;
   }
 
+  .hero {
+    max-width: 46rem;
+  }
+
+  /* narrower, centered hero for the focused auth/error moments */
   .shell-center .hero {
     width: 100%;
     max-width: 28rem;
-  }
-
-  .hero {
-    max-width: 46rem;
   }
 
   .hero h1 {
     font-size: clamp(1.8rem, 4vw, 2.6rem);
     line-height: 1.1;
     margin: 0 0 1rem;
+  }
+
+  /* --- Auth: a single focused card, no app chrome -------------------------- */
+  .auth-shell {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 24rem;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+
+  .auth-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.75rem;
+    color: var(--foreground);
+    text-decoration: none;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    font-size: var(--logo-size);
+    letter-spacing: -0.01em;
+  }
+
+  .auth-brand:hover {
+    color: var(--accent);
+  }
+
+  .auth-title {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+
+  .auth-subtitle {
+    margin: 0.5rem 0 0;
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.5;
   }
 
   .eyebrow {
@@ -428,10 +478,16 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    /* The reduced-motion reset is intentionally universal and !important: it must
+       override every animation/transition the app declares, regardless of source
+       order or specificity. Both biome checks are false positives here. */
+    /* biome-ignore lint/style/noDescendingSpecificity: a11y reset must match everything */
     *,
     *::before,
     *::after {
+      /* biome-ignore lint/complexity/noImportantStyles: reduced-motion reset must win */
       transition-duration: 0.01ms !important;
+      /* biome-ignore lint/complexity/noImportantStyles: reduced-motion reset must win */
       animation-duration: 0.01ms !important;
     }
   }
@@ -1355,12 +1411,14 @@
     cursor: pointer;
   }
 
-  .item-row-clickable:hover > td {
-    background: var(--surface-2);
-  }
-
   .item-row-sel > td {
     background: color-mix(in srgb, var(--relay) 16%, transparent);
+  }
+
+  /* hover wins over the selected tint by specificity; ordered after .item-row-sel
+     so the cascade reads low→high (and biome's descending-specificity check). */
+  .item-row-clickable:hover > td {
+    background: var(--surface-2);
   }
 
   .item-detail {
@@ -1573,6 +1631,49 @@
     margin: 0.3rem 0 0.45rem;
   }
 
+  /* mobile drawer affordances — inert above the 860px breakpoint */
+  .ws-burger {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+    transition:
+      color 0.14s,
+      border-color 0.14s;
+  }
+
+  .ws-burger:hover {
+    color: var(--foreground);
+    border-color: var(--muted-foreground-subtle);
+  }
+
+  .ws-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    border: 0;
+    padding: 0;
+    background: color-mix(in srgb, black 55%, transparent);
+    animation: ws-scrim-in 0.18s ease-out;
+  }
+
+  @keyframes ws-scrim-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
   @media (max-width: 860px) {
     .ws-shell {
       grid-template-columns: 1fr;
@@ -1581,34 +1682,27 @@
       overflow: visible;
     }
 
+    /* The rail becomes an off-canvas drawer — the header hamburger opens it, the
+       scrim closes it. Its internal layout stays the desktop vertical stack. */
     .ws-sidebar {
-      border-right: 0;
-      border-bottom: 1px solid var(--border);
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 60;
+      width: min(18rem, 85vw);
+      transform: translateX(-100%);
+      transition: transform 0.22s ease-out;
     }
 
-    .ws-nav {
-      flex-flow: row wrap;
-      overflow: visible;
+    .ws-sidebar.open {
+      transform: none;
     }
 
-    .ws-nav-group {
-      margin-top: 0.5rem;
-      flex-basis: 100%;
-      flex-flow: row wrap;
+    .ws-burger {
+      display: inline-flex;
     }
 
-    .ws-nav-group:first-child {
-      margin-top: 0.5rem;
-    }
-
-    .ws-nav-label {
-      flex-basis: 100%;
-      margin-bottom: 0.2rem;
-    }
-
-    .ws-envswitch {
-      width: auto;
-      flex-basis: 100%;
+    .ws-scrim {
+      display: block;
     }
 
     .ws-content {

@@ -1,5 +1,6 @@
 import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
 import { Form, Link, redirect, useNavigation } from 'react-router'
+import { AuthLayout } from '../components/auth-layout'
 import { ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/reset-password'
 
@@ -35,52 +36,48 @@ export default function ResetPassword({ loaderData, actionData }: Route.Componen
   const navigation = useNavigation()
   if (!loaderData.token) {
     return (
-      <main className="shell shell-center">
-        <section className="hero">
-          <p className="eyebrow">EdgeVault Console</p>
-          <h1>Missing reset link</h1>
-          <p className="lede">Open the link from your email, or request a new one.</p>
-          <Button asChild className="mt-4 self-start">
-            <Link to="/forgot-password">Request a reset link</Link>
-          </Button>
-        </section>
-      </main>
+      <AuthLayout
+        title="Missing reset link"
+        subtitle="Open the link from your email, or request a new one."
+      >
+        <Button asChild className="mt-6 self-start">
+          <Link to="/forgot-password">Request a reset link</Link>
+        </Button>
+      </AuthLayout>
     )
   }
 
   return (
-    <main className="shell shell-center">
-      <section className="hero">
-        <p className="eyebrow">EdgeVault Console</p>
-        <h1>Choose a new password</h1>
-        <p className="lede">Setting it signs you out everywhere — sign in fresh afterwards.</p>
-        <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
-          <input type="hidden" name="token" value={loaderData.token} />
-          <Field label="New password">
-            <Input
-              name="newPassword"
-              type="password"
-              placeholder="••••••••"
-              required
-              minLength={8}
-              autoFocus
-            />
-          </Field>
-          <Field label="Confirm new password">
-            <Input
-              name="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              required
-              minLength={8}
-            />
-          </Field>
-          {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
-          <Button type="submit" className="self-start" loading={navigation.state !== 'idle'}>
-            Set new password
-          </Button>
-        </Form>
-      </section>
-    </main>
+    <AuthLayout
+      title="Choose a new password"
+      subtitle="Setting it signs you out everywhere — sign in fresh afterwards."
+    >
+      <Form method="post" className="mt-6 flex flex-col gap-3">
+        <input type="hidden" name="token" value={loaderData.token} />
+        <Field label="New password">
+          <Input
+            name="newPassword"
+            type="password"
+            placeholder="••••••••"
+            required
+            minLength={8}
+            autoFocus
+          />
+        </Field>
+        <Field label="Confirm new password">
+          <Input
+            name="confirmPassword"
+            type="password"
+            placeholder="••••••••"
+            required
+            minLength={8}
+          />
+        </Field>
+        {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
+        <Button type="submit" className="self-start" loading={navigation.state !== 'idle'}>
+          Set new password
+        </Button>
+      </Form>
+    </AuthLayout>
   )
 }
