@@ -48,7 +48,7 @@ catalogs:
 
 patchedDependencies:
   workers-ai-provider@3.2.0:
-    hash: 7257c0df50b62af2bfde2117da6909f9f3b28b5968270501ca6e459ee33aa7ba
+    hash: a569dc1aed265327b3be0505a63458fb1ad5dfe2f4e08e17f447c4acd6189049
     path: patches/workers-ai-provider@3.2.0.patch
 
 importers:
@@ -132,7 +132,7 @@ importers:
         version: 4.13.1
       workers-ai-provider:
         specifier: 3.2.0
-        version: 3.2.0(patch_hash=7257c0df50b62af2bfde2117da6909f9f3b28b5968270501ca6e459ee33aa7ba)(@ai-sdk/provider@4.0.7)(ai@6.0.208(zod@4.4.3))
+        version: 3.2.0(patch_hash=a569dc1aed265327b3be0505a63458fb1ad5dfe2f4e08e17f447c4acd6189049)(@ai-sdk/provider@4.0.7)(ai@6.0.208(zod@4.4.3))
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -9533,7 +9533,7 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20260801.1
       '@cloudflare/workerd-windows-64': 1.20260801.1
 
-  workers-ai-provider@3.2.0(patch_hash=7257c0df50b62af2bfde2117da6909f9f3b28b5968270501ca6e459ee33aa7ba)(@ai-sdk/provider@4.0.7)(ai@6.0.208(zod@4.4.3)):
+  workers-ai-provider@3.2.0(patch_hash=a569dc1aed265327b3be0505a63458fb1ad5dfe2f4e08e17f447c4acd6189049)(@ai-sdk/provider@4.0.7)(ai@6.0.208(zod@4.4.3)):
     dependencies:
       '@ai-sdk/provider': 4.0.7
       ai: 6.0.208(zod@4.4.3)

@@ -1,20 +1,24 @@
-import { streamText } from 'ai'
+import { stepCountIs, streamText, tool } from 'ai'
 import { describe, expect, it } from 'vitest'
 import { createWorkersAI } from 'workers-ai-provider'
+import { z } from 'zod'
 
 /**
- * Regression guard for the assistant streaming every token twice
- * ("HelloHello!!" instead of "Hello!").
+ * Regression guard for the assistant's two duplication bugs, which share one
+ * root cause: a Workers AI stream chunk carries the same payload TWICE, once in
+ * the native top-level fields and once in the OpenAI-shaped `choices[0].delta`.
+ * `workers-ai-provider` has a separate emit branch for each and guards neither.
  *
- * Workers AI puts the same token in BOTH `response` and
- * `choices[0].delta.content` on a single stream chunk. `workers-ai-provider`
- * has two independent branches that each enqueue a text-delta from those
- * fields, so every token is emitted twice under the same text id. Only the
- * deltas double — `text-start`/`text-end` are guarded by `if (!textId)` —
- * which is what made this look like a console render bug for so long.
+ *   text:       `response`   + `delta.content`   → "HelloHello!!"
+ *   tool calls: `tool_calls` + `delta.tool_calls` → args concatenated into
+ *                                                   invalid JSON, so every
+ *                                                   tool call errors out
  *
  * Fixed by `patches/workers-ai-provider@3.2.0.patch` (upstream is still
- * unguarded as of 4.0.0). If that patch stops applying, this test fails.
+ * unguarded as of 4.0.0). If that patch stops applying, these tests fail.
+ *
+ * The fixtures below are trimmed copies of real chunks captured from
+ * `@cf/meta/llama-4-scout-17b-16e-instruct` over `wrangler dev --remote`.
  */
 
 /** An SSE body shaped like a real Workers AI stream chunk. */
@@ -87,5 +91,114 @@ describe('workers-ai-provider text streaming', () => {
     )
 
     expect(text).toBe('very very fast')
+  })
+})
+
+describe('workers-ai-provider tool-call streaming', () => {
+  /**
+   * A tool-call chunk as Workers AI really sends it: the same call in the
+   * native top-level `tool_calls` (object args, no id) AND the OpenAI-shaped
+   * `delta.tool_calls` (string args, real id + index).
+   */
+  const toolCallChunk = JSON.stringify({
+    choices: [
+      {
+        delta: {
+          tool_calls: [
+            {
+              function: { arguments: '{"limit": 25}', name: 'recentActivity' },
+              id: 'chatcmpl-tool-8238b28f7eea859c',
+              index: 0,
+              type: 'function',
+            },
+          ],
+        },
+        finish_reason: null,
+        index: 0,
+      },
+    ],
+    tool_calls: [{ arguments: { limit: 25 }, name: 'recentActivity' }],
+  })
+
+  const finishChunk = JSON.stringify({
+    choices: [{ delta: { content: '' }, finish_reason: 'tool_calls', index: 0 }],
+    response: '',
+    tool_calls: [],
+  })
+
+  it('parses tool input once instead of concatenating both shapes into invalid JSON', async () => {
+    const calls: Array<{ limit?: number }> = []
+    const workersai = createWorkersAI({ binding: bindingReturning([toolCallChunk, finishChunk]) })
+
+    const result = streamText({
+      model: workersai('@cf/meta/llama-4-scout-17b-16e-instruct'),
+      prompt: 'What changed recently?',
+      tools: {
+        recentActivity: tool({
+          description: 'List recent configuration changes.',
+          inputSchema: z.object({ limit: z.number().int().optional() }),
+          execute: async (input) => {
+            calls.push(input)
+            return []
+          },
+        }),
+      },
+      stopWhen: stepCountIs(1),
+    })
+    await result.consumeStream()
+
+    // Unpatched this is `{"limit": 25}{"limit":25}` → tool-input-error, the
+    // tool never runs, and the user gets "An error occurred."
+    expect(calls).toEqual([{ limit: 25 }])
+  })
+
+  it('keeps the model-supplied tool call id rather than a synthesized one', async () => {
+    const workersai = createWorkersAI({ binding: bindingReturning([toolCallChunk, finishChunk]) })
+
+    const result = streamText({
+      model: workersai('@cf/meta/llama-4-scout-17b-16e-instruct'),
+      prompt: 'What changed recently?',
+      tools: {
+        recentActivity: tool({
+          description: 'List recent configuration changes.',
+          inputSchema: z.object({ limit: z.number().int().optional() }),
+          execute: async () => [],
+        }),
+      },
+      stopWhen: stepCountIs(1),
+    })
+    await result.consumeStream()
+
+    const toolCalls = await result.toolCalls
+    expect(toolCalls).toHaveLength(1)
+    // The native shape carries no id, so the unguarded branch invented one.
+    expect(toolCalls[0]?.toolCallId).toContain('chatcmpl-tool-8238b28f7eea859c')
+  })
+
+  it('still emits tool calls from chunks that only carry the native shape', async () => {
+    const calls: Array<{ limit?: number }> = []
+    const nativeOnly = JSON.stringify({
+      tool_calls: [{ arguments: { limit: 5 }, name: 'recentActivity' }],
+    })
+    const workersai = createWorkersAI({ binding: bindingReturning([nativeOnly, finishChunk]) })
+
+    const result = streamText({
+      model: workersai('@cf/meta/llama-4-scout-17b-16e-instruct'),
+      prompt: 'What changed recently?',
+      tools: {
+        recentActivity: tool({
+          description: 'List recent configuration changes.',
+          inputSchema: z.object({ limit: z.number().int().optional() }),
+          execute: async (input) => {
+            calls.push(input)
+            return []
+          },
+        }),
+      },
+      stopWhen: stepCountIs(1),
+    })
+    await result.consumeStream()
+
+    expect(calls).toEqual([{ limit: 5 }])
   })
 })

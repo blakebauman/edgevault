@@ -1,23 +1,46 @@
 diff --git a/dist/index.mjs b/dist/index.mjs
-index 424246c9c2026428b305fff8b12b562426e5a22c..b66b67ab0afb87e3461fe67d6349150f13605aa5 100644
+index 424246c9c2026428b305fff8b12b562426e5a22c..85c89b87a21c0433ea0ab915904be4967d6219a5 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -687,7 +687,17 @@ function getMappedStream(response, salvageContext) {
+@@ -687,7 +687,31 @@ function getMappedStream(response, salvageContext) {
  			const directFinishReason = chunk.finish_reason;
  			if (choiceFinishReason != null) finishReason = mapWorkersAIFinishReason(choiceFinishReason);
  			else if (directFinishReason != null) finishReason = mapWorkersAIFinishReason(directFinishReason);
 -			const nativeResponse = chunk.response;
 +			// EdgeVault patch — upstream bug (present through 4.0.0): a Workers AI
-+			// stream chunk carries the same token in BOTH `response` and
-+			// `choices[0].delta.content`. This branch and the `choices[0].delta`
-+			// branch below each enqueue a text-delta, so every token is emitted
-+			// twice under the same text id ("HelloHello!!"). text-start/text-end are
-+			// guarded by `if (!textId)`, so only the deltas double — which is why
-+			// this reads as a client render bug rather than a provider bug.
-+			// Prefer the OpenAI-shaped delta; fall back to `response` when absent.
++			// stream chunk carries the same payload TWICE, once in the native
++			// top-level fields and once in the OpenAI-shaped `choices[0].delta`.
++			// Each has its own emit branch below, so everything is emitted twice:
++			//
++			//   text:       `response`   + `delta.content`
++			//   tool calls: `tool_calls` + `delta.tool_calls`
++			//
++			// Text doubles every token ("HelloHello!!"); text-start/text-end are
++			// guarded by `if (!textId)` so only the deltas double, which is what
++			// makes it read as a client render bug rather than a provider bug.
++			//
++			// Tool calls are worse: both shapes land on the same `index`, so the
++			// args string is appended twice and concatenated into invalid JSON
++			// ('{"limit":25}{"limit": 25}') — every tool call dies as
++			// tool-input-error → "An error occurred."
++			//
++			// Prefer the OpenAI-shaped payload in both cases and fall back to the
++			// native field only when it is absent. For tool calls that also keeps
++			// the model's real call `id`/`index`, which the native shape omits.
 +			const openAiDeltaContent = choices?.[0]?.delta?.content;
 +			const hasOpenAiDeltaContent = openAiDeltaContent != null && openAiDeltaContent !== "";
++			const openAiDeltaToolCalls = choices?.[0]?.delta?.tool_calls;
++			const hasOpenAiDeltaToolCalls = Array.isArray(openAiDeltaToolCalls) && openAiDeltaToolCalls.length > 0;
 +			const nativeResponse = hasOpenAiDeltaContent ? void 0 : chunk.response;
  			if (nativeResponse != null && nativeResponse !== "") {
  				const responseText = String(nativeResponse);
  				if (responseText.length > 0) if (bufferContentForSalvage) contentBuffer += responseText;
+@@ -713,7 +737,7 @@ function getMappedStream(response, salvageContext) {
+ 					});
+ 				}
+ 			}
+-			if (Array.isArray(chunk.tool_calls)) {
++			if (Array.isArray(chunk.tool_calls) && !hasOpenAiDeltaToolCalls) {
+ 				if (reasoningId) {
+ 					controller.enqueue({
+ 						type: "reasoning-end",
