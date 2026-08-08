@@ -1,7 +1,6 @@
-import { useAgentChat } from '@cloudflare/ai-chat/react'
+import { type AssistantTurn, useAssistant } from '@edgevault/realtime/assistant-react'
 import { ErrorNote } from '@edgevault/ui'
-import { useAgent } from 'agents/react'
-import { type FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { type FormEvent, lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link, useMatches, useRouteLoaderData } from 'react-router'
 import type { loader as rootLoader } from '../root'
 import { Loader } from './ai-elements/loader'
@@ -32,15 +31,6 @@ const STARTERS = [
  * extra segment passes auth unchanged.
  */
 const AGENT_GENERATION = 'v2'
-
-/** A permissive view of a UIMessage part (the v5 union is wide; we read text +
- * tool output defensively). */
-type AnyPart = { type: string; text?: string; output?: unknown }
-type ConfigHit = { key: string; environmentId: string; kind?: string }
-
-function isConfigHits(v: unknown): v is ConfigHit[] {
-  return Array.isArray(v) && v.every((h) => h && typeof (h as ConfigHit).key === 'string')
-}
 
 function Spark({ size = 15 }: { size?: number }) {
   return (
@@ -174,26 +164,30 @@ function AgentChat({
   host: string
 }) {
   const [input, setInput] = useState('')
+  const [url, setUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
 
-  // The access token is httpOnly — fetch a fresh one from the BFF on each
-  // (re)connect for the ?token= the api verifies.
-  const query = useCallback(async (): Promise<Record<string, string>> => {
-    const res = await fetch(`/dashboard/${encodeURIComponent(workspaceId)}/assistant/ws-token`)
-    if (!res.ok) return {}
-    const { token } = (await res.json()) as { token?: string }
-    return token ? { token } : {}
-  }, [workspaceId])
+  // The access token is httpOnly, so mint a short-lived one from the BFF and
+  // put it on the socket url. The browser only ever talks to the api over this
+  // WebSocket — the api sends no CORS headers by design — so there is no HTTP
+  // history fetch to disable here, unlike the SDK this replaced.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const res = await fetch(`/dashboard/${encodeURIComponent(workspaceId)}/assistant/ws-token`)
+      if (!res.ok || cancelled) return
+      const { token } = (await res.json()) as { token?: string }
+      if (!token || cancelled) return
+      setUrl(`${host}/agents/edge-vault-agent/${encodeURIComponent(name)}?token=${token}`)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [workspaceId, host, name])
 
-  const agent = useAgent({ agent: 'EdgeVaultAgent', name, host, query, queryDeps: [workspaceId] })
-  // `getInitialMessages: null` disables the SDK's default HTTP fetch of thread
-  // history (`GET /agents/.../get-messages`). That fetch is cross-origin
-  // (console→api) and the api intentionally sends no CORS headers — the browser
-  // only talks to the api over the CORS-exempt WebSocket. History (and every
-  // turn) syncs over that socket instead, so the HTTP call is unnecessary here.
-  const { messages, sendMessage, status, error } = useAgentChat({ agent, getInitialMessages: null })
-  const busy = status === 'submitted' || status === 'streaming'
+  const { turns, busy, ask, status } = useAssistant(url)
+  const connecting = url !== null && status !== 'open'
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -203,19 +197,19 @@ function AgentChat({
   // Scroll on every message update
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight })
-  }, [messages])
+  }, [turns])
 
   function submit(text: string) {
     const q = text.trim()
     if (!q || busy) return
     setInput('')
-    sendMessage({ text: q })
+    ask(q)
   }
 
   return (
     <>
       <div className="asst-body" ref={bodyRef}>
-        {messages.length === 0 && (
+        {turns.length === 0 && (
           <>
             <p className="asst-intro">
               Ask what changed in this workspace, or find a config by meaning.
@@ -230,13 +224,8 @@ function AgentChat({
           </>
         )}
 
-        {messages.map((m) => (
-          <MessageView
-            key={m.id}
-            role={m.role}
-            parts={m.parts as unknown as AnyPart[]}
-            ws={workspaceId}
-          />
+        {turns.map((t) => (
+          <MessageView key={t.id} turn={t} ws={workspaceId} />
         ))}
 
         {busy && (
@@ -244,7 +233,11 @@ function AgentChat({
             <Loader /> Thinking…
           </div>
         )}
-        {error && <ErrorNote>{error.message}</ErrorNote>}
+        {connecting && turns.length === 0 && (
+          <div className="msg ai flex items-center gap-2">
+            <Loader /> Connecting…
+          </div>
+        )}
       </div>
 
       <form
@@ -297,19 +290,15 @@ function AgentChat({
   )
 }
 
-function MessageView({ role, parts, ws }: { role: string; parts: AnyPart[]; ws: string }) {
-  const text = parts
-    .filter((p) => p.type === 'text')
-    .map((p) => p.text ?? '')
-    .join('')
-
-  if (role === 'user') {
-    return <div className="msg user">{text}</div>
+function MessageView({ turn, ws }: { turn: AssistantTurn; ws: string }) {
+  if (turn.role === 'user') {
+    return <div className="msg user">{turn.text}</div>
+  }
+  if (turn.error) {
+    return <ErrorNote>{turn.error}</ErrorNote>
   }
 
-  const sources = parts.flatMap((p) =>
-    p.type.startsWith('tool-') && isConfigHits(p.output) ? p.output : [],
-  )
+  const { text, sources = [] } = turn
 
   return (
     <div className="msg ai">
