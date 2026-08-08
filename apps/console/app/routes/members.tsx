@@ -16,6 +16,7 @@ import {
 import { useState } from 'react'
 import { Form, redirect } from 'react-router'
 import { LocalTime } from '../components/local-time'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/members'
@@ -58,7 +59,7 @@ const ROLE_CHIP: Record<Role, ChipVariant> = {
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}` }
 
   const orgsRes = await env.API_SERVICE.fetch('https://api/api/v1/organizations', { headers })
@@ -112,7 +113,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
   const base = `https://api/api/v1/organizations/${params.orgId}/members`
   const form = await request.formData()

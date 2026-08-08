@@ -2,6 +2,7 @@ import { Button, ErrorNote, Field, Input, StatusNote } from '@edgevault/ui'
 import { type FormEvent, useState } from 'react'
 import { Form, redirect, useNavigation } from 'react-router'
 import { AuthLayout } from '../components/auth-layout'
+import { cloudflareContext } from '../lib/cloudflare'
 import { ipHeaders, safeRelativePath, setMfaCookie, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/login'
 
@@ -44,7 +45,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const password = String(form.get('password') ?? '')
   const intent = String(form.get('intent') ?? 'signin')
   const next = safeRelativePath(String(form.get('next') ?? '')) ?? '/'
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
 
   const path = intent === 'signup' ? '/sign-up/email' : '/sign-in/email'
   const auth = await env.AUTH_SERVICE.fetch(`https://auth${path}`, {

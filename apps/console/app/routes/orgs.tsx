@@ -12,6 +12,7 @@ import {
 } from '../components/shell-chrome'
 import { UserMenu } from '../components/user-menu'
 import { WorkspaceSwitcher } from '../components/workspace-switcher'
+import { cloudflareContext } from '../lib/cloudflare'
 import { getToken } from '../lib/session.server'
 import type { loader as rootLoader } from '../root'
 import type { Route } from './+types/orgs'
@@ -92,9 +93,11 @@ const navClass = ({ isActive }: { isActive: boolean }) => cn('ws-nav-link', isAc
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const res = await context.cloudflare.env.API_SERVICE.fetch('https://api/api/v1/organizations', {
-    headers: { authorization: `Bearer ${token}` },
-  })
+  const res = await context
+    .get(cloudflareContext)
+    .env.API_SERVICE.fetch('https://api/api/v1/organizations', {
+      headers: { authorization: `Bearer ${token}` },
+    })
   if (res.status === 401) throw redirect('/login')
   const orgs = res.ok
     ? ((await res.json()) as { organizations: Array<{ id: string; name: string }> }).organizations

@@ -1,4 +1,5 @@
 import { redirect } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { safeRelativePath, setSsoCookie } from '../lib/session.server'
 import type { Route } from './+types/sso.start'
 
@@ -9,7 +10,7 @@ import type { Route } from './+types/sso.start'
  * leaves the console origin except to visit the IdP.
  */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const orgId = params.orgId
   const next = safeRelativePath(new URL(request.url).searchParams.get('next')) ?? undefined
 

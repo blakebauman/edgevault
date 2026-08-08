@@ -1,6 +1,7 @@
 import { Button, Field, Input, StatusNote } from '@edgevault/ui'
 import { Form, Link, useNavigation } from 'react-router'
 import { AuthLayout } from '../components/auth-layout'
+import { cloudflareContext } from '../lib/cloudflare'
 import { ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/forgot-password'
 
@@ -13,7 +14,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const email = String(form.get('email') ?? '')
   // Auth always answers 200 with the same body — the response (and this page)
   // never reveals whether the address has an account.
-  await context.cloudflare.env.AUTH_SERVICE.fetch('https://auth/password/forgot', {
+  await context.get(cloudflareContext).env.AUTH_SERVICE.fetch('https://auth/password/forgot', {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...ipHeaders(request) },
     body: JSON.stringify({ email }),

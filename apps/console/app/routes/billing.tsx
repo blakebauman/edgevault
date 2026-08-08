@@ -1,6 +1,7 @@
 import { Button, ErrorNote, StatusNote, TokenBox } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { Forbidden } from '../components/forbidden'
+import { cloudflareContext } from '../lib/cloudflare'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/billing'
 
@@ -46,7 +47,7 @@ async function requireOrgAdmin(token: string, orgId: string, env: Env): Promise<
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const org = await requireOrgAdmin(token, params.orgId, env)
 
   const isAdmin = ADMIN_ROLES.has(org.role)
@@ -75,7 +76,7 @@ function messageForStatus(status: number): string {
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const org = await requireOrgAdmin(token, params.orgId, env)
   if (!ADMIN_ROLES.has(org.role)) return { error: 'Only owners or admins can manage billing.' }
   if (!env.BILLING_SERVICE) return { error: 'Billing is not available on this deployment.' }

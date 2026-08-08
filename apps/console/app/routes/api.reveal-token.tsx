@@ -1,3 +1,4 @@
+import { cloudflareContext } from '../lib/cloudflare'
 import {
   clearWebauthnCookie,
   getToken,
@@ -17,7 +18,7 @@ import type { Route } from './+types/api.reveal-token'
  * round-trip; everything here is token-gated (a signed-in user stepping up).
  */
 export async function action({ request, context }: Route.ActionArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const url = new URL(request.url)
   const rpID = url.hostname
   const origin = url.origin

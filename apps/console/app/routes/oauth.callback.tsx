@@ -1,4 +1,5 @@
 import { redirect } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { clearOAuthCookie, getOAuthTransaction, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/oauth.callback'
 
@@ -8,7 +9,7 @@ import type { Route } from './+types/oauth.callback'
  * session, then exchange that for an access token and land in the console.
  */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const provider = params.provider
   const url = new URL(request.url)
   const code = url.searchParams.get('code')

@@ -17,6 +17,7 @@ import {
 } from '@edgevault/ui'
 import { Form, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
@@ -66,8 +67,8 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   if (!token) throw redirect('/login')
 
   const [res, workspaceName] = await Promise.all([
-    api(context.cloudflare.env, token, `/${params.workspaceId}/channels`),
-    getWorkspaceName(context.cloudflare.env, token, params.workspaceId),
+    api(context.get(cloudflareContext).env, token, `/${params.workspaceId}/channels`),
+    getWorkspaceName(context.get(cloudflareContext).env, token, params.workspaceId),
   ])
   if (res.status === 401) throw redirect('/login')
   if (res.status === 403) {
@@ -85,7 +86,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const form = await request.formData()
   const intent = String(form.get('intent'))
 

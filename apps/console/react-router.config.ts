@@ -7,6 +7,10 @@ export default {
     // Required for compatibility with the @cloudflare/vite-plugin (aligns the
     // build with Vite's Environment API).
     v8_viteEnvironmentApi: true,
+    // `context` in loaders/actions is a RouterContextProvider, not a plain
+    // object — bindings come from `context.get(cloudflareContext)`, which
+    // `workers/app.ts` populates. See app/lib/cloudflare.ts.
+    v8_middleware: true,
     // Client route exports (clientLoader et al) ship as their own chunks.
     v8_splitRouteModules: true,
     // Loaders/actions get the raw Request. `request.url` on a data request now

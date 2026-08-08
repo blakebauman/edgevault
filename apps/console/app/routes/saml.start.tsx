@@ -1,4 +1,5 @@
 import { redirect } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { setSamlCookie } from '../lib/session.server'
 import type { Route } from './+types/saml.start'
 
@@ -9,7 +10,7 @@ import type { Route } from './+types/saml.start'
  * its response to the ACS route.
  */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const orgId = params.orgId
 
   const res = await env.AUTH_SERVICE.fetch(`https://auth/orgs/${orgId}/saml/start`, {

@@ -15,6 +15,7 @@ import { useEffect } from 'react'
 import { Form, redirect, useRevalidator } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { LocalTime } from '../components/local-time'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/domains'
@@ -63,7 +64,7 @@ const STATUS_CHIP: Record<DomainStatus, { variant: ChipVariant; label: string }>
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}` }
 
   const orgsRes = await env.API_SERVICE.fetch('https://api/api/v1/organizations', { headers })
@@ -96,7 +97,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
   const base = `https://api/api/v1/organizations/${params.orgId}/domains`
   const form = await request.formData()

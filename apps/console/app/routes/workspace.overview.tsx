@@ -15,6 +15,7 @@ import {
 import { useState } from 'react'
 import { Form, Link, redirect, useNavigation, useRouteLoaderData } from 'react-router'
 import { LocalTime } from '../components/local-time'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { humanizeAction } from '../lib/format'
 import { getToken } from '../lib/session.server'
@@ -71,7 +72,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
 
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}` }
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const query = new URL(request.url).searchParams.get('q')?.trim() || null
@@ -138,7 +139,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
   const form = await request.formData()

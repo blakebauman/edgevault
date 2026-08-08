@@ -2,6 +2,7 @@ import { decryptShareText } from '@edgevault/crypto'
 import { Button, ErrorNote } from '@edgevault/ui'
 import { useState } from 'react'
 import { useFetcher } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import type { Route } from './+types/share.view'
 
 /**
@@ -17,7 +18,7 @@ export function meta(_: Route.MetaArgs) {
 }
 
 export async function action({ params, context }: Route.ActionArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const res = await env.API_SERVICE.fetch(`https://api/internal/shares/${params.id}/consume`, {
     method: 'POST',
     headers: { 'x-internal-token': env.INTERNAL_TOKEN },

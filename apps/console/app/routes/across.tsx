@@ -1,3 +1,4 @@
+import { cloudflareContext } from '../lib/cloudflare'
 import { loadAcrossEnvironments } from '../lib/items.server'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/across'
@@ -10,5 +11,10 @@ import type { Route } from './+types/across'
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) return { key: params.key, environments: [] }
-  return loadAcrossEnvironments(context.cloudflare.env, token, params.workspaceId, params.key)
+  return loadAcrossEnvironments(
+    context.get(cloudflareContext).env,
+    token,
+    params.workspaceId,
+    params.key,
+  )
 }
