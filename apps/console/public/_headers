@@ -1,0 +1,15 @@
+# Caching rules for the console's static client build. Security headers are NOT
+# set here — they are applied per-response in workers/app.ts (and the document
+# CSP in entry.server.tsx, where the per-request nonce lives), which covers the
+# SSR responses these files accompany.
+#
+# Vite content-hashes everything under /assets/, so a URL only changes when its
+# bytes do. Without a rule here these inherited the Workers Assets default of
+# `public, max-age=0, must-revalidate` — the edge cached them, but every browser
+# still paid a revalidation round-trip for each chunk on every navigation.
+#
+# Cache-Control belongs ONLY in this block: every matching rule is applied and
+# the values are concatenated, so a second rule covering these paths would land
+# both directives on one response, and the stricter one wins.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

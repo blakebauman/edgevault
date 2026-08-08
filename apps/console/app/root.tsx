@@ -78,7 +78,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
   // Inside a workspace or an org-settings area the rail owns the chrome — brand,
   // switcher, account menu, assistant — so the global TopBar is suppressed there
   // to avoid a second header. Every other route keeps it.
-  const inShell = /^\/(dashboard\/[^/]+|orgs\/[^/]+)/.test(useLocation().pathname)
+  const pathname = useLocation().pathname
+  const inShell = /^\/(dashboard\/[^/]+|orgs\/[^/]+)/.test(pathname)
+  // The pre-auth screens render their own self-contained card (AuthLayout), so
+  // the global TopBar is suppressed there for a focused, chrome-free surface.
+  const isAuth = /^\/(login|forgot-password|reset-password|verify-email)(\/|$)/.test(pathname)
+  const bareLayout = inShell || isAuth
   return (
     <html lang="en" className="dark">
       <head>
@@ -95,7 +100,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {!inShell && (
+        {!bareLayout && (
           <TopBar authed={data?.authed ?? false} orgs={data?.orgs ?? []} email={data?.email} />
         )}
         {children}

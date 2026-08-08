@@ -1,5 +1,6 @@
 import { Button, ErrorNote, Input } from '@edgevault/ui'
 import { Form, redirect, useNavigation } from 'react-router'
+import { AuthLayout } from '../components/auth-layout'
 import {
   clearMfaCookie,
   getMfaToken,
@@ -64,53 +65,51 @@ export default function LoginMfa({ actionData, loaderData }: Route.ComponentProp
   const pending = navigation.state !== 'idle'
   const usingRecovery = navigation.formData?.get('method') === 'recovery'
   return (
-    <main className="shell shell-center">
-      <section className="hero">
-        <p className="eyebrow">EdgeVault Console</p>
-        <h1>Two-factor authentication</h1>
-        <p className="lede">Enter the 6-digit code from your authenticator app.</p>
-        <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
+    <AuthLayout
+      title="Two-factor authentication"
+      subtitle="Enter the 6-digit code from your authenticator app."
+    >
+      <Form method="post" className="mt-6 flex flex-col gap-3">
+        {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
+        <Input
+          name="code"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="123456"
+          aria-label="Authentication code"
+          required
+        />
+        {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
+        <Button type="submit" className="self-start" loading={pending && !usingRecovery}>
+          Verify
+        </Button>
+      </Form>
+
+      <details className="more-auth">
+        <summary>Lost your authenticator? Use a recovery code</summary>
+        <Form method="post" className="mt-4 flex max-w-sm flex-col gap-3">
           {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
+          <input type="hidden" name="method" value="recovery" />
           <Input
             name="code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="123456"
-            aria-label="Authentication code"
+            autoComplete="off"
+            placeholder="xxxxx-xxxxx"
+            aria-label="Recovery code"
             required
           />
-          {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
-          <Button type="submit" className="self-start" loading={pending && !usingRecovery}>
-            Verify
+          <p className="m-0 text-xs text-muted-foreground">
+            Each recovery code works once. Signing in this way signs out every other session.
+          </p>
+          <Button
+            type="submit"
+            variant="secondary"
+            className="self-start"
+            loading={pending && usingRecovery}
+          >
+            Use recovery code
           </Button>
         </Form>
-
-        <details className="more-auth">
-          <summary>Lost your authenticator? Use a recovery code</summary>
-          <Form method="post" className="mt-4 flex max-w-sm flex-col gap-3">
-            {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
-            <input type="hidden" name="method" value="recovery" />
-            <Input
-              name="code"
-              autoComplete="off"
-              placeholder="xxxxx-xxxxx"
-              aria-label="Recovery code"
-              required
-            />
-            <p className="m-0 text-xs text-muted-foreground">
-              Each recovery code works once. Signing in this way signs out every other session.
-            </p>
-            <Button
-              type="submit"
-              variant="secondary"
-              className="self-start"
-              loading={pending && usingRecovery}
-            >
-              Use recovery code
-            </Button>
-          </Form>
-        </details>
-      </section>
-    </main>
+      </details>
+    </AuthLayout>
   )
 }

@@ -1,5 +1,6 @@
 import { Button } from '@edgevault/ui'
 import { Link } from 'react-router'
+import { AuthLayout } from '../components/auth-layout'
 import { ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/verify-email'
 
@@ -26,32 +27,19 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
 export default function VerifyEmail({ loaderData }: Route.ComponentProps) {
   return (
-    <main className="shell shell-center">
-      <section className="hero">
-        <p className="eyebrow">EdgeVault Console</p>
-        {loaderData.verified ? (
-          <>
-            <h1>Email verified</h1>
-            <p className="lede">
-              You're all set — you can now create organizations and accept invitations.
-            </p>
-            <Button asChild className="mt-4 self-start">
-              <Link to="/">Continue →</Link>
-            </Button>
-          </>
-        ) : (
-          <>
-            <h1>This link didn't work</h1>
-            <p className="lede">
-              The verification link is invalid, expired, or already used. Sign in and request a
-              fresh one from the workspaces page.
-            </p>
-            <Button asChild className="mt-4 self-start">
-              <Link to="/login">Sign in</Link>
-            </Button>
-          </>
-        )}
-      </section>
-    </main>
+    <AuthLayout
+      title={loaderData.verified ? 'Email verified' : "This link didn't work"}
+      subtitle={
+        loaderData.verified
+          ? "You're all set — you can now create organizations and accept invitations."
+          : 'The verification link is invalid, expired, or already used. Sign in and request a fresh one from the workspaces page.'
+      }
+    >
+      <Button asChild className="mt-6 self-start">
+        <Link to={loaderData.verified ? '/' : '/login'}>
+          {loaderData.verified ? 'Continue →' : 'Sign in'}
+        </Link>
+      </Button>
+    </AuthLayout>
   )
 }

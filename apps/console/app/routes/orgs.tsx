@@ -4,6 +4,12 @@ import { Link, NavLink, Outlet, redirect, useLocation, useRouteLoaderData } from
 import { VaultMark } from '../components/brand'
 import { GlobalAssistant } from '../components/global-assistant'
 import { ORG_LINKS } from '../components/org-nav'
+import {
+  RoutePendingStatus,
+  RouteProgress,
+  useNavDrawer,
+  useRoutePending,
+} from '../components/shell-chrome'
 import { UserMenu } from '../components/user-menu'
 import { WorkspaceSwitcher } from '../components/workspace-switcher'
 import { getToken } from '../lib/session.server'
@@ -102,13 +108,32 @@ export default function OrgShell({ loaderData }: Route.ComponentProps) {
   const { orgId, orgName } = loaderData
   const root = useRouteLoaderData<typeof rootLoader>('root')
   const initial = (orgName.trim()[0] ?? 'O').toUpperCase()
+  const { pathname } = useLocation()
   // The section label for the breadcrumb, from the last path segment.
-  const seg = useLocation().pathname.match(/\/orgs\/[^/]+\/([^/]+)/)?.[1] ?? ''
+  const seg = pathname.match(/\/orgs\/[^/]+\/([^/]+)/)?.[1] ?? ''
   const sectionLabel = SECTION_LABEL[seg] ?? 'Settings'
+  // Mobile: the rail is an off-canvas drawer (closes on route change, Escape,
+  // or the scrim). Desktop renders the same markup as a static rail.
+  const {
+    open: navOpen,
+    setOpen: setNavOpen,
+    dismiss: dismissNav,
+    sidebarRef,
+    burgerRef,
+  } = useNavDrawer()
+  const pending = useRoutePending()
 
   return (
     <main className="ws-shell">
-      <aside className="ws-sidebar">
+      {navOpen && (
+        <button
+          type="button"
+          className="ws-scrim"
+          aria-label="Close navigation"
+          onClick={dismissNav}
+        />
+      )}
+      <aside ref={sidebarRef} tabIndex={-1} className={cn('ws-sidebar', navOpen && 'open')}>
         <Link to="/" className="ws-brand" aria-label="EdgeVault — all workspaces">
           <VaultMark />
           <span className="ws-brand-name">EdgeVault</span>
@@ -140,6 +165,27 @@ export default function OrgShell({ loaderData }: Route.ComponentProps) {
 
       <div className="ws-main">
         <header className="ws-header">
+          <button
+            ref={burgerRef}
+            type="button"
+            className="ws-burger"
+            aria-label="Open navigation"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen(true)}
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M3 6h18M3 12h18M3 18h18" />
+            </svg>
+          </button>
           <nav className="ws-crumbs" aria-label="Breadcrumb">
             <Link to="/">Workspaces</Link>
             <span className="sep">/</span>
@@ -149,8 +195,10 @@ export default function OrgShell({ loaderData }: Route.ComponentProps) {
           </nav>
           <span className="ws-header-spacer" />
           <GlobalAssistant />
+          <RouteProgress pending={pending} />
+          <RoutePendingStatus pending={pending} />
         </header>
-        <div className="ws-content">
+        <div className="ws-content" data-pending={pending || undefined}>
           <Outlet />
         </div>
       </div>

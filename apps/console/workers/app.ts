@@ -31,6 +31,17 @@ export default {
     })
     const secured = new Response(response.body, response)
     for (const [k, v] of SECURITY_HEADERS) secured.headers.set(k, v)
+    // Everything this worker renders is per-session: the SSR document, the
+    // React Router `.data` requests behind it, and the resource routes. None of
+    // it carried a Cache-Control at all, which leaves the response eligible for
+    // heuristic caching — a shared machine's back button, or any intermediary,
+    // could surface one member's workspace to the next. Set, not overwritten,
+    // so a route that wants to be cacheable can say so itself. Hashed assets
+    // never reach here (the asset server answers those first) and keep the
+    // immutable Cache-Control from public/_headers.
+    if (!secured.headers.has('Cache-Control')) {
+      secured.headers.set('Cache-Control', 'no-store')
+    }
     return secured
   },
 } satisfies ExportedHandler<Env>

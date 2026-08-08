@@ -1,6 +1,7 @@
 import { Button, ErrorNote, Field, Input, StatusNote } from '@edgevault/ui'
 import { type FormEvent, useState } from 'react'
 import { Form, redirect, useNavigation } from 'react-router'
+import { AuthLayout } from '../components/auth-layout'
 import { ipHeaders, safeRelativePath, setMfaCookie, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/login'
 
@@ -99,58 +100,54 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
   const navigation = useNavigation()
   const pendingIntent = navigation.state !== 'idle' ? navigation.formData?.get('intent') : null
   return (
-    <main className="shell shell-center">
-      <section className="hero">
-        <p className="eyebrow">EdgeVault Console</p>
-        <h1>Sign in</h1>
-        <Form method="post" className="mt-6 flex max-w-sm flex-col gap-3">
-          {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
-          <Field label="Email">
-            <Input name="email" type="email" placeholder="you@example.com" required autoFocus />
-          </Field>
-          <Field label="Password">
-            <Input name="password" type="password" placeholder="••••••••" required minLength={8} />
-          </Field>
-          {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
-          {loaderData.notice && <StatusNote>{loaderData.notice}</StatusNote>}
-          <div className="flex flex-wrap gap-3">
-            <Button type="submit" name="intent" value="signin" loading={pendingIntent === 'signin'}>
-              Sign in
-            </Button>
-            <Button
-              type="submit"
-              name="intent"
-              value="signup"
-              variant="linklike"
-              className="more-auth-alt"
-              loading={pendingIntent === 'signup'}
-            >
-              New here? Create an account
-            </Button>
-          </div>
-          <a href="/forgot-password" className="text-xs text-muted-foreground hover:text-accent">
-            Forgot your password?
-          </a>
-        </Form>
+    <AuthLayout title="Sign in">
+      <Form method="post" className="mt-6 flex flex-col gap-3">
+        {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
+        <Field label="Email">
+          <Input name="email" type="email" placeholder="you@example.com" required autoFocus />
+        </Field>
+        <Field label="Password">
+          <Input name="password" type="password" placeholder="••••••••" required minLength={8} />
+        </Field>
+        {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
+        {loaderData.notice && <StatusNote>{loaderData.notice}</StatusNote>}
+        <div className="flex flex-wrap gap-3">
+          <Button type="submit" name="intent" value="signin" loading={pendingIntent === 'signin'}>
+            Sign in
+          </Button>
+          <Button
+            type="submit"
+            name="intent"
+            value="signup"
+            variant="linklike"
+            className="more-auth-alt"
+            loading={pendingIntent === 'signup'}
+          >
+            New here? Create an account
+          </Button>
+        </div>
+        <a href="/forgot-password" className="text-xs text-muted-foreground hover:text-accent">
+          Forgot your password?
+        </a>
+      </Form>
 
-        <details className="more-auth">
-          <summary>More sign-in options</summary>
-          <div className="mt-4 flex flex-col gap-3">
-            <p className="m-0 text-sm text-muted-foreground">Continue with</p>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="secondary" asChild>
-                <a href={withNext('/oauth/github/start', loaderData.next)}>GitHub</a>
-              </Button>
-              <Button variant="secondary" asChild>
-                <a href={withNext('/oauth/google/start', loaderData.next)}>Google</a>
-              </Button>
-            </div>
+      <details className="more-auth">
+        <summary>More sign-in options</summary>
+        <div className="mt-4 flex flex-col gap-3">
+          <p className="m-0 text-sm text-muted-foreground">Continue with</p>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="secondary" asChild>
+              <a href={withNext('/oauth/github/start', loaderData.next)}>GitHub</a>
+            </Button>
+            <Button variant="secondary" asChild>
+              <a href={withNext('/oauth/google/start', loaderData.next)}>Google</a>
+            </Button>
           </div>
-          <PasskeyButton next={loaderData.next} />
-          <SsoForm error={loaderData.ssoError} next={loaderData.next} />
-        </details>
-      </section>
-    </main>
+        </div>
+        <PasskeyButton next={loaderData.next} />
+        <SsoForm error={loaderData.ssoError} next={loaderData.next} />
+      </details>
+    </AuthLayout>
   )
 }
 
