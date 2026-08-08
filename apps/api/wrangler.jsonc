@@ -102,6 +102,31 @@
   "env": {
     "staging": {
       "routes": [{ "pattern": "api-staging.edgevault.io", "custom_domain": true }],
+      // STAGING ONLY. Named environments inherit the top-level `migrations`
+      // unless they declare their own, so this repeats v1–v4 verbatim and adds
+      // v5/v6 on the end. Production keeps the top-level list and is untouched.
+      //
+      // v5+v6 delete and recreate EdgeVaultAgent, which destroys every instance
+      // and its storage. On 2026-08-08 `agents` 0.20.1 was briefly deployed to
+      // staging and wrote agent state in a format the reverted 0.16.2 cannot
+      // read: those DOs still accept a websocket (setName succeeds) but silently
+      // drop every chat message. A library downgrade does not roll back
+      // persisted DO state, so the state has to go. Only assistant chat history
+      // is lost. VaultDurableObject — the config system of record — is a
+      // separate class and is not referenced here.
+      //
+      // Production never received 0.20.1 and needs no equivalent.
+      "migrations": [
+        { "tag": "v1", "new_sqlite_classes": ["WorkspaceDurableObject"] },
+        { "tag": "v2", "new_sqlite_classes": ["EdgeVaultAgent"] },
+        { "tag": "v3", "new_sqlite_classes": ["ShareDurableObject"] },
+        {
+          "tag": "v4",
+          "renamed_classes": [{ "from": "WorkspaceDurableObject", "to": "VaultDurableObject" }]
+        },
+        { "tag": "v5", "deleted_classes": ["EdgeVaultAgent"] },
+        { "tag": "v6", "new_sqlite_classes": ["EdgeVaultAgent"] }
+      ],
       "vars": {
         "ENVIRONMENT": "staging",
         "SERVICE_NAME": "edgevault-api-staging",
