@@ -14,7 +14,7 @@
     "lint": "biome check ."
   },
   "dependencies": {
-    "@ai-sdk/react": "^3.0.248",
+    "@ai-sdk/react": "3.0.210",
     "@cloudflare/ai-chat": "catalog:",
     "@edgevault/blocks": "workspace:*",
     "@edgevault/crypto": "workspace:*",
