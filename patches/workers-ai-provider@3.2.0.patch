@@ -1,0 +1,23 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index 424246c9c2026428b305fff8b12b562426e5a22c..b66b67ab0afb87e3461fe67d6349150f13605aa5 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -687,7 +687,17 @@ function getMappedStream(response, salvageContext) {
+ 			const directFinishReason = chunk.finish_reason;
+ 			if (choiceFinishReason != null) finishReason = mapWorkersAIFinishReason(choiceFinishReason);
+ 			else if (directFinishReason != null) finishReason = mapWorkersAIFinishReason(directFinishReason);
+-			const nativeResponse = chunk.response;
++			// EdgeVault patch — upstream bug (present through 4.0.0): a Workers AI
++			// stream chunk carries the same token in BOTH `response` and
++			// `choices[0].delta.content`. This branch and the `choices[0].delta`
++			// branch below each enqueue a text-delta, so every token is emitted
++			// twice under the same text id ("HelloHello!!"). text-start/text-end are
++			// guarded by `if (!textId)`, so only the deltas double — which is why
++			// this reads as a client render bug rather than a provider bug.
++			// Prefer the OpenAI-shaped delta; fall back to `response` when absent.
++			const openAiDeltaContent = choices?.[0]?.delta?.content;
++			const hasOpenAiDeltaContent = openAiDeltaContent != null && openAiDeltaContent !== "";
++			const nativeResponse = hasOpenAiDeltaContent ? void 0 : chunk.response;
+ 			if (nativeResponse != null && nativeResponse !== "") {
+ 				const responseText = String(nativeResponse);
+ 				if (responseText.length > 0) if (bufferContentForSalvage) contentBuffer += responseText;

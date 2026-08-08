@@ -45,6 +45,9 @@
       "lefthook",
       "sharp",
       "workerd"
-    ]
+    ],
+    "patchedDependencies": {
+      "workers-ai-provider@3.2.0": "patches/workers-ai-provider@3.2.0.patch"
+    }
   }
 }
