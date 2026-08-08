@@ -24,14 +24,24 @@ const STARTERS = [
  * still references the class (error 10061), and no two-step deploy with the
  * assistant offline in between.
  *
+ * The failure is always the same: the DO accepts the socket (`setName` logs ok)
+ * and then silently drops every message. Bump this, redeploy, done.
+ *
  * v2: `agents` 0.20.1 briefly ran on staging (2026-08-08) and wrote state the
- * reverted 0.16.2 cannot read; those DOs accept a socket but drop every
- * message. Only assistant chat history is lost by moving on.
+ *     reverted 0.16.2 could not read.
+ * v3: skipped — used only by the 0.17.4 attempt, itself reverted.
+ * v4: 0.17.4 was the live class code for *every* EdgeVaultAgent while that
+ *     attempt was deployed, not just the v3 names it was minting. The agent
+ *     schedules alarms, so v2 DOs woke under 0.17.4 and were migrated out from
+ *     under themselves. Generation is per-name; class code is not.
+ *
+ * Three `agents` version changes in one day each wedged persisted state this
+ * way, which is worth weighing before that dependency moves again.
  *
  * The api parses this name with `split(':')` and reads only [0] and [1], so the
  * extra segment passes auth unchanged.
  */
-const AGENT_GENERATION = 'v2'
+const AGENT_GENERATION = 'v4'
 
 /** A permissive view of a UIMessage part (the v5 union is wide; we read text +
  * tool output defensively). */
