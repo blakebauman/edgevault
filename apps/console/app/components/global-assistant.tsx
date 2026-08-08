@@ -31,7 +31,7 @@ const STARTERS = [
  * The api parses this name with `split(':')` and reads only [0] and [1], so the
  * extra segment passes auth unchanged.
  */
-const AGENT_GENERATION = 'v3'
+const AGENT_GENERATION = 'v2'
 
 /** A permissive view of a UIMessage part (the v5 union is wide; we read text +
  * tool output defensively). */
