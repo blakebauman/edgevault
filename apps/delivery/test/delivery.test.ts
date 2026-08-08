@@ -50,6 +50,16 @@ describe('delivery auth', () => {
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff')
     expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains')
   })
+
+  it('marks responses uncacheable — every read is scoped to one API key', async () => {
+    // Without an explicit directive these were eligible for heuristic caching
+    // by any intermediary, which for per-environment config means one tenant's
+    // values could be served to another.
+    expect((await call('/health')).headers.get('Cache-Control')).toBe('no-store')
+    expect((await call('/v1/configs/feature.x', auth)).headers.get('Cache-Control')).toBe(
+      'no-store',
+    )
+  })
   it('401s with an unknown API key', async () => {
     expect((await call('/v1/configs/feature.x', { authorization: 'Bearer nope' })).status).toBe(401)
   })

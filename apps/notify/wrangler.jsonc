@@ -4,6 +4,11 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-06-03",
   "compatibility_flags": ["nodejs_compat"],
+  // Queue consumer only — it has no routes, and wrangler only infers
+  // workers_dev=false when routes are present. Left unset, this worker is
+  // reachable at its *.workers.dev hostname (and a preview URL) for no reason.
+  "workers_dev": false,
+  "preview_urls": false,
   "observability": { "enabled": true },
   // Delivers fully-materialized notification jobs (signed webhooks + Slack +
   // invitation emails). The api worker resolves channels and decrypts
