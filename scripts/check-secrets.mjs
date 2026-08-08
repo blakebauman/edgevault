@@ -42,7 +42,9 @@ function listSecrets(worker) {
     return { secrets: parsed.map((s) => s.name) }
   } catch (err) {
     const text = `${err.stdout ?? ''}${err.stderr ?? ''}${err.message ?? ''}`
-    if (/not found|does not exist|workers\.api\.error\.script_not_found|\[code: 10007\]/i.test(text))
+    if (
+      /not found|does not exist|workers\.api\.error\.script_not_found|\[code: 10007\]/i.test(text)
+    )
       return { missingWorker: true }
     return { error: text.split('\n').find((l) => l.trim()) ?? 'wrangler failed' }
   }
