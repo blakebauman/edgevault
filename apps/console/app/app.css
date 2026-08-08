@@ -508,6 +508,13 @@
     border-right: 1px solid var(--border);
   }
 
+  /* The rail takes focus programmatically when it opens as a mobile drawer
+     (tabindex="-1"), which also makes a click anywhere on it focusable. It's a
+     container, not a control, so it never draws a ring of its own. */
+  .ws-sidebar:focus {
+    outline: none;
+  }
+
   /* brand strip (rail top) — restores the EdgeVault mark inside the shell;
      height-matched to .ws-header so the rail top aligns with the content top */
   .ws-brand {
@@ -715,6 +722,7 @@
   }
 
   .ws-header {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 0.875rem;
@@ -722,6 +730,54 @@
     flex: none;
     padding: 0 1.25rem;
     border-bottom: 1px solid var(--border);
+  }
+
+  /* Route-transition indicator: rides the header's bottom border, so a pending
+     navigation reads as the chrome itself working rather than as a new element
+     appearing. Hidden until the shell marks a transition slow enough to show. */
+  .route-progress {
+    position: absolute;
+    inset: auto 0 -1px 0;
+    height: 2px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.12s ease-out;
+    pointer-events: none;
+  }
+
+  .route-progress[data-pending] {
+    opacity: 1;
+  }
+
+  .route-progress-bar {
+    display: block;
+    width: 28%;
+    height: 100%;
+    background: var(--accent);
+  }
+
+  .route-progress[data-pending] .route-progress-bar {
+    animation: route-progress 1.1s ease-in-out infinite;
+  }
+
+  @keyframes route-progress {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(357%); /* 100% of the track, in bar widths */
+    }
+  }
+
+  /* Reduced motion: the global reset only clamps durations, which would leave
+     the sliding bar flickering in place. Drop the travel entirely and hold a
+     steady accent line — the state still reads, nothing moves. Declared after
+     the animating rule so it wins on source order at equal specificity. */
+  @media (prefers-reduced-motion: reduce) {
+    .route-progress[data-pending] .route-progress-bar {
+      width: 100%;
+      animation-name: none;
+    }
   }
 
   .ws-crumbs {
@@ -1171,6 +1227,14 @@
     min-height: 0;
     overflow-y: auto;
     padding: 1.75rem 1.5rem 3rem;
+    transition: opacity 0.15s ease-out;
+  }
+
+  /* The outgoing view recedes while the next one loads. Kept purely visual —
+     the content stays interactive, so a mis-click on a slow load is still a
+     click, not a swallowed one. */
+  .ws-content[data-pending] {
+    opacity: 0.55;
   }
 
   /* --- Rail search / command-palette trigger ---------------------------------- */
@@ -1683,18 +1747,26 @@
     }
 
     /* The rail becomes an off-canvas drawer — the header hamburger opens it, the
-       scrim closes it. Its internal layout stays the desktop vertical stack. */
+       scrim or Escape closes it. Its internal layout stays the desktop vertical
+       stack. `visibility: hidden` is what takes the closed drawer out of the tab
+       order and the accessibility tree: translating it off-screen alone leaves
+       every nav link focusable, so Tab would walk through an invisible rail.
+       Doing it in CSS (not JS) means that holds before hydration too. */
     .ws-sidebar {
       position: fixed;
       inset: 0 auto 0 0;
       z-index: 60;
       width: min(18rem, 85vw);
       transform: translateX(-100%);
-      transition: transform 0.22s ease-out;
+      visibility: hidden;
+      transition:
+        transform 0.22s ease-out,
+        visibility 0.22s ease-out;
     }
 
     .ws-sidebar.open {
       transform: none;
+      visibility: visible;
     }
 
     .ws-burger {
