@@ -79,11 +79,15 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
     options?: Parameters<AIChatAgent<Env>['onChatMessage']>[1],
   ): Promise<Response | undefined> {
     // `workers-ai-provider` is patched (patches/workers-ai-provider@3.2.0.patch).
-    // A Workers AI chunk carries the same token in both `response` and
-    // `choices[0].delta.content`, and the stock provider enqueues a text-delta
-    // for each — every token streamed twice ("HelloHello!!"). It presents as a
-    // console bug because only the deltas double, never the surrounding
-    // text-start/text-end. Guarded by test/assistant-stream.test.ts.
+    // A Workers AI chunk carries the same payload twice — once in the native
+    // top-level fields, once in the OpenAI-shaped `choices[0].delta` — and the
+    // stock provider has an unguarded emit branch for each:
+    //   text       → every token streamed twice ("HelloHello!!")
+    //   tool calls → args concatenated into invalid JSON, so every tool call
+    //                dies as tool-input-error and the user sees nothing
+    // The text case presents as a console bug because only the deltas double,
+    // never the surrounding text-start/text-end. Both guarded by
+    // test/assistant-stream.test.ts.
     const workersai = createWorkersAI({ binding: this.env.AI })
     const result = streamText({
       model: workersai(textModel(this.env) as Parameters<typeof workersai>[0]),
