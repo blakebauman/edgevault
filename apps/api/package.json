@@ -28,10 +28,10 @@
     "@hono/zod-openapi": "^1.5.2",
     "@hono/zod-validator": "catalog:",
     "agents": "catalog:",
-    "ai": "^6.0.246",
+    "ai": "6.0.208",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
-    "workers-ai-provider": "^3.3.1",
+    "workers-ai-provider": "3.2.0",
     "zod": "catalog:"
   },
   "devDependencies": {
