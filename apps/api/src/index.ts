@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+import { getAgentByName } from 'agents'
 import type { AppEnv } from './context'
 import { getMemberRole, getWorkspaceWithOrg } from './database/queries'
 import { mcpRoutes } from './mcp'
@@ -111,15 +112,13 @@ app.route('/scim', scimRoutes)
 app.use('/mcp/:workspaceId', withDatabase, requireAuth, requireWorkspaceMember)
 app.route('/mcp', mcpRoutes)
 
-// --- Assistant WebSocket surface ---
-// The browser connects to
-// wss://api/agents/edge-vault-agent/<wsId>:<userId>:<generation> with the same
-// minted-token model as the realtime /ws, and speaks the protocol in
-// @edgevault/realtime (assistant.ts). Auth + workspace membership are enforced
-// here (mirroring requireWorkspaceMember), and a name's `:userId` segment must
-// match the caller (per-user threads can't be hijacked). The trailing
-// generation segment is ignored by this check — see AGENT_GENERATION in the
-// console's global-assistant.
+// --- Agent (Agents SDK) WebSocket surface ---
+// The browser connects to wss://api/agents/edge-vault-agent/<wsId>[:<userId>]
+// with the same minted-token model as the realtime /ws. We route with
+// getAgentByName (keeping the AGENT binding), which deliberately skips the SDK's
+// onBeforeConnect — so auth + workspace membership are enforced here (mirroring
+// requireWorkspaceMember), and a name's `:userId` segment must match the caller
+// (per-user threads can't be hijacked).
 app.use('/agents/*', withDatabase, requireAuth, async (c, next) => {
   const name = agentInstanceName(c.req.raw)
   const [workspaceId, wantedUser] = name.split(':')
@@ -134,11 +133,13 @@ app.use('/agents/*', withDatabase, requireAuth, async (c, next) => {
   await next()
 })
 app.all('/agents/*', async (c) => {
-  // Plain namespace lookup — EdgeVaultAgent is an ordinary Durable Object now,
-  // so there is no SDK helper (and no peer-instance type split) in the way.
-  const name = agentInstanceName(c.req.raw)
-  const stub = c.env.AGENT.get(c.env.AGENT.idFromName(name))
-  return stub.fetch(c.req.raw)
+  // EdgeVaultAgent extends AIChatAgent, whose `Agent` base may resolve to a
+  // different `agents` package instance than getAgentByName's — a peer-instance
+  // type split no generic reconciles. Cast to the param type; it's correct at
+  // runtime (the binding is an Agent DO either way).
+  const namespace = c.env.AGENT as unknown as Parameters<typeof getAgentByName>[0]
+  const agent = await getAgentByName(namespace, agentInstanceName(c.req.raw))
+  return agent.fetch(c.req.raw)
 })
 
 // Unhandled errors stay server-side: log the real cause, return a generic body
