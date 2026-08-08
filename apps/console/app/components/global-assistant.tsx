@@ -14,6 +14,25 @@ const STARTERS = [
   'Who changed config most recently?',
 ]
 
+/**
+ * Generation marker on the agent DO name (`<wsId>:<userId>:<generation>`).
+ *
+ * Durable Object state outlives both deploys and dependency downgrades, so when
+ * a stored format can no longer be read the only way out is a different DO.
+ * Bumping this mints fresh instances and leaves the old ones orphaned and idle
+ * — no `deleted_classes` migration, which Cloudflare rejects while a binding
+ * still references the class (error 10061), and no two-step deploy with the
+ * assistant offline in between.
+ *
+ * v2: `agents` 0.20.1 briefly ran on staging (2026-08-08) and wrote state the
+ * reverted 0.16.2 cannot read; those DOs accept a socket but drop every
+ * message. Only assistant chat history is lost by moving on.
+ *
+ * The api parses this name with `split(':')` and reads only [0] and [1], so the
+ * extra segment passes auth unchanged.
+ */
+const AGENT_GENERATION = 'v2'
+
 /** A permissive view of a UIMessage part (the v5 union is wide; we read text +
  * tool output defensively). */
 type AnyPart = { type: string; text?: string; output?: unknown }
@@ -124,7 +143,7 @@ export function GlobalAssistant() {
             {ready && workspaceId && apiHost && userId ? (
               <AgentChat
                 workspaceId={workspaceId}
-                name={`${workspaceId}:${userId}`}
+                name={`${workspaceId}:${userId}:${AGENT_GENERATION}`}
                 host={apiHost}
               />
             ) : (
