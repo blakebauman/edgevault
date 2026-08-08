@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "ini": "^7.0.0",
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^5.2.3",
     "smol-toml": "^1.7.1"
   },
   "devDependencies": {

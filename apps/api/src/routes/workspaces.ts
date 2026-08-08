@@ -911,12 +911,15 @@ export const workspaceRoutes = new Hono<AppEnv>()
   // Auth + membership already enforced by the route middleware. We forward the
   // upgrade to the workspace DO with the verified user id and an optional env
   // filter so the DO never has to trust client-supplied identity.
-  .get('/:workspaceId/ws', (c) => {
+  // `async` so the early 426 and the forwarded upgrade share one return type:
+  // TypeScript 7 will not collapse `JSONRespondReturn | Promise<Response>` into
+  // the Response a Hono handler must produce.
+  .get('/:workspaceId/ws', async (c) => {
     if (c.req.header('upgrade') !== 'websocket') {
       return c.json({ error: 'expected_websocket' }, 426)
     }
     const url = new URL(c.req.url)
     url.searchParams.set('user', c.var.userId)
     url.searchParams.set('env', c.req.query('env') ?? '*')
-    return stubFor(c, c.req.param('workspaceId')).fetch(new Request(url, c.req.raw))
+    return await stubFor(c, c.req.param('workspaceId')).fetch(new Request(url, c.req.raw))
   })

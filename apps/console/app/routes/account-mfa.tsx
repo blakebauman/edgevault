@@ -69,7 +69,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     if (!res.ok) return { error: 'Could not start setup.' }
     const { secret, otpauthUri } = (await res.json()) as { secret: string; otpauthUri: string }
     // Render the provisioning QR server-side (zero client JS).
-    const { encodeQR } = await import('@paulmillr/qr')
+    const { encodeQR } = await import('qr')
     const qrSvg = encodeQR(otpauthUri, 'svg')
     return { secret, otpauthUri, qrSvg }
   }
@@ -191,7 +191,7 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
             {qrSvg && (
               <div
                 className="qr"
-                // The SVG is generated server-side from the otpauth URI (@paulmillr/qr).
+                // The SVG is generated server-side from the otpauth URI (qr).
                 // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted, self-generated SVG
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
