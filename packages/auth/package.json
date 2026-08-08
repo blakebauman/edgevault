@@ -12,7 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@noble/hashes": "^2.2.0",
+    "@noble/hashes": "^2.3.0",
     "jose": "catalog:"
   },
   "devDependencies": {

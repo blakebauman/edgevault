@@ -285,6 +285,9 @@ table.score td.r {
   font-family: var(--mono-font-family);
   font-size: var(--mono-sm);
 }
+/* biome-ignore lint/style/noDescendingSpecificity: `.mech .hd` above is always a
+   <div> header, never a cell, so the two selectors never match the same element
+   and the source order can't shadow anything. */
 .mech td {
   padding: 13px 16px;
   border-bottom: 1px solid var(--color-rule);
@@ -414,7 +417,11 @@ h3 {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: a reduced-motion override
+       has to beat every animation declaration on the page, including more
+       specific ones — !important is the mechanism this reset depends on. */
     transition-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: as above. */
     animation-duration: 0.01ms !important;
   }
 }

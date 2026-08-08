@@ -25,7 +25,7 @@
     "@edgevault/realtime": "workspace:*",
     "@edgevault/refs": "workspace:*",
     "@edgevault/scim": "workspace:*",
-    "@hono/zod-openapi": "^1.1.0",
+    "@hono/zod-openapi": "^1.5.2",
     "@hono/zod-validator": "catalog:",
     "agents": "catalog:",
     "ai": "^6.0.208",
