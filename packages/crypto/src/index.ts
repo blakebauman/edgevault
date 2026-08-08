@@ -1,3 +1,13 @@
+/// <reference lib="dom" />
+// ^ This package is consumed as raw source (`exports` points at src/), so its
+// types are resolved under whichever tsconfig imports it — not the one in this
+// directory. Consumers that don't ship the DOM lib (packages/database sets
+// `lib: ["ES2022"]`) then fail on the WebCrypto globals used below: CryptoKey,
+// crypto.subtle, TextEncoder, btoa. Declaring the lib requirement here makes
+// the package self-sufficient wherever it is imported. It typechecked locally
+// only because a transitive `@cloudflare/workers-types` reference happened to
+// supply the same globals — an accident that does not survive a clean install.
+
 /**
  * Envelope encryption for customer secrets (the "vault" part), using WebCrypto
  * only (Workers-safe, Node-safe). Design:
