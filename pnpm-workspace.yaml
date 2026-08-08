@@ -27,7 +27,7 @@ catalog:
   drizzle-orm: ^0.45.2
   jose: ^6.2.8
   agents: ^0.20.1
-  "@cloudflare/ai-chat": ^0.10.1
+  "@cloudflare/ai-chat": ^0.8.6
 
   # React. Only where it is a real dependency/devDependency — see the note
   # above about peer ranges.
