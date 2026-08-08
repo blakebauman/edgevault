@@ -18,6 +18,7 @@ import { useNonce } from './lib/nonce'
 import { getToken } from './lib/session.server'
 import { loadWorkspaceSwitcher, type SwitcherOrg } from './lib/workspace.server'
 import './app.css'
+import { cloudflareContext } from './lib/cloudflare'
 
 /** Drives the TopBar's account menu and the rail's workspace switcher: cookie-
  * presence for the authed state, plus the caller's orgs each with their
@@ -26,7 +27,7 @@ import './app.css'
  * than blanking the whole shell. */
 export async function loader({ request, context }: Route.LoaderArgs) {
   const token = getToken(request)
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   // The agent WebSocket connects browser→api directly (like the realtime /ws),
   // so the client needs the api host (without the wss:// scheme).
   const apiHost = env.API_WS_BASE.replace(/^wss?:\/\//, '')

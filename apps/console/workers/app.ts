@@ -1,13 +1,5 @@
-import { createRequestHandler } from 'react-router'
-
-declare module 'react-router' {
-  export interface AppLoadContext {
-    cloudflare: {
-      env: Env
-      ctx: ExecutionContext
-    }
-  }
-}
+import { createRequestHandler, RouterContextProvider } from 'react-router'
+import { cloudflareContext } from '../app/lib/cloudflare'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -26,9 +18,9 @@ const SECURITY_HEADERS: ReadonlyArray<[string, string]> = [
 
 export default {
   async fetch(request, env, ctx) {
-    const response = await requestHandler(request, {
-      cloudflare: { env, ctx },
-    })
+    const context = new RouterContextProvider()
+    context.set(cloudflareContext, { env, ctx })
+    const response = await requestHandler(request, context)
     const secured = new Response(response.body, response)
     for (const [k, v] of SECURITY_HEADERS) secured.headers.set(k, v)
     // Everything this worker renders is per-session: the SSR document, the

@@ -2,6 +2,7 @@ import { Button, ErrorNote, Field, Input, StatusNote, TokenBox, TokenValue } fro
 import { useState } from 'react'
 import { Form, Link, redirect } from 'react-router'
 import { CopyButton } from '../components/copy-button'
+import { cloudflareContext } from '../lib/cloudflare'
 import { getToken, ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/account-mfa'
 
@@ -38,7 +39,7 @@ interface SessionRow {
 export async function loader({ request, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const [statusRes, sessionsRes] = await Promise.all([
     authFetch(env, request, token, '/mfa/status'),
     authFetch(env, request, token, '/sessions'),
@@ -59,7 +60,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export async function action({ request, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const form = await request.formData()
   const intent = String(form.get('intent') ?? '')
 

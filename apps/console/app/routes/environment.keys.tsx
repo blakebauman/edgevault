@@ -15,6 +15,7 @@ import { Form, redirect, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { HeaderActions } from '../components/header-actions'
 import { KeyExpiry } from '../components/items'
+import { cloudflareContext } from '../lib/cloudflare'
 import { handleItemAction, loadApiKeys } from '../lib/items.server'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/environment.keys'
@@ -34,12 +35,17 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
   const base = `/${params.workspaceId}`
-  const apiKeys = await loadApiKeys(context.cloudflare.env, token, base, params.envId)
+  const apiKeys = await loadApiKeys(context.get(cloudflareContext).env, token, base, params.envId)
   return { apiKeys }
 }
 
 export function action({ request, params, context }: Route.ActionArgs) {
-  return handleItemAction(request, context.cloudflare.env, params.workspaceId, params.envId)
+  return handleItemAction(
+    request,
+    context.get(cloudflareContext).env,
+    params.workspaceId,
+    params.envId,
+  )
 }
 
 export default function KeysSection({ loaderData, actionData }: Route.ComponentProps) {

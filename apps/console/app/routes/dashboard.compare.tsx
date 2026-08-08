@@ -15,6 +15,7 @@ import {
 } from '@edgevault/ui'
 import { useState } from 'react'
 import { Form, redirect, useNavigation, useSearchParams } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
@@ -91,7 +92,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
 
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const headers = { authorization: `Bearer ${token}` }
 
@@ -152,14 +153,16 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     let started = 0
     const failures: string[] = []
     for (const key of keys) {
-      const res = await context.cloudflare.env.API_SERVICE.fetch(
-        `https://api/api/v1/workspaces/${params.workspaceId}/promotion-workflows`,
-        {
-          method: 'POST',
-          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ sourceEnvironmentId, targetEnvironmentId, key }),
-        },
-      )
+      const res = await context
+        .get(cloudflareContext)
+        .env.API_SERVICE.fetch(
+          `https://api/api/v1/workspaces/${params.workspaceId}/promotion-workflows`,
+          {
+            method: 'POST',
+            headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ sourceEnvironmentId, targetEnvironmentId, key }),
+          },
+        )
       if (res.ok) started += 1
       else failures.push(`"${key}"`)
     }
@@ -174,14 +177,16 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   // Through the durable workflow, not the direct endpoint: every promotion is
   // risk-scanned, and risky targets park at the approval gate instead of
   // applying silently.
-  const res = await context.cloudflare.env.API_SERVICE.fetch(
-    `https://api/api/v1/workspaces/${params.workspaceId}/promotion-workflows`,
-    {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  )
+  const res = await context
+    .get(cloudflareContext)
+    .env.API_SERVICE.fetch(
+      `https://api/api/v1/workspaces/${params.workspaceId}/promotion-workflows`,
+      {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+    )
   if (!res.ok) return { error: friendlyError(res.status, 'starting the promotion') }
   return { started: body.key }
 }

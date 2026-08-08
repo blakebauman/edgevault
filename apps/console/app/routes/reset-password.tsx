@@ -1,6 +1,7 @@
 import { Button, ErrorNote, Field, Input } from '@edgevault/ui'
 import { Form, Link, redirect, useNavigation } from 'react-router'
 import { AuthLayout } from '../components/auth-layout'
+import { cloudflareContext } from '../lib/cloudflare'
 import { ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/reset-password'
 
@@ -20,11 +21,13 @@ export async function action({ request, context }: Route.ActionArgs) {
     return { error: "Those passwords don't match." }
   }
 
-  const res = await context.cloudflare.env.AUTH_SERVICE.fetch('https://auth/password/reset', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...ipHeaders(request) },
-    body: JSON.stringify({ token, newPassword }),
-  })
+  const res = await context
+    .get(cloudflareContext)
+    .env.AUTH_SERVICE.fetch('https://auth/password/reset', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...ipHeaders(request) },
+      body: JSON.stringify({ token, newPassword }),
+    })
   if (!res.ok) {
     return { error: 'That reset link is invalid, expired, or already used. Request a new one.' }
   }

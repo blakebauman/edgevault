@@ -1,4 +1,5 @@
 import { redirect } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { clearSsoCookie, getSsoTransaction, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/sso.callback'
 
@@ -10,7 +11,7 @@ import type { Route } from './+types/sso.callback'
  * the console. No SSO secret or session logic lives here.
  */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const orgId = params.orgId
   const url = new URL(request.url)
   const code = url.searchParams.get('code')

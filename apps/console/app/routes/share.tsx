@@ -2,6 +2,7 @@ import { encryptShareText } from '@edgevault/crypto'
 import { Button, ErrorNote, Field, Select, Textarea, TokenBox, TokenValue } from '@edgevault/ui'
 import { useRef, useState } from 'react'
 import { Link, redirect, useFetcher } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/share'
@@ -27,16 +28,18 @@ export async function action({ request, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
   const form = await request.formData()
-  const res = await context.cloudflare.env.API_SERVICE.fetch('https://api/api/v1/shares', {
-    method: 'POST',
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify({
-      ciphertext: String(form.get('ciphertext')),
-      iv: String(form.get('iv')),
-      ttlSeconds: Number(form.get('ttlSeconds')),
-      maxViews: Number(form.get('maxViews')),
-    }),
-  })
+  const res = await context
+    .get(cloudflareContext)
+    .env.API_SERVICE.fetch('https://api/api/v1/shares', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        ciphertext: String(form.get('ciphertext')),
+        iv: String(form.get('iv')),
+        ttlSeconds: Number(form.get('ttlSeconds')),
+        maxViews: Number(form.get('maxViews')),
+      }),
+    })
   if (!res.ok) return { error: friendlyError(res.status, 'creating the share') }
   const created = (await res.json()) as { id: string; expiresAt: number }
   return { id: created.id, expiresAt: created.expiresAt }

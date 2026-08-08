@@ -1,6 +1,7 @@
 import { Button, ErrorNote, Input } from '@edgevault/ui'
 import { Form, redirect, useNavigation } from 'react-router'
 import { AuthLayout } from '../components/auth-layout'
+import { cloudflareContext } from '../lib/cloudflare'
 import {
   clearMfaCookie,
   getMfaToken,
@@ -24,7 +25,7 @@ export function loader({ request }: Route.LoaderArgs) {
 export async function action({ request, context }: Route.ActionArgs) {
   const mfaToken = getMfaToken(request)
   if (!mfaToken) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const form = await request.formData()
   const code = String(form.get('code') ?? '').trim()
   const useRecovery = String(form.get('method') ?? '') === 'recovery'

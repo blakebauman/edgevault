@@ -1,4 +1,5 @@
 import { redirect } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { clearSamlCookie, getSamlTransaction, setTokenCookie } from '../lib/session.server'
 import type { Route } from './+types/saml.acs'
 
@@ -9,7 +10,7 @@ import type { Route } from './+types/saml.acs'
  * the user in the console. No SAML/session logic here.
  */
 export async function action({ request, params, context }: Route.ActionArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const orgId = params.orgId
   const fail = (reason: string) =>
     redirect(`/login?sso=${reason}`, { headers: { 'Set-Cookie': clearSamlCookie(request) } })

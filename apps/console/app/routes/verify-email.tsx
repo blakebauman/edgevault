@@ -1,6 +1,7 @@
 import { Button } from '@edgevault/ui'
 import { Link } from 'react-router'
 import { AuthLayout } from '../components/auth-layout'
+import { cloudflareContext } from '../lib/cloudflare'
 import { ipHeaders } from '../lib/session.server'
 import type { Route } from './+types/verify-email'
 
@@ -17,11 +18,13 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const token = new URL(request.url).searchParams.get('token')
   if (!token) return { verified: false as const }
 
-  const res = await context.cloudflare.env.AUTH_SERVICE.fetch('https://auth/verify-email', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...ipHeaders(request) },
-    body: JSON.stringify({ token }),
-  })
+  const res = await context
+    .get(cloudflareContext)
+    .env.AUTH_SERVICE.fetch('https://auth/verify-email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...ipHeaders(request) },
+      body: JSON.stringify({ token }),
+    })
   return { verified: res.ok }
 }
 

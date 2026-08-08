@@ -1,6 +1,7 @@
 import { Button, Chip, ErrorNote, StatusNote } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { LocalTime } from '../components/local-time'
+import { cloudflareContext } from '../lib/cloudflare'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/invite'
 
@@ -28,10 +29,11 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   // Sign in (or sign up) first, then come straight back here.
   if (!token) throw redirect(`/login?next=${encodeURIComponent(`/invite/${params.id}`)}`)
 
-  const res = await context.cloudflare.env.API_SERVICE.fetch(
-    `https://api/api/v1/invitations/${params.id}`,
-    { headers: { authorization: `Bearer ${token}` } },
-  )
+  const res = await context
+    .get(cloudflareContext)
+    .env.API_SERVICE.fetch(`https://api/api/v1/invitations/${params.id}`, {
+      headers: { authorization: `Bearer ${token}` },
+    })
   if (res.status === 401) {
     throw redirect(`/login?next=${encodeURIComponent(`/invite/${params.id}`)}`)
   }
@@ -44,10 +46,12 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect(`/login?next=${encodeURIComponent(`/invite/${params.id}`)}`)
 
-  const res = await context.cloudflare.env.API_SERVICE.fetch(
-    `https://api/api/v1/invitations/${params.id}/accept`,
-    { method: 'POST', headers: { authorization: `Bearer ${token}` } },
-  )
+  const res = await context
+    .get(cloudflareContext)
+    .env.API_SERVICE.fetch(`https://api/api/v1/invitations/${params.id}/accept`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    })
   if (res.ok) {
     // Land on home with a one-shot welcome; home resolves the id to a name.
     const body = (await res.json().catch(() => null)) as { organizationId?: string } | null

@@ -10,6 +10,7 @@ import {
   Subtabs,
   useItemSelection,
 } from '../components/items'
+import { cloudflareContext } from '../lib/cloudflare'
 import type { ConfigRow } from '../lib/items.server'
 import { handleItemAction, loadSection } from '../lib/items.server'
 import type { Route } from './+types/environment.content'
@@ -29,7 +30,7 @@ export function meta() {
 export function loader({ request, params, context }: Route.LoaderArgs) {
   return loadSection({
     request,
-    env: context.cloudflare.env,
+    env: context.get(cloudflareContext).env,
     workspaceId: params.workspaceId,
     envId: params.envId,
     kind: 'content',
@@ -37,7 +38,12 @@ export function loader({ request, params, context }: Route.LoaderArgs) {
 }
 
 export function action({ request, params, context }: Route.ActionArgs) {
-  return handleItemAction(request, context.cloudflare.env, params.workspaceId, params.envId)
+  return handleItemAction(
+    request,
+    context.get(cloudflareContext).env,
+    params.workspaceId,
+    params.envId,
+  )
 }
 
 /** A content item is a document when its JSON carries a `blocks` array. */

@@ -1,4 +1,5 @@
 import { redirect } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { safeRelativePath, setOAuthCookie } from '../lib/session.server'
 import type { Route } from './+types/oauth.start'
 
@@ -8,7 +9,7 @@ import type { Route } from './+types/oauth.start'
  * the provider. The provider returns to /oauth/:provider/callback.
  */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const provider = params.provider
   const url = new URL(request.url)
   const redirectUri = `${url.origin}/oauth/${provider}/callback`

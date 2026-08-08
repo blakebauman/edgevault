@@ -21,6 +21,7 @@ import {
 } from '../components/shell-chrome'
 import { UserMenu } from '../components/user-menu'
 import { WorkspaceSwitcher } from '../components/workspace-switcher'
+import { cloudflareContext } from '../lib/cloudflare'
 import { getToken } from '../lib/session.server'
 import { getWorkspaceMeta } from '../lib/workspace.server'
 import type { loader as rootLoader } from '../root'
@@ -127,7 +128,7 @@ const SECTION_LABEL: Record<string, string> = {
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}` }
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
 

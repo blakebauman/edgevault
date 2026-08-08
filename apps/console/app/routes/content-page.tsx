@@ -9,6 +9,7 @@ import { useWorkspaceEvents } from '@edgevault/realtime/react'
 import { Button, ErrorNote, Field, StatusNote, Textarea } from '@edgevault/ui'
 import { useMemo, useState } from 'react'
 import { Form, Link, redirect, useNavigation, useRevalidator } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/content-page'
@@ -44,7 +45,7 @@ export function meta({ params }: Route.MetaArgs) {
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const base = `/${params.workspaceId}`
   const key = decodeURIComponent(params.key)
 
@@ -81,7 +82,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const base = `/${params.workspaceId}`
   const form = await request.formData()
   const key = decodeURIComponent(params.key)

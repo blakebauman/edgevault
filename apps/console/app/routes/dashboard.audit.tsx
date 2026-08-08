@@ -1,6 +1,7 @@
 import { Button, CardTable, Chip, ErrorNote, Field, Input, Select, Td, Th } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
 import { LocalTime } from '../components/local-time'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { humanizeAction } from '../lib/format'
 import { getToken } from '../lib/session.server'
@@ -34,7 +35,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
 
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const headers = { authorization: `Bearer ${token}` }
   const url = new URL(request.url)

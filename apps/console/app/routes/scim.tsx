@@ -1,5 +1,6 @@
 import { ActionGroup, Button, ErrorNote, TokenBox, TokenValue, TwoStepConfirm } from '@edgevault/ui'
 import { Form, Link, redirect } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/scim'
 
@@ -24,7 +25,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
 
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const res = await env.API_SERVICE.fetch('https://api/api/v1/organizations', {
     headers: { authorization: `Bearer ${token}` },
   })
@@ -57,7 +58,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) throw redirect('/login')
 
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const form = await request.formData()
   const intent = String(form.get('intent') ?? 'generate')
   const url = `https://api/api/v1/organizations/${params.orgId}/scim-token`

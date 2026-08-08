@@ -1,7 +1,8 @@
 import { isbot } from 'isbot'
 import { renderToReadableStream } from 'react-dom/server'
-import type { AppLoadContext, EntryContext } from 'react-router'
+import type { EntryContext, RouterContextProvider } from 'react-router'
 import { ServerRouter } from 'react-router'
+import { cloudflareContext } from './lib/cloudflare'
 import { buildCsp, generateNonce } from './lib/csp'
 import { NonceContext } from './lib/nonce'
 
@@ -10,7 +11,7 @@ export default async function handleRequest(
   responseStatusCode: number,
   responseHeaders: Headers,
   routerContext: EntryContext,
-  loadContext: AppLoadContext,
+  loadContext: Readonly<RouterContextProvider>,
 ) {
   let shellRendered = false
   const userAgent = request.headers.get('user-agent')
@@ -43,7 +44,7 @@ export default async function handleRequest(
   if (!import.meta.env.DEV) {
     responseHeaders.set(
       'Content-Security-Policy',
-      buildCsp(nonce, loadContext.cloudflare.env.API_WS_BASE),
+      buildCsp(nonce, loadContext.get(cloudflareContext).env.API_WS_BASE),
     )
   }
   return new Response(body, {

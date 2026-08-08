@@ -1,6 +1,7 @@
 import { Button, CardTable, Chip, ErrorNote, Field, Input, StatusNote, Td, Th } from '@edgevault/ui'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
+import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/home'
@@ -25,7 +26,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   // ?joined=<orgId> set by the invitation accept flow — resolved to a name below.
   const joinedId = new URL(request.url).searchParams.get('joined')
 
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const [res, meRes] = await Promise.all([
     env.API_SERVICE.fetch('https://api/api/v1/organizations', {
       headers: { authorization: `Bearer ${token}` },
@@ -68,7 +69,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 export async function action({ request, context }: Route.ActionArgs) {
   const token = getToken(request)
   if (!token) return { error: 'Sign in first.' }
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const form = await request.formData()
   const intent = String(form.get('intent'))
 

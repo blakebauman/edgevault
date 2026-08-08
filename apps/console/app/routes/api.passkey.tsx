@@ -1,3 +1,4 @@
+import { cloudflareContext } from '../lib/cloudflare'
 import {
   clearWebauthnCookie,
   getToken,
@@ -15,7 +16,7 @@ import type { Route } from './+types/api.passkey'
  * public and ends by exchanging the new session for an access-token cookie.
  */
 export async function action({ request, context }: Route.ActionArgs) {
-  const env = context.cloudflare.env
+  const env = context.get(cloudflareContext).env
   const url = new URL(request.url)
   const rpID = url.hostname
   const origin = url.origin
