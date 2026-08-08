@@ -31,6 +31,27 @@ export type AssistantServerMessage =
 /** Client → server. */
 export type AssistantClientMessage = { type: 'ask'; turn: string; text: string } | { type: 'ping' }
 
+/**
+ * Build the assistant socket url.
+ *
+ * `host` is a bare authority (`api.edgevault.io`) — the console stores
+ * API_WS_BASE with the scheme stripped, because the SDK this replaced added its
+ * own. Forgetting to put one back produces a url `new WebSocket()` silently
+ * never connects with, which is exactly the bug this function exists to stop.
+ */
+export function assistantSocketUrl(opts: {
+  host: string
+  name: string
+  token: string
+  /** Page protocol, e.g. `location.protocol`. http dev must not get wss://. */
+  pageProtocol: string
+}): string {
+  const scheme = opts.pageProtocol === 'https:' ? 'wss' : 'ws'
+  const authority = opts.host.replace(/^wss?:\/\//, '').replace(/\/+$/, '')
+  const name = encodeURIComponent(opts.name)
+  return `${scheme}://${authority}/agents/edge-vault-agent/${name}?token=${encodeURIComponent(opts.token)}`
+}
+
 export function parseAssistantMessage(data: string): AssistantServerMessage | null {
   try {
     const value = JSON.parse(data) as { type?: unknown; turn?: unknown }
