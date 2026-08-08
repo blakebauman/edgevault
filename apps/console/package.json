@@ -14,14 +14,11 @@
     "lint": "biome check ."
   },
   "dependencies": {
-    "@ai-sdk/react": "3.0.210",
-    "@cloudflare/ai-chat": "catalog:",
     "@edgevault/blocks": "workspace:*",
     "@edgevault/crypto": "workspace:*",
     "@edgevault/realtime": "workspace:*",
     "@edgevault/ui": "workspace:*",
     "@simplewebauthn/browser": "^13.3.0",
-    "agents": "catalog:",
     "isbot": "^5.2.1",
     "qr": "^0.6.0",
     "react": "catalog:",

@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./react": "./src/react.ts"
+    "./react": "./src/react.ts",
+    "./assistant-react": "./src/assistant-react.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
