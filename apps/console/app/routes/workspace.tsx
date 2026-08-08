@@ -1,5 +1,5 @@
 import { cn, Select } from '@edgevault/ui'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import {
   Link,
   NavLink,
@@ -14,6 +14,12 @@ import { VaultMark } from '../components/brand'
 import { CommandPalette } from '../components/command-palette'
 import { GlobalAssistant } from '../components/global-assistant'
 import { ORG_LINKS } from '../components/org-nav'
+import {
+  RoutePendingStatus,
+  RouteProgress,
+  useNavDrawer,
+  useRoutePending,
+} from '../components/shell-chrome'
 import { UserMenu } from '../components/user-menu'
 import { WorkspaceSwitcher } from '../components/workspace-switcher'
 import { getToken } from '../lib/session.server'
@@ -204,11 +210,16 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
   const navigate = useNavigate()
   const root = useRouteLoaderData<typeof rootLoader>('root')
   const [paletteOpen, setPaletteOpen] = useState(false)
-  // Mobile: the rail is an off-canvas drawer. Close it whenever the route
-  // changes so picking a nav item dismisses it.
-  const [navOpen, setNavOpen] = useState(false)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: closing on pathname change is the intent
-  useEffect(() => setNavOpen(false), [location.pathname])
+  // Mobile: the rail is an off-canvas drawer (closes on route change, Escape,
+  // or the scrim). Desktop renders the same markup as a static rail.
+  const {
+    open: navOpen,
+    setOpen: setNavOpen,
+    dismiss: dismissNav,
+    sidebarRef,
+    burgerRef,
+  } = useNavDrawer()
+  const pending = useRoutePending()
 
   const envBase = activeEnvId ? `/dashboard/${workspaceId}/env/${activeEnvId}` : null
   const switcherValue = params.envId ?? activeEnvId ?? ''
@@ -234,10 +245,10 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
           type="button"
           className="ws-scrim"
           aria-label="Close navigation"
-          onClick={() => setNavOpen(false)}
+          onClick={dismissNav}
         />
       )}
-      <aside className={cn('ws-sidebar', navOpen && 'open')}>
+      <aside ref={sidebarRef} tabIndex={-1} className={cn('ws-sidebar', navOpen && 'open')}>
         <Link to="/" className="ws-brand" aria-label="EdgeVault — all workspaces">
           <VaultMark />
           <span className="ws-brand-name">EdgeVault</span>
@@ -371,6 +382,7 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
       <div className="ws-main">
         <header className="ws-header">
           <button
+            ref={burgerRef}
             type="button"
             className="ws-burger"
             aria-label="Open navigation"
@@ -424,8 +436,10 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
           )}
           <div className="ws-header-actions" id="ws-header-actions" />
           <GlobalAssistant />
+          <RouteProgress pending={pending} />
+          <RoutePendingStatus pending={pending} />
         </header>
-        <div className="ws-content">
+        <div className="ws-content" data-pending={pending || undefined}>
           <Outlet />
         </div>
       </div>
