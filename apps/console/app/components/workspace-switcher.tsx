@@ -35,7 +35,7 @@ export function WorkspaceSwitcher({
   const location = useLocation()
 
   // Close when the route changes — covers picking a workspace and the footer link.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: closing on pathname change is the intent
+  // Closing on pathname change is the intent
   useEffect(() => setOpen(false), [location.pathname])
 
   // Focus the active (or first) workspace on open so it's keyboard-drivable.

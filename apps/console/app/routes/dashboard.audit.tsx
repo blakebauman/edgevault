@@ -179,7 +179,7 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
             </thead>
             <tbody>
               {events.map((event, i) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: warehouse events carry no id; the list is read-only and replaced wholesale per query
+                // Warehouse events carry no id; the list is read-only and replaced wholesale per query
                 <tr key={`${event.at}-${event.action}-${event.key ?? ''}-${i}`}>
                   <Td label="At" className="text-muted-foreground">
                     <LocalTime epoch={event.at} />

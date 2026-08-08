@@ -192,7 +192,7 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
               <div
                 className="qr"
                 // The SVG is generated server-side from the otpauth URI (qr).
-                // biome-ignore lint/security/noDangerouslySetInnerHtml: trusted, self-generated SVG
+                // Trusted, self-generated SVG
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             )}

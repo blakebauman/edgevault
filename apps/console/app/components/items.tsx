@@ -1160,7 +1160,7 @@ export function ItemSection({
   }
 
   // Load the across-environments matrix for the selected key, on demand.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reload only when the selection changes
+  // Reload only when the selection changes
   useEffect(() => {
     if (selectedKey) {
       matrixFetcher.load(

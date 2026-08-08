@@ -181,7 +181,7 @@ function AgentChat({
   }, [])
 
   // Keep the latest turn in view as it streams.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll on every message update
+  // Scroll on every message update
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight })
   }, [messages])
