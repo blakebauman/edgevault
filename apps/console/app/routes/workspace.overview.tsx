@@ -64,8 +64,8 @@ type PromotionRow = {
 
 type SearchHit = { key: string; environmentId: string; kind: string; score: number }
 
-export function meta({ data }: Route.MetaArgs) {
-  return [{ title: `${data?.workspaceName ?? 'Workspace'} · EdgeVault` }]
+export function meta({ loaderData }: Route.MetaArgs) {
+  return [{ title: `${loaderData?.workspaceName ?? 'Workspace'} · EdgeVault` }]
 }
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {

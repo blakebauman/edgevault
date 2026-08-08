@@ -56,7 +56,7 @@ export function GlobalAssistant() {
     .map((m) => (m.params as { workspaceId?: string }).workspaceId)
     .find(Boolean)
   const workspaceName = matches
-    .map((m) => (m.data as { workspaceName?: string } | undefined)?.workspaceName)
+    .map((m) => (m.loaderData as { workspaceName?: string } | undefined)?.workspaceName)
     .find(Boolean)
   const root = useRouteLoaderData<typeof rootLoader>('root')
   const userId = root?.userId
