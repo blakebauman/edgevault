@@ -18,16 +18,16 @@
     "@edgevault/database": "workspace:*",
     "@edgevault/edge-protocol": "workspace:*",
     "@edgevault/sso-saml": "workspace:*",
-    "@hono/zod-validator": "^0.7.0",
+    "@hono/zod-validator": "catalog:",
     "@simplewebauthn/server": "^13.3.1",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.34",
-    "zod": "^4.0.17"
+    "drizzle-orm": "catalog:",
+    "hono": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",
-    "typescript": "^5.9.2",
-    "vitest": "^4.1.8",
-    "wrangler": "^4.98.0"
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }

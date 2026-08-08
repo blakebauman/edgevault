@@ -2,3 +2,34 @@ packages:
   - "apps/*"
   - "packages/*"
   - "edge/*"
+
+# Shared dependency versions, referenced as `"dep": "catalog:"` from each
+# package.json. One place to bump a version that several workspace packages
+# share, and a version skew between two packages becomes impossible to express.
+#
+# Only deps used by 2+ packages live here. `peerDependencies` deliberately do
+# NOT use the catalog: a library's peer range is meant to be wider than the
+# version it develops against (@edgevault/ui peers `react: ^19.0.0` while
+# building against ^19.2.0), and collapsing the two would narrow what a
+# consumer is allowed to bring.
+catalog:
+  # Toolchain — the long tail. typescript and vitest alone cover 43 of the
+  # entries this replaces.
+  typescript: ^5.9.2
+  vitest: ^4.1.8
+  wrangler: ^4.98.0
+  "@cloudflare/vitest-pool-workers": ^0.16.12
+
+  # Runtime, shared across workers
+  hono: ^4.12.34
+  "@hono/zod-validator": ^0.7.0
+  zod: ^4.0.17
+  drizzle-orm: ^0.45.2
+  jose: ^6.2.3
+  agents: ^0.16.2
+  "@cloudflare/ai-chat": ^0.8.6
+
+  # React. Only where it is a real dependency/devDependency — see the note
+  # above about peer ranges.
+  react: ^19.2.0
+  "@types/react": ^19.2.0
