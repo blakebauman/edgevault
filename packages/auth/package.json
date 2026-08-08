@@ -12,12 +12,12 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@noble/hashes": "^2.2.0",
-    "jose": "^6.2.3"
+    "@noble/hashes": "^2.3.0",
+    "jose": "catalog:"
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",
-    "typescript": "^5.9.2",
-    "vitest": "^4.1.8"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

@@ -22,12 +22,12 @@ async function appCall(path: string, init: RequestInit = {}, bindings: object = 
 }
 
 describe('webhook URL SSRF guard', () => {
-  it.each([
-    'https://hooks.slack.com/services/T0/B0/x',
-    'https://example.com/webhook',
-  ])('accepts public https URL %s', (url) => {
-    expect(isPublicWebhookUrl(url)).toBe(true)
-  })
+  it.each(['https://hooks.slack.com/services/T0/B0/x', 'https://example.com/webhook'])(
+    'accepts public https URL %s',
+    (url) => {
+      expect(isPublicWebhookUrl(url)).toBe(true)
+    },
+  )
 
   it.each([
     'http://example.com/webhook', // not https

@@ -13,11 +13,11 @@
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.8",
-    "jose": "^6.2.3"
+    "jose": "catalog:"
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",
-    "typescript": "^5.9.2",
-    "vitest": "^4.1.8"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

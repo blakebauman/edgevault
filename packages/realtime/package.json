@@ -22,9 +22,9 @@
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",
-    "@types/react": "^19.2.0",
-    "react": "^19.2.0",
-    "typescript": "^5.9.2",
-    "vitest": "^4.1.8"
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

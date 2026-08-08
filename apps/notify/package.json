@@ -16,10 +16,10 @@
     "@edgevault/edge-protocol": "workspace:*"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.12",
+    "@cloudflare/vitest-pool-workers": "catalog:",
     "@edgevault/typescript-config": "workspace:*",
-    "typescript": "^5.9.2",
-    "vitest": "^4.1.8",
-    "wrangler": "^4.98.0"
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }

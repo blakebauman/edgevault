@@ -19,8 +19,8 @@
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",
-    "@openfeature/server-sdk": "^1.22.0",
-    "typescript": "^5.9.2",
-    "vitest": "^4.1.8"
+    "@openfeature/server-sdk": "^1.23.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

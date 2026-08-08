@@ -32,7 +32,7 @@ export function UserMenu({
   const location = useLocation()
 
   // Close when the route changes — covers menu links and the nested OrgNav.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: closing on pathname change is the intent
+  // Closing on pathname change is the intent
   useEffect(() => setOpen(false), [location.pathname])
 
   // Move focus into the menu on open so it's keyboard-drivable immediately.

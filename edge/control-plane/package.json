@@ -16,12 +16,12 @@
   "dependencies": {
     "@edgevault/database": "workspace:*",
     "@edgevault/edge-protocol": "workspace:*",
-    "hono": "^4.12.34"
+    "hono": "catalog:"
   },
   "devDependencies": {
     "@edgevault/typescript-config": "workspace:*",
-    "typescript": "^5.9.2",
-    "vitest": "^4.1.8",
-    "wrangler": "^4.98.0"
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }

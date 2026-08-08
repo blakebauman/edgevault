@@ -26,7 +26,7 @@ export function useNavDrawer() {
   const sidebarRef = useRef<HTMLElement>(null)
   const burgerRef = useRef<HTMLButtonElement>(null)
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: closing on pathname change is the intent
+  // Closing on pathname change is the intent
   useEffect(() => setOpen(false), [pathname])
 
   /** Dismiss and hand focus back to the trigger — for Escape and the scrim. */

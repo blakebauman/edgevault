@@ -31,12 +31,12 @@
     "prepare": "lefthook install"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.16",
+    "@biomejs/biome": "^2.5.7",
     "@edgevault/typescript-config": "workspace:*",
-    "lefthook": "^2.1.9",
-    "turbo": "^2.5.6",
-    "typescript": "^5.9.2",
-    "wrangler": "^4.98.0"
+    "lefthook": "^2.1.10",
+    "turbo": "^2.10.9",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.120.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

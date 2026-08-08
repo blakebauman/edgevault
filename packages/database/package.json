@@ -18,17 +18,17 @@
     "lint": "biome check ."
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
-    "pg": "^8.21.0"
+    "drizzle-orm": "catalog:",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@edgevault/auth": "workspace:*",
     "@edgevault/crypto": "workspace:*",
     "@edgevault/typescript-config": "workspace:*",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.21.0",
     "dotenv": "^17.0.0",
     "drizzle-kit": "^0.31.10",
-    "tsx": "^4.19.2",
-    "typescript": "^5.9.2"
+    "tsx": "^4.23.11",
+    "typescript": "catalog:"
   }
 }

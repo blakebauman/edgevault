@@ -13,7 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@cloudflare/ai-chat": "^0.8.6",
+    "@cloudflare/ai-chat": "catalog:",
     "@edgevault/ai": "workspace:*",
     "@edgevault/auth": "workspace:*",
     "@edgevault/blocks": "workspace:*",
@@ -25,20 +25,20 @@
     "@edgevault/realtime": "workspace:*",
     "@edgevault/refs": "workspace:*",
     "@edgevault/scim": "workspace:*",
-    "@hono/zod-openapi": "^1.1.0",
-    "@hono/zod-validator": "^0.7.0",
-    "agents": "^0.16.2",
-    "ai": "^6.0.208",
-    "drizzle-orm": "^0.45.2",
-    "hono": "^4.12.34",
-    "workers-ai-provider": "^3.2.0",
-    "zod": "^4.0.17"
+    "@hono/zod-openapi": "^1.5.2",
+    "@hono/zod-validator": "catalog:",
+    "agents": "catalog:",
+    "ai": "^7.0.58",
+    "drizzle-orm": "catalog:",
+    "hono": "catalog:",
+    "workers-ai-provider": "^4.0.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.16.12",
+    "@cloudflare/vitest-pool-workers": "catalog:",
     "@edgevault/typescript-config": "workspace:*",
-    "typescript": "^5.9.2",
-    "vitest": "^4.1.8",
-    "wrangler": "^4.98.0"
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "wrangler": "catalog:"
   }
 }
