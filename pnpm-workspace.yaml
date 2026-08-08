@@ -26,7 +26,7 @@ catalog:
   zod: ^4.0.17
   drizzle-orm: ^0.45.2
   jose: ^6.2.8
-  agents: ^0.20.1
+  agents: ^0.16.2
   "@cloudflare/ai-chat": ^0.8.6
 
   # React. Only where it is a real dependency/devDependency — see the note
