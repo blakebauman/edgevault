@@ -1,4 +1,3 @@
-import { assistantSocketUrl } from '@edgevault/realtime'
 import { type AssistantTurn, useAssistant } from '@edgevault/realtime/assistant-react'
 import { ErrorNote } from '@edgevault/ui'
 import { type FormEvent, lazy, Suspense, useEffect, useRef, useState } from 'react'
@@ -53,16 +52,12 @@ function Spark({ size = 15 }: { size?: number }) {
 }
 
 /**
- * The workspace assistant in the top bar.
- *
- * `useAssistant` opens an authed WebSocket straight to the api's per-workspace
- * agent (browser→api, like the realtime /ws) and streams turns over our own
- * protocol — see @edgevault/realtime's assistant.ts. The socket lives in a
- * child that only mounts inside a workspace with the panel open, so it connects
- * on demand rather than on every page.
- *
- * Turns are per-connection: the DO keeps digests, not transcripts, so closing
- * the panel ends the thread.
+ * The workspace assistant in the top bar — on the Cloudflare Agents SDK.
+ * `useAgent` opens an authed WebSocket straight to the api's per-workspace agent
+ * (browser→api, like the realtime /ws); `useAgentChat` streams turns with
+ * model-chosen tools and SDK-managed history. The chat hooks live in a child
+ * that only mounts inside a workspace with the panel open, so the socket
+ * connects on demand and history re-syncs on connect.
  */
 export function GlobalAssistant() {
   const matches = useMatches()
@@ -184,7 +179,7 @@ function AgentChat({
       if (!res.ok || cancelled) return
       const { token } = (await res.json()) as { token?: string }
       if (!token || cancelled) return
-      setUrl(assistantSocketUrl({ host, name, token, pageProtocol: window.location.protocol }))
+      setUrl(`${host}/agents/edge-vault-agent/${encodeURIComponent(name)}?token=${token}`)
     })()
     return () => {
       cancelled = true
