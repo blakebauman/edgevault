@@ -61,7 +61,7 @@ export default function ResetPassword({ loaderData, actionData }: Route.Componen
           <Input
             name="newPassword"
             type="password"
-            placeholder="••••••••"
+            autoComplete="new-password"
             required
             minLength={8}
             autoFocus
@@ -71,7 +71,7 @@ export default function ResetPassword({ loaderData, actionData }: Route.Componen
           <Input
             name="confirmPassword"
             type="password"
-            placeholder="••••••••"
+            autoComplete="new-password"
             required
             minLength={8}
           />

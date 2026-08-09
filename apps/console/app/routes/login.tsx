@@ -116,10 +116,23 @@ export default function Login({ actionData, loaderData }: Route.ComponentProps) 
       <Form method="post" className="mt-6 flex flex-col gap-3">
         {loaderData.next && <input type="hidden" name="next" value={loaderData.next} />}
         <Field label="Email">
-          <Input name="email" type="email" placeholder="you@example.com" required autoFocus />
+          <Input
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+            autoFocus
+          />
         </Field>
         <Field label="Password">
-          <Input name="password" type="password" placeholder="••••••••" required minLength={8} />
+          <Input
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            required
+            minLength={8}
+          />
         </Field>
         {actionData?.error && <ErrorNote>{actionData.error}</ErrorNote>}
         {loaderData.notice && <StatusNote>{loaderData.notice}</StatusNote>}

@@ -31,7 +31,14 @@ export default function ForgotPassword({ actionData }: Route.ComponentProps) {
     >
       <Form method="post" className="mt-6 flex flex-col gap-3">
         <Field label="Email">
-          <Input name="email" type="email" placeholder="you@example.com" required autoFocus />
+          <Input
+            name="email"
+            type="email"
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+            autoFocus
+          />
         </Field>
         {actionData?.sent && (
           <StatusNote>
