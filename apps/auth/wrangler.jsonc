@@ -17,8 +17,13 @@
   },
   // Account-lifecycle emails (verification, password reset, signup-exists) ride
   // the same notify queue + consumer the api worker uses for invitations.
+  // Account-lifecycle emails share the notify queue; org-scoped governance and
+  // policy-enforcement events go to the same audit warehouse the api writes to.
   "queues": {
-    "producers": [{ "queue": "edgevault-notify", "binding": "NOTIFY_QUEUE" }]
+    "producers": [
+      { "queue": "edgevault-notify", "binding": "NOTIFY_QUEUE" },
+      { "queue": "edgevault-audit", "binding": "AUDIT_QUEUE" }
+    ]
   },
   "hyperdrive": [
     {
@@ -61,7 +66,10 @@
         "CONSOLE_URL": "https://console-staging.edgevault.io"
       },
       "queues": {
-        "producers": [{ "queue": "edgevault-notify-staging", "binding": "NOTIFY_QUEUE" }]
+        "producers": [
+          { "queue": "edgevault-notify-staging", "binding": "NOTIFY_QUEUE" },
+          { "queue": "edgevault-audit-staging", "binding": "AUDIT_QUEUE" }
+        ]
       },
       "hyperdrive": [
         {

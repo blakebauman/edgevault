@@ -97,6 +97,7 @@ function Policy({
   name,
   label,
   enforcedAt,
+  inactive,
   defaultChecked,
   disabled,
   children,
@@ -104,6 +105,8 @@ function Policy({
   name: string
   label: string
   enforcedAt: string
+  /** Set when the control is settable but not currently enforced anywhere. */
+  inactive?: string
   defaultChecked: boolean
   disabled: boolean
   children: ReactNode
@@ -125,9 +128,15 @@ function Policy({
       <p id={`${name}-desc`} className="policy-body">
         {children}
       </p>
-      <p className="policy-mech">
-        <span className="policy-mech-key">Enforced at</span> {enforcedAt}
-      </p>
+      {inactive ? (
+        <p className="policy-mech policy-mech-inactive">
+          <span className="policy-mech-key">Not yet active</span> {inactive}
+        </p>
+      ) : (
+        <p className="policy-mech">
+          <span className="policy-mech-key">Enforced at</span> {enforcedAt}
+        </p>
+      )}
     </div>
   )
 }
@@ -148,8 +157,8 @@ export default function OrgSecurity({ loaderData, actionData }: Route.ComponentP
       </header>
 
       <p className="lede">
-        Organization-wide controls. Each is checked server-side at the point a credential is issued
-        or used, so no alternate sign-in path bypasses it.
+        Organization-wide controls, checked server-side rather than in this UI. Each states where it
+        is applied — and, where it currently isn't, says so.
       </p>
 
       {readOnly && (
@@ -160,6 +169,14 @@ export default function OrgSecurity({ loaderData, actionData }: Route.ComponentP
       )}
       {error && <ErrorNote>{error}</ErrorNote>}
       {saved && <StatusNote>Security policy saved.</StatusNote>}
+      {!readOnly && (
+        <Callout tone="warn" className="mt-4">
+          Two of the three controls below are not currently enforced. The checks are written, but
+          they depend on a session's active organization, which no sign-in path sets yet. Do not
+          rely on require-two-factor or SSO-only until that is fixed. Step-up on secret reveal is
+          enforced independently and does work.
+        </Callout>
+      )}
       {!security.requireStepUpForReveal && !readOnly && (
         <Callout tone="warn" className="mt-4">
           Secrets in this organization can be revealed without a fresh second factor. New
@@ -190,6 +207,7 @@ export default function OrgSecurity({ loaderData, actionData }: Route.ComponentP
           name="requireMfa"
           label="Require two-factor auth for all members"
           enforcedAt="token issuance, which refuses members without a confirmed second factor"
+          inactive="the check is implemented at token issuance but reads a session's active organization, which nothing currently sets — so this setting is stored and not applied. Tracked as a defect; step-up on reveal is unaffected and does enforce."
           defaultChecked={security.requireMfa}
           disabled={readOnly}
         >
@@ -201,6 +219,7 @@ export default function OrgSecurity({ loaderData, actionData }: Route.ComponentP
           name="ssoOnly"
           label="SSO-only sign-in"
           enforcedAt="token issuance, which refuses sessions not established through your IdP"
+          inactive="same defect as require-two-factor above: the check exists but its precondition is never set, so this is stored and not applied."
           defaultChecked={security.ssoOnly}
           disabled={readOnly}
         >

@@ -32,10 +32,18 @@ export function daysInRange(from: string, to: string): string[] {
 }
 
 export interface AuditQuery {
-  workspaceId: string
+  /**
+   * The scope. Exactly one of these: workspace events (config, secrets,
+   * promotions) or org events (membership, policy, identity). They are separate
+   * scopes rather than a hierarchy because an org view that also swept every
+   * workspace would turn one bounded scan into N of them, and the two answer
+   * different questions anyway.
+   */
+  workspaceId?: string
+  organizationId?: string
   from?: string
   to?: string
-  /** Restrict to a single environment. */
+  /** Restrict to a single environment (workspace scope only). */
   environmentId?: string
   /**
    * Narrowing filters. The scan already parses every line in range, so these
@@ -59,8 +67,14 @@ export interface AuditQuery {
  * otherwise picking one action would erase every other option from the filter.
  */
 function inScope(event: AuditEvent, query: AuditQuery): boolean {
-  if (event.workspaceId !== query.workspaceId) return false
-  if (query.environmentId && event.environmentId !== query.environmentId) return false
+  if (query.organizationId) {
+    // Org scope never picks up workspace events, so a membership change and a
+    // config write can't be conflated in one list.
+    if (event.organizationId !== query.organizationId) return false
+  } else {
+    if (event.workspaceId !== query.workspaceId) return false
+    if (query.environmentId && event.environmentId !== query.environmentId) return false
+  }
   return true
 }
 

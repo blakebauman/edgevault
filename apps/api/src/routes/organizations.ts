@@ -3,12 +3,15 @@ import type { InvitationEmailJob } from '@edgevault/edge-protocol'
 import { zValidator } from '@hono/zod-validator'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { emitOrgAudit } from '../audit'
+import { buildAuditExport, queryAuditHistory } from '../audit-query'
 import type { AppEnv } from '../context'
 import {
   createOrganization,
   createWorkspace,
   getMemberRole,
   getOrgSecurityPolicy,
+  getUserDisplayNames,
   isEmailVerified,
   isOrgMember,
   listOrganizationsForUser,
@@ -148,7 +151,17 @@ export const organizationRoutes = new Hono<AppEnv>()
 
     const { setScimTokenHash } = await import('@edgevault/database')
     const token = `evscim_${generateToken()}`
+    const rotated =
+      (await (await import('@edgevault/database')).getScimTokenHash(c.var.database, orgId)) !== null
     await setScimTokenHash(c.var.database, orgId, hashToken(token))
+    c.executionCtx.waitUntil(
+      emitOrgAudit(c.env, {
+        organizationId: orgId,
+        action: rotated ? 'scim_token.rotated' : 'scim_token.created',
+        resourceType: 'credential',
+        userId: c.var.userId,
+      }),
+    )
     return c.json(
       { token, tokenType: 'Bearer', note: 'Store this now — it is shown only once.' },
       201,
@@ -161,6 +174,14 @@ export const organizationRoutes = new Hono<AppEnv>()
     if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
     const { setScimTokenHash } = await import('@edgevault/database')
     await setScimTokenHash(c.var.database, orgId, null)
+    c.executionCtx.waitUntil(
+      emitOrgAudit(c.env, {
+        organizationId: orgId,
+        action: 'scim_token.revoked',
+        resourceType: 'credential',
+        userId: c.var.userId,
+      }),
+    )
     return c.json({ ok: true })
   })
 
@@ -206,6 +227,15 @@ export const organizationRoutes = new Hono<AppEnv>()
             inviterId: c.var.userId,
           })
           c.executionCtx.waitUntil(sendInvitationEmail(c.env, email, newRole, invitation))
+          c.executionCtx.waitUntil(
+            emitOrgAudit(c.env, {
+              organizationId: orgId,
+              action: 'member.invited',
+              resourceType: 'member',
+              userId: c.var.userId,
+              detail: { email, role: newRole },
+            }),
+          )
           return c.json(
             {
               invited: true,
@@ -224,6 +254,15 @@ export const organizationRoutes = new Hono<AppEnv>()
         }
         return c.json({ error: result.error }, 400)
       }
+      c.executionCtx.waitUntil(
+        emitOrgAudit(c.env, {
+          organizationId: orgId,
+          action: 'member.added',
+          resourceType: 'member',
+          userId: c.var.userId,
+          detail: { email, role: newRole },
+        }),
+      )
       return c.json({ member: result.member }, 201)
     },
   )
@@ -262,6 +301,17 @@ export const organizationRoutes = new Hono<AppEnv>()
     if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
     const { revokeInvitation } = await import('@edgevault/database')
     const ok = await revokeInvitation(c.var.database, orgId, c.req.param('invitationId'))
+    if (ok) {
+      c.executionCtx.waitUntil(
+        emitOrgAudit(c.env, {
+          organizationId: orgId,
+          action: 'invitation.revoked',
+          resourceType: 'member',
+          userId: c.var.userId,
+          detail: { invitationId: c.req.param('invitationId') },
+        }),
+      )
+    }
     return ok ? c.json({ ok: true }) : c.json({ error: 'not_found' }, 404)
   })
   .patch(
@@ -291,6 +341,15 @@ export const organizationRoutes = new Hono<AppEnv>()
         }
         return c.json({ error: result.error }, result.error === 'not_a_member' ? 404 : 400)
       }
+      c.executionCtx.waitUntil(
+        emitOrgAudit(c.env, {
+          organizationId: orgId,
+          action: 'member.role_changed',
+          resourceType: 'member',
+          userId: c.var.userId,
+          detail: { subject: c.req.param('userId'), to: newRole },
+        }),
+      )
       return c.json({ ok: true })
     },
   )
@@ -309,6 +368,15 @@ export const organizationRoutes = new Hono<AppEnv>()
       }
       return c.json({ error: result.error }, result.error === 'not_a_member' ? 404 : 400)
     }
+    c.executionCtx.waitUntil(
+      emitOrgAudit(c.env, {
+        organizationId: orgId,
+        action: 'member.removed',
+        resourceType: 'member',
+        userId: c.var.userId,
+        detail: { subject: c.req.param('userId') },
+      }),
+    )
     return c.json({ ok: true })
   })
   // --- Security policies (step-up before reveal, require-MFA, SSO-only) ---
@@ -352,7 +420,93 @@ export const organizationRoutes = new Hono<AppEnv>()
         }
       }
 
+      const before = await getOrgSecurityPolicy(c.var.database, orgId)
       await setOrgSecurityPolicy(c.var.database, orgId, patch)
-      return c.json(await getOrgSecurityPolicy(c.var.database, orgId))
+      const after = await getOrgSecurityPolicy(c.var.database, orgId)
+
+      // Only report what actually moved. "Weakened" is called out explicitly:
+      // a control being turned off is the line an auditor scans for.
+      const changed: Record<string, string> = {}
+      for (const key of ['requireStepUpForReveal', 'requireMfa', 'ssoOnly'] as const) {
+        if (before[key] !== after[key]) changed[key] = after[key] ? 'enabled' : 'disabled'
+      }
+      if (Object.keys(changed).length > 0) {
+        c.executionCtx.waitUntil(
+          emitOrgAudit(c.env, {
+            organizationId: orgId,
+            action: 'org.security_changed',
+            resourceType: 'policy',
+            userId: c.var.userId,
+            detail: changed,
+          }),
+        )
+      }
+      return c.json(after)
     },
   )
+
+  // --- Org audit: membership, policy, and identity events ---
+  // Admin-only, unlike the workspace trail any member can read: this records
+  // who signed in, who was refused by policy, and who changed whose role —
+  // visible to the people accountable for it, not to everyone it names.
+  .get('/:orgId/audit', async (c) => {
+    const orgId = c.req.param('orgId')
+    const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+    if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+
+    const { events, total, facets } = await queryAuditHistory(c.env.AUDIT_BUCKET, {
+      organizationId: orgId,
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+      action: c.req.query('action'),
+      resourceType: c.req.query('resourceType'),
+      userId: c.req.query('actor'),
+      limit: c.req.query('limit') ? Number(c.req.query('limit')) : undefined,
+    })
+    const ids = [...new Set([...events.map((e) => e.userId), ...facets.userIds].filter(Boolean))]
+    const actors = await getUserDisplayNames(c.var.database, ids)
+    return c.json({
+      events: events.map((e) => ({ ...e, actor: actors.get(e.userId) ?? null })),
+      total,
+      facets: {
+        actions: facets.actions,
+        resourceTypes: facets.resourceTypes,
+        actors: facets.userIds.map((id) => ({ userId: id, actor: actors.get(id) ?? null })),
+      },
+    })
+  })
+  // Same verifiable NDJSON contract as the workspace export: SHA-256 of the
+  // body in a header, and the export is itself an audited act.
+  .get('/:orgId/audit/export', async (c) => {
+    const orgId = c.req.param('orgId')
+    const role = await getMemberRole(c.var.database, orgId, c.var.userId)
+    if (role !== 'owner' && role !== 'admin') return c.json({ error: 'forbidden' }, 403)
+
+    const { events } = await queryAuditHistory(c.env.AUDIT_BUCKET, {
+      organizationId: orgId,
+      from: c.req.query('from'),
+      to: c.req.query('to'),
+      action: c.req.query('action'),
+      resourceType: c.req.query('resourceType'),
+      userId: c.req.query('actor'),
+      limit: 1000000,
+    })
+    const { ndjson, sha256 } = await buildAuditExport(events)
+    c.executionCtx.waitUntil(
+      emitOrgAudit(c.env, {
+        organizationId: orgId,
+        action: 'audit.exported',
+        resourceType: 'audit',
+        userId: c.var.userId,
+        count: events.length,
+      }),
+    )
+    return new Response(ndjson, {
+      headers: {
+        'content-type': 'application/x-ndjson',
+        'content-disposition': `attachment; filename="edgevault-org-audit-${orgId}.ndjson"`,
+        'x-content-sha256': sha256,
+        'x-audit-event-count': String(events.length),
+      },
+    })
+  })

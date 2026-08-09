@@ -18,6 +18,7 @@ export type OrgNavKey =
   | 'members'
   | 'billing'
   | 'security'
+  | 'audit'
   | 'oidc'
   | 'saml'
   | 'scim'
@@ -48,6 +49,7 @@ export const ORG_GROUPS: OrgGroup[] = [
     label: 'Identity & access',
     links: [
       { slug: 'security', label: 'Security', path: 'security' },
+      { slug: 'audit', label: 'Audit trail', path: 'audit' },
       { slug: 'oidc', label: 'Single sign-on', path: 'sso' },
       { slug: 'saml', label: 'SAML', path: 'saml' },
       { slug: 'scim', label: 'Directory sync', path: 'scim' },

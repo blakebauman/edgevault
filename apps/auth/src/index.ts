@@ -19,6 +19,7 @@ import type { EmailJob } from '@edgevault/edge-protocol'
 import { zValidator } from '@hono/zod-validator'
 import { type Context, Hono, type MiddlewareHandler } from 'hono'
 import { z } from 'zod'
+import { emitAuthAudit } from './audit'
 import type { AppEnv } from './context'
 import { clearSessionCookie, getSessionToken, setSessionCookie } from './cookies'
 import { getKeys } from './keys'
@@ -763,15 +764,32 @@ app.post(
     // can still password-auth into their personal org; they just can't mint
     // a token *for this org* without satisfying its policy.
     if (session.activeOrganizationId) {
-      const policy = await getOrgAccessPolicy(c.var.database, session.activeOrganizationId)
+      const orgId = session.activeOrganizationId
+      const policy = await getOrgAccessPolicy(c.var.database, orgId)
+      // A refusal here is the org's policy doing its job. Record it: "the
+      // control is enabled" and "the control has actually stopped someone" are
+      // different claims, and only the second one is evidence.
+      const deny = (reason: string) =>
+        emitAuthAudit(c.env, {
+          organizationId: orgId,
+          action: 'auth.access_denied',
+          resourceType: 'auth',
+          userId: session.user.id,
+          detail: { reason, authMethod: session.authMethod ?? 'password' },
+        })
+
       if (policy.ssoOnly && (session.authMethod ?? 'password') !== 'sso') {
+        c.executionCtx.waitUntil(deny('sso_required_by_org'))
         return c.json({ error: 'sso_required_by_org' }, 403)
       }
       if (policy.requireMfa) {
         const hasSecondFactor =
           (await userHasMfa(c.var.database, session.user.id)) ||
           (await getAuthenticatorsByUser(c.var.database, session.user.id)).length > 0
-        if (!hasSecondFactor) return c.json({ error: 'mfa_required_by_org' }, 403)
+        if (!hasSecondFactor) {
+          c.executionCtx.waitUntil(deny('mfa_required_by_org'))
+          return c.json({ error: 'mfa_required_by_org' }, 403)
+        }
       }
     }
 

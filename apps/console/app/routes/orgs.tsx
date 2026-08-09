@@ -59,6 +59,12 @@ const ORG_ICON: Record<string, ReactNode> = {
       <path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v2" />
     </>
   ),
+  audit: (
+    <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6M9 13h6M9 17h4" />
+    </>
+  ),
   members: (
     <>
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -100,6 +106,7 @@ const SECTION_LABEL: Record<string, string> = {
   billing: 'Billing',
   domains: 'Domains',
   security: 'Security',
+  audit: 'Audit trail',
   sso: 'Single sign-on',
   saml: 'SAML',
   scim: 'Directory sync',

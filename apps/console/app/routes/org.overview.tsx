@@ -204,14 +204,25 @@ export default function OrgOverview({ loaderData }: Route.ComponentProps) {
           <Row
             label="Two-factor required"
             to={`${base}/security`}
-            state={security.requireMfa ? 'enforced' : 'off'}
-            note="Checked when an org access token is minted, so no sign-in path skips it"
+            // Set but not applied: the check exists and its precondition never
+            // does. "partial" rather than "enforced" — claiming a control that
+            // doesn't fire is worse than admitting the gap.
+            state={security.requireMfa ? 'partial' : 'off'}
+            note={
+              security.requireMfa
+                ? 'Set, but not currently applied — the check depends on a session field nothing sets yet'
+                : 'Would be checked when an org access token is minted'
+            }
           />
           <Row
             label="SSO-only sign-in"
             to={`${base}/security`}
-            state={security.ssoOnly ? 'enforced' : 'off'}
-            note="Sessions not established through this org's IdP are refused a token"
+            state={security.ssoOnly ? 'partial' : 'off'}
+            note={
+              security.ssoOnly
+                ? 'Set, but not currently applied — same gap as require-two-factor'
+                : "Would refuse sessions not established through this org's IdP"
+            }
           />
           <Row
             label="Step-up before secret reveal"
@@ -275,8 +286,14 @@ export default function OrgOverview({ loaderData }: Route.ComponentProps) {
             note="Admin-only, returns a SHA-256 digest so the file can be verified after download — and exporting is itself audited"
           />
           <Row
-            label="Coverage"
-            note="Configuration and secret operations. Identity events (sign-in, MFA and role changes) are not yet in the trail."
+            label="Organization trail"
+            to={`${base}/audit`}
+            state="enforced"
+            note="Membership, role, policy, and credential changes, plus sign-ins refused by this organization's policy"
+          />
+          <Row
+            label="Coverage gap"
+            note="Password changes, MFA enrollment, passkey changes, and session revocations are account-level and not yet attributed to an organization"
           />
           <Row
             label="Separation of duties"

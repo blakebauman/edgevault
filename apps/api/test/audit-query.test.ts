@@ -153,6 +153,49 @@ describe('queryAuditHistory', () => {
   })
 })
 
+describe('org-scoped queries', () => {
+  const ORG = 'org-1'
+
+  beforeAll(async () => {
+    await put('2026-06-04', 'org', [
+      {
+        at: Date.parse('2026-06-04T08:00:00Z'),
+        workspaceId: '',
+        organizationId: ORG,
+        action: 'member.role_changed',
+        resourceType: 'member',
+        userId: 'u1',
+        detail: { subject: 'u2', from: 'member', to: 'admin' },
+      },
+      {
+        at: Date.parse('2026-06-04T08:30:00Z'),
+        workspaceId: '',
+        organizationId: 'org-2',
+        action: 'member.removed',
+        resourceType: 'member',
+        userId: 'u9',
+      },
+    ])
+  })
+
+  it('returns only this org\u2019s events, and no workspace events', async () => {
+    const { events } = await queryAuditHistory(bucket, { organizationId: ORG, now: NOW })
+    expect(events.map((e) => e.action)).toEqual(['member.role_changed'])
+    // ws-1 has plenty of config activity on the same day; none of it leaks in.
+    expect(events.every((e) => e.workspaceId === '')).toBe(true)
+  })
+
+  it('keeps workspace queries clear of org events', async () => {
+    const { events } = await queryAuditHistory(bucket, { workspaceId: 'ws-1', now: NOW })
+    expect(events.some((e) => e.organizationId)).toBe(false)
+  })
+
+  it('carries structured detail through the warehouse', async () => {
+    const { events } = await queryAuditHistory(bucket, { organizationId: ORG, now: NOW })
+    expect(events[0]?.detail).toEqual({ subject: 'u2', from: 'member', to: 'admin' })
+  })
+})
+
 describe('buildAuditExport', () => {
   it('hashes exactly the bytes it returns, over real warehouse content', async () => {
     const { events } = await queryAuditHistory(bucket, { workspaceId: 'ws-1', now: NOW })

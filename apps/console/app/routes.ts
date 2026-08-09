@@ -44,6 +44,8 @@ export default [
     index('routes/org.overview.tsx'),
     route('members', 'routes/members.tsx'),
     route('security', 'routes/org.security.tsx'),
+    route('audit', 'routes/org.audit.tsx'),
+    route('audit/export', 'routes/org.audit.export.tsx'),
     route('billing', 'routes/billing.tsx'),
     route('domains', 'routes/domains.tsx'),
     route('scim', 'routes/scim.tsx'),
