@@ -55,6 +55,17 @@ export const members = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     role: memberRole('role').notNull().default('member'),
+    /**
+     * Set when the membership is suspended rather than deleted — how SCIM
+     * deprovisioning lands (`PATCH {"active": false}`), which every IdP sends
+     * before it ever sends a DELETE.
+     *
+     * A deactivated row is not a member: role resolution ignores it, so access
+     * stops immediately. The row survives so the directory can still answer
+     * `GET /Users/:id` with `active: false` (IdPs read back what they wrote),
+     * and so reactivation restores the original role instead of guessing one.
+     */
+    deactivatedAt: timestamp('deactivated_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

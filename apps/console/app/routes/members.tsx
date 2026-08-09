@@ -38,6 +38,8 @@ interface Member {
   name: string | null
   role: Role
   joinedAt: string
+  /** Set when an identity provider has deprovisioned them over SCIM. */
+  deactivatedAt: string | null
 }
 
 interface Invitation {
@@ -354,7 +356,12 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
                   </span>
                 </Td>
                 <Td label="Role">
-                  {isAdmin && !lastOwner ? (
+                  {m.deactivatedAt ? (
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <Chip variant={ROLE_CHIP[m.role]}>{m.role}</Chip>
+                      <Chip variant="state-off">deactivated</Chip>
+                    </span>
+                  ) : isAdmin && !lastOwner ? (
                     <RoleControl member={m} canGrantOwner={isOwner} />
                   ) : (
                     <Chip variant={ROLE_CHIP[m.role]}>{m.role}</Chip>
@@ -362,6 +369,11 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
                 </Td>
                 <Td label="Joined" className="text-muted-foreground">
                   <LocalTime epoch={Date.parse(m.joinedAt)} />
+                  {m.deactivatedAt && (
+                    <span className="block font-mono text-xs text-muted-foreground-subtle">
+                      no access since <LocalTime epoch={Date.parse(m.deactivatedAt)} />
+                    </span>
+                  )}
                 </Td>
                 <Td>
                   {isAdmin && !lastOwner && !isSelf ? (

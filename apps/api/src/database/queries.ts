@@ -9,7 +9,7 @@ import {
   users,
   workspaces,
 } from '@edgevault/database/schema'
-import { and, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 
 /** Neon (via Hyperdrive) queries for org/workspace metadata + membership. */
 
@@ -43,7 +43,10 @@ export async function listOrganizationsForUser(database: Database, userId: strin
       })
       .from(members)
       .innerJoin(organizations, eq(members.organizationId, organizations.id))
-      .where(eq(members.userId, userId)),
+      // Deactivated memberships drop out of the org list too, so a
+      // deprovisioned person stops seeing the org at all rather than seeing it
+      // and being refused at every door.
+      .where(and(eq(members.userId, userId), isNull(members.deactivatedAt))),
   )
 }
 
@@ -55,7 +58,14 @@ export async function isOrgMember(
   return (await getMemberRole(database, organizationId, userId)) !== null
 }
 
-/** The caller's role in an org (owner/admin/member), or null if not a member. */
+/**
+ * The caller's role in an org (owner/admin/member), or null if not a member.
+ *
+ * A deactivated membership is not a membership. This is the single chokepoint
+ * every workspace and org route resolves authorization through, so filtering
+ * here is what makes SCIM deprovisioning actually revoke access rather than
+ * just change how the roster renders.
+ */
 export async function getMemberRole(
   database: Database,
   organizationId: string,
@@ -64,7 +74,13 @@ export async function getMemberRole(
   const [row] = await database
     .select({ role: members.role })
     .from(members)
-    .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
+    .where(
+      and(
+        eq(members.organizationId, organizationId),
+        eq(members.userId, userId),
+        isNull(members.deactivatedAt),
+      ),
+    )
     .limit(1)
   return row?.role ?? null
 }

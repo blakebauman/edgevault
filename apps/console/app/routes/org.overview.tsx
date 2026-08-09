@@ -245,11 +245,11 @@ export default function OrgOverview({ loaderData }: Route.ComponentProps) {
               <Row
                 label="Directory sync (SCIM 2.0)"
                 to={`${base}/scim`}
-                state={scimConfigured ? 'partial' : 'off'}
+                state={scimConfigured ? 'configured' : 'off'}
                 note={
                   scimConfigured
-                    ? 'Read-only: your IdP can list users. Provisioning and deprovisioning writes are not supported yet.'
-                    : 'Issue a bearer token to let your IdP read the directory'
+                    ? 'Your IdP can read the directory and deprovision members; creating users and Groups are not supported'
+                    : 'Issue a bearer token to let your IdP read the directory and deprovision members'
                 }
               />
               {scimConfigured && (
