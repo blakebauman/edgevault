@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { AppEnv } from '../context'
-import { getOrgRequiresStepUpForReveal } from '../database/queries'
+import { getOrgRequiresStepUpForReveal, isAiIndexingEnabled } from '../database/queries'
 import { handleMcpMessage } from './server'
 import { edgevaultTools } from './tools'
 
@@ -31,12 +31,19 @@ export const mcpRoutes = new Hono<AppEnv>()
     const requireStepUp = c.var.orgId
       ? await getOrgRequiresStepUpForReveal(c.var.database, c.var.orgId)
       : false
+    const workspaceId = c.req.param('workspaceId')
+    // Same reason, same place: the workspace's AI opt-out. Without it the tools
+    // silently diverged from the HTTP routes — set_config indexed into Vectorize
+    // for workspaces that had opted out, and search_configs queried an index the
+    // REST surface reports as disabled.
+    const aiIndexingEnabled = await isAiIndexingEnabled(c.var.database, workspaceId)
     const ctx = {
       env: c.env,
-      workspaceId: c.req.param('workspaceId'),
+      workspaceId,
       userId: c.var.userId,
       role: c.var.role,
       requireStepUp,
+      aiIndexingEnabled,
     }
 
     // Batched JSON-RPC.

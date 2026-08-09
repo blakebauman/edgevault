@@ -8,6 +8,7 @@ import type { ConfigItem } from '../durable-objects/types'
 import type { VaultDurableObject } from '../durable-objects/vault'
 import { publishTargets } from '../edge-cache'
 import { dispatchNotifications } from '../notify'
+import { checkRateLimit } from '../rate-limit'
 import { prepareSecretContent, revealSecret } from '../secrets'
 import { defineTool, type McpToolContext } from './server'
 
@@ -37,6 +38,11 @@ function canWrite(ctx: McpToolContext): boolean {
 
 const READ_ONLY_MESSAGE =
   'Your role in this organization is read-only. Ask an admin for write access.'
+
+/** The workspace's AI opt-out, defaulting to on (see McpToolContext). */
+function aiIndexingEnabled(ctx: McpToolContext): boolean {
+  return ctx.aiIndexingEnabled !== false
+}
 
 const kindEnum = ['config', 'flag', 'secret', 'content'] as const
 // Same write-time key constraint as the HTTP routes (KV-key and ref safe).
@@ -131,7 +137,8 @@ export const edgevaultTools = [
       // Publish the item plus anything referencing it, with ${...} expanded.
       const { targets } = await stub(ctx).collectPublishTargets(item.environmentId, item.key)
       await publishTargets(ctx.env, ctx.workspaceId, targets)
-      await indexConfig(ctx.env, ctx.workspaceId, item)
+      // Honor the workspace's AI opt-out, exactly as the HTTP write path does.
+      if (aiIndexingEnabled(ctx)) await indexConfig(ctx.env, ctx.workspaceId, item)
       // Same cold audit trail + notifications as the HTTP write surface.
       const changed = configChangeEvent({
         workspaceId: ctx.workspaceId,
@@ -250,8 +257,18 @@ export const edgevaultTools = [
       query: z.string(),
       environmentId: z.string().optional(),
     }),
-    handler: async (args, ctx) =>
-      searchConfigs(
+    handler: async (args, ctx) => {
+      // Both guards mirror the HTTP /search route, which had them from the
+      // start; this surface reached the same index with neither.
+      if (!aiIndexingEnabled(ctx)) return { hits: [], aiIndexingDisabled: true }
+      // Every call embeds the query, which is metered upstream — cap per user.
+      if (!(await checkRateLimit(ctx.env.AI_USER_LIMITER, `ai:${ctx.userId}`))) {
+        return {
+          error: 'rate_limited',
+          detail: 'Too many AI requests. Please try again shortly.',
+        }
+      }
+      return searchConfigs(
         {
           ai: aiRunner(ctx.env),
           vectorize: vectorize(ctx.env),
@@ -263,7 +280,8 @@ export const edgevaultTools = [
           environmentId: args.environmentId,
           topK: 10,
         },
-      ),
+      )
+    },
   }),
   defineTool({
     name: 'get_activity',

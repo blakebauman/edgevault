@@ -945,10 +945,13 @@
     color: var(--foreground);
   }
 
-  .asst-body {
+  /* Scroll container. The <Conversation> wrapper owns overflow + anchoring;
+     .asst-body is the content column inside it. */
+  .asst-scroll {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
+  }
+  .asst-body {
     padding: 1rem 0.875rem;
     display: flex;
     flex-direction: column;
@@ -1090,6 +1093,314 @@
   .asst-send:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+  .asst-conn {
+    margin: 0 0 0.5rem;
+    font-size: 0.7rem;
+    color: var(--warn);
+  }
+
+  /* --- Assistant tool calls -------------------------------------------------- */
+  /* Bespoke per-tool card (tool-cards.tsx); the generic collapsible below is the
+     fallback for tools without one. */
+  .tool-mini {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    padding: 0.45rem 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+  .tool-mini[data-tone="error"] {
+    border-color: color-mix(in srgb, var(--destructive) 35%, var(--border));
+  }
+  .tool-mini-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+    font-size: 0.7rem;
+    color: var(--muted-foreground-subtle);
+  }
+  .tool-mini-head code {
+    font-family: var(--font-mono);
+    color: var(--muted-foreground);
+  }
+  .tool-mini .hits {
+    margin-top: 0.45rem;
+  }
+  .tool-rows {
+    list-style: none;
+    margin: 0.45rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+  }
+  .tool-rows li {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    color: var(--muted-foreground);
+  }
+  .tool-rows code {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+  .tool-rows time {
+    margin-left: auto;
+    flex: none;
+    font-size: 0.65rem;
+    color: var(--muted-foreground-subtle);
+  }
+  .tool-row-action {
+    color: var(--muted-foreground-subtle);
+  }
+  .tool-row-more {
+    color: var(--muted-foreground-subtle);
+  }
+
+  .tool-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    margin-bottom: 0.5rem;
+  }
+  .tool-card > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.6rem;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.72rem;
+  }
+  .tool-card > summary::-webkit-details-marker {
+    display: none;
+  }
+  .tool-name {
+    font-family: var(--font-mono);
+    color: var(--muted-foreground);
+  }
+  .tool-chev {
+    margin-left: auto;
+    flex: none;
+    color: var(--muted-foreground-subtle);
+    transition: transform 0.14s;
+  }
+  .tool-card[open] .tool-chev {
+    transform: rotate(180deg);
+  }
+  .tool-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.65rem;
+    color: var(--muted-foreground-subtle);
+  }
+  .tool-status[data-tone="ok"] {
+    color: var(--ok);
+  }
+  .tool-status[data-tone="warn"] {
+    color: var(--warn);
+  }
+  .tool-status[data-tone="error"] {
+    color: var(--destructive);
+  }
+  .tool-status[data-tone="active"] {
+    color: var(--accent);
+  }
+  .tool-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+  }
+  .tool-body {
+    padding: 0 0.6rem 0.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .tool-cap {
+    margin: 0.5rem 0 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-foreground-subtle);
+  }
+  .tool-body pre {
+    margin: 0;
+    padding: 0.45rem 0.55rem;
+    border-radius: var(--radius);
+    background: var(--background);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+    overflow-x: auto;
+    max-height: 15rem;
+  }
+  .tool-body pre[data-tone="error"] {
+    color: var(--destructive);
+  }
+
+  /* Per-message actions, revealed on hover where hover exists. */
+  .msg-acts {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+  }
+  @media (hover: hover) {
+    .msg-acts {
+      opacity: 0;
+      transition: opacity 0.14s;
+    }
+    .msg.ai:hover .msg-acts,
+    .msg-acts:focus-within {
+      opacity: 1;
+    }
+  }
+  .msg-act {
+    font: inherit;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    background: none;
+    color: var(--muted-foreground-subtle);
+    cursor: pointer;
+  }
+  .msg-act:hover {
+    color: var(--foreground);
+    border-color: var(--border);
+  }
+
+  /* --- Assistant proposals (human-in-the-loop) ------------------------------- */
+  .prop-card {
+    border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    padding: 0.6rem 0.7rem;
+    margin-bottom: 0.5rem;
+  }
+  .prop-card[data-settled="true"] {
+    border-color: color-mix(in srgb, var(--ok) 28%, var(--border));
+  }
+  .prop-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.35rem;
+    font-size: 0.72rem;
+  }
+  .prop-head code {
+    font-family: var(--font-mono);
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+  .prop-tag {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.1rem 0.3rem;
+    border-radius: var(--radius);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--accent);
+    flex: none;
+  }
+  .prop-state {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-left: auto;
+    flex: none;
+    font-size: 0.65rem;
+    color: var(--muted-foreground-subtle);
+  }
+  .prop-card[data-settled="true"] .prop-state {
+    color: var(--ok);
+  }
+  .prop-why {
+    margin: 0 0 0.45rem;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+  .prop-move {
+    margin: 0 0 0.45rem;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+  }
+  .prop-move code {
+    font-family: var(--font-mono);
+    color: var(--foreground);
+  }
+  .prop-cap {
+    margin: 0.4rem 0 0.2rem;
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted-foreground-subtle);
+  }
+  .prop-new {
+    margin: 0 0 0.2rem;
+    font-size: 0.7rem;
+    color: var(--muted-foreground-subtle);
+  }
+  .prop-diff pre {
+    margin: 0;
+    padding: 0.4rem 0.5rem;
+    border-radius: var(--radius);
+    background: var(--background);
+    border-left: 2px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+    overflow-x: auto;
+    max-height: 12rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .prop-diff pre[data-side="before"] {
+    border-left-color: color-mix(in srgb, var(--destructive) 45%, var(--border));
+  }
+  .prop-diff pre[data-side="after"] {
+    border-left-color: color-mix(in srgb, var(--ok) 45%, var(--border));
+    color: var(--foreground);
+  }
+  .prop-err {
+    margin: 0.4rem 0 0;
+    font-size: 0.7rem;
+    color: var(--destructive);
+  }
+  .prop-acts {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.55rem;
+  }
+  .prop-apply {
+    font: inherit;
+    font-size: 0.72rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius);
+    border: 1px solid transparent;
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+  }
+  .prop-apply:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+  .prop-link {
+    font-size: 0.7rem;
+    color: var(--accent);
   }
 
   /* --- Workspace overview (home) --------------------------------------------- */

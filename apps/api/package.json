@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "3.0.107",
     "@cloudflare/ai-chat": "catalog:",
     "@edgevault/ai": "workspace:*",
     "@edgevault/auth": "workspace:*",

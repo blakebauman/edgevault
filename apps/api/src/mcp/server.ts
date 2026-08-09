@@ -24,6 +24,16 @@ export interface McpToolContext {
    * the human must reveal in the console.
    */
   requireStepUp?: boolean
+  /**
+   * The workspace's AI-indexing opt-out, resolved at the HTTP boundary like
+   * `requireStepUp`. When false, set_config must not embed and search_configs
+   * must report the same `aiIndexingDisabled` the REST route does — otherwise
+   * MCP is a way around a setting the console presents as workspace-wide.
+   *
+   * Defaults to enabled when absent so a caller that predates this field keeps
+   * working; the HTTP boundary always sets it explicitly.
+   */
+  aiIndexingEnabled?: boolean
 }
 
 export interface McpTool {

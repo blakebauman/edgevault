@@ -324,3 +324,68 @@ export function isEmailJob(job: NotifyQueueMessage): job is EmailJob {
 export function isInvitationEmailJob(job: NotifyQueueMessage): job is InvitationEmailJob {
   return 'kind' in job && job.kind === 'invitation-email'
 }
+
+/**
+ * Assistant proposals — a change the AI suggests and a human approves.
+ *
+ * The assistant never writes. A proposal tool's `execute` returns its input
+ * unchanged, so the proposal exists only as a tool-call record in the chat
+ * thread; applying it is an ordinary console write, authorized the same way a
+ * hand-typed one is. That keeps the agent's Durable Object — which has no view
+ * of the caller's role and cannot re-check it after hibernation — out of the
+ * write path entirely, and caps the blast radius of a prompt injection at
+ * "drew a card someone has to click".
+ *
+ * The union is closed on purpose: the client renders each kind exhaustively and
+ * refuses anything it doesn't recognize, so the model can never drive arbitrary
+ * UI. Adding a kind is a deliberate change in both places.
+ *
+ * These are plain types; the api validates them with Zod at the tool boundary
+ * (apps/api/src/agent/proposals.ts) and TypeScript checks that schema against
+ * this contract.
+ */
+
+/** Create or update a single item. Secrets are excluded — see the tool. */
+export interface ConfigChangeProposal {
+  kind: 'config-change'
+  environmentId: string
+  key: string
+  itemKind: 'config' | 'flag' | 'content'
+  contentType?: string
+  content: string
+  /** Why the assistant thinks this change is right; shown on the card. */
+  rationale: string
+}
+
+/** Copy one key from one environment to another. */
+export interface PromotionProposal {
+  kind: 'promotion'
+  sourceEnvironmentId: string
+  targetEnvironmentId: string
+  key: string
+  rationale: string
+}
+
+export type AssistantProposal = ConfigChangeProposal | PromotionProposal
+
+/** Narrow an untrusted tool output to a proposal the client knows how to draw. */
+export function isAssistantProposal(value: unknown): value is AssistantProposal {
+  if (value === null || typeof value !== 'object') return false
+  // Indexed access rather than a partial of the union: the two members'
+  // `kind` literals are disjoint, so intersecting them collapses to `never`.
+  const v = value as Record<string, unknown>
+  const str = (k: string) => typeof v[k] === 'string' && (v[k] as string).length > 0
+  if (!str('rationale')) return false
+  if (v.kind === 'config-change') {
+    return (
+      str('environmentId') &&
+      str('key') &&
+      typeof v.content === 'string' &&
+      (v.itemKind === 'config' || v.itemKind === 'flag' || v.itemKind === 'content')
+    )
+  }
+  if (v.kind === 'promotion') {
+    return str('sourceEnvironmentId') && str('targetEnvironmentId') && str('key')
+  }
+  return false
+}

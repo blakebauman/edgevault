@@ -22,6 +22,23 @@ type BoundEnv = { Bindings: Env }
 
 const RETRY_AFTER_SECONDS = 60
 
+/**
+ * The bare limiter check, with no Hono context.
+ *
+ * The agent runs inside a Durable Object and MCP tools run below the HTTP
+ * boundary, so neither has a `Context` to return a 429 from — but both must
+ * share the fail-open rule below, not reimplement it. Returns true when the
+ * caller may proceed.
+ */
+export async function checkRateLimit(
+  limiter: RateLimit | undefined,
+  key: string,
+): Promise<boolean> {
+  if (!limiter) return true
+  const { success } = await limiter.limit({ key })
+  return success
+}
+
 function tooManyRequests<E extends BoundEnv>(c: Context<E>): Response {
   c.header('Retry-After', String(RETRY_AFTER_SECONDS))
   return c.json(
@@ -41,11 +58,8 @@ export function rateLimitByIp<E extends BoundEnv>(
   scope: string,
 ): MiddlewareHandler<E> {
   return async (c, next) => {
-    const limiter = pick(c.env)
-    if (limiter) {
-      const { success } = await limiter.limit({ key: `${scope}:${clientIp(c)}` })
-      if (!success) return tooManyRequests(c)
-    }
+    const allowed = await checkRateLimit(pick(c.env), `${scope}:${clientIp(c)}`)
+    if (!allowed) return tooManyRequests(c)
     await next()
   }
 }
@@ -59,7 +73,5 @@ export async function enforceRateLimit<E extends BoundEnv>(
   limiter: RateLimit | undefined,
   key: string,
 ): Promise<Response | null> {
-  if (!limiter) return null
-  const { success } = await limiter.limit({ key })
-  return success ? null : tooManyRequests(c)
+  return (await checkRateLimit(limiter, key)) ? null : tooManyRequests(c)
 }

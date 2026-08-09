@@ -1,12 +1,16 @@
 import { useAgentChat } from '@cloudflare/ai-chat/react'
 import { ErrorNote } from '@edgevault/ui'
 import { useAgent } from 'agents/react'
-import { type FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useMatches, useRouteLoaderData } from 'react-router'
 import type { loader as rootLoader } from '../root'
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from './ai-elements/conversation'
 import { Loader } from './ai-elements/loader'
-
-const Response = lazy(() => import('./ai-elements/response').then((m) => ({ default: m.Response })))
+import { MessageView } from './ai-elements/message'
 
 const STARTERS = [
   'What changed today?',
@@ -42,15 +46,6 @@ const STARTERS = [
  * extra segment passes auth unchanged.
  */
 const AGENT_GENERATION = 'v4'
-
-/** A permissive view of a UIMessage part (the v5 union is wide; we read text +
- * tool output defensively). */
-type AnyPart = { type: string; text?: string; output?: unknown }
-type ConfigHit = { key: string; environmentId: string; kind?: string }
-
-function isConfigHits(v: unknown): v is ConfigHit[] {
-  return Array.isArray(v) && v.every((h) => h && typeof (h as ConfigHit).key === 'string')
-}
 
 function Spark({ size = 15 }: { size?: number }) {
   return (
@@ -185,7 +180,11 @@ function AgentChat({
 }) {
   const [input, setInput] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const bodyRef = useRef<HTMLDivElement>(null)
+  const [connected, setConnected] = useState(true)
+  // The very first connect shouldn't render as an outage. Without this the
+  // drawer flashes "Reconnecting…" during the opening handshake every time it
+  // opens, which reads as a broken assistant rather than a normal connect.
+  const seenConnected = useRef(false)
 
   // The access token is httpOnly — fetch a fresh one from the BFF on each
   // (re)connect for the ?token= the api verifies.
@@ -196,24 +195,33 @@ function AgentChat({
     return token ? { token } : {}
   }, [workspaceId])
 
-  const agent = useAgent({ agent: 'EdgeVaultAgent', name, host, query, queryDeps: [workspaceId] })
+  const agent = useAgent({
+    agent: 'EdgeVaultAgent',
+    name,
+    host,
+    query,
+    queryDeps: [workspaceId],
+    onOpen: () => {
+      seenConnected.current = true
+      setConnected(true)
+    },
+    onClose: () => setConnected(false),
+  })
   // `getInitialMessages: null` disables the SDK's default HTTP fetch of thread
   // history (`GET /agents/.../get-messages`). That fetch is cross-origin
   // (console→api) and the api intentionally sends no CORS headers — the browser
   // only talks to the api over the CORS-exempt WebSocket. History (and every
   // turn) syncs over that socket instead, so the HTTP call is unnecessary here.
-  const { messages, sendMessage, status, error } = useAgentChat({ agent, getInitialMessages: null })
-  const busy = status === 'submitted' || status === 'streaming'
+  const { messages, sendMessage, status, error, stop, regenerate, isStreaming, isRecovering } =
+    useAgentChat({ agent, getInitialMessages: null })
+  // `isStreaming` also covers server-pushed turns (another tab, a continuation),
+  // which plain `status` misses.
+  const busy = status === 'submitted' || isStreaming
+  const offline = !connected && seenConnected.current
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
-
-  // Keep the latest turn in view as it streams.
-  // Scroll on every message update
-  useEffect(() => {
-    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight })
-  }, [messages])
 
   function submit(text: string) {
     const q = text.trim()
@@ -222,40 +230,61 @@ function AgentChat({
     sendMessage({ text: q })
   }
 
+  const lastMessage = messages[messages.length - 1]
+  // A retry only makes sense on the newest reply, and only once it has settled.
+  const retryable = !busy && lastMessage?.role === 'assistant'
+
   return (
     <>
-      <div className="asst-body" ref={bodyRef}>
-        {messages.length === 0 && (
-          <>
-            <p className="asst-intro">
-              Ask what changed in this workspace, or find a config by meaning.
-            </p>
-            <div className="asst-sugg">
-              {STARTERS.map((s) => (
-                <button key={s} type="button" className="sugg" onClick={() => submit(s)}>
-                  {s}
-                </button>
-              ))}
+      <Conversation className="asst-scroll">
+        <ConversationContent className="asst-body">
+          {messages.length === 0 && (
+            <>
+              <p className="asst-intro">
+                Ask what changed in this workspace, or find a config by meaning.
+              </p>
+              <div className="asst-sugg">
+                {STARTERS.map((s) => (
+                  <button key={s} type="button" className="sugg" onClick={() => submit(s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {messages.map((m, i) => {
+            const isLast = i === messages.length - 1
+            return (
+              <div
+                key={m.id}
+                // Tall spacer under a just-sent question so bottom-anchoring
+                // lifts it to the top of the drawer and the reply streams into
+                // the space below, instead of both crawling along the bottom
+                // edge. Collapses as soon as a reply arrives and this stops
+                // being the last message. `svh` (not `vh`) so a mobile browser
+                // collapsing its address bar doesn't jump the scroll position.
+                className={isLast && m.role === 'user' ? 'min-h-[calc(70svh-8rem)]' : undefined}
+              >
+                <MessageView
+                  role={m.role}
+                  parts={m.parts as unknown as { type: string; text?: string }[]}
+                  workspaceId={workspaceId}
+                  onRetry={isLast && retryable ? () => regenerate() : undefined}
+                />
+              </div>
+            )
+          })}
+
+          {busy && (
+            <div className="msg ai flex items-center gap-2">
+              <Loader /> {isRecovering ? 'Reconnecting to your answer…' : 'Thinking…'}
             </div>
-          </>
-        )}
-
-        {messages.map((m) => (
-          <MessageView
-            key={m.id}
-            role={m.role}
-            parts={m.parts as unknown as AnyPart[]}
-            ws={workspaceId}
-          />
-        ))}
-
-        {busy && (
-          <div className="msg ai flex items-center gap-2">
-            <Loader /> Thinking…
-          </div>
-        )}
-        {error && <ErrorNote>{error.message}</ErrorNote>}
-      </div>
+          )}
+          {error && <ErrorNote>{error.message}</ErrorNote>}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       <form
         className="asst-foot"
@@ -264,6 +293,11 @@ function AgentChat({
           submit(input)
         }}
       >
+        {offline && (
+          <p className="asst-conn" role="status">
+            Reconnecting…
+          </p>
+        )}
         <div className="asst-input">
           <Spark />
           <textarea
@@ -279,66 +313,29 @@ function AgentChat({
             rows={1}
             placeholder="Ask the assistant…  (Enter to send)"
             aria-label="Ask the assistant"
-            disabled={busy}
           />
-          <button
-            type="submit"
-            className="asst-send"
-            disabled={busy || !input.trim()}
-            aria-label="Send"
-          >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          </button>
-        </div>
-      </form>
-    </>
-  )
-}
-
-function MessageView({ role, parts, ws }: { role: string; parts: AnyPart[]; ws: string }) {
-  const text = parts
-    .filter((p) => p.type === 'text')
-    .map((p) => p.text ?? '')
-    .join('')
-
-  if (role === 'user') {
-    return <div className="msg user">{text}</div>
-  }
-
-  const sources = parts.flatMap((p) =>
-    p.type.startsWith('tool-') && isConfigHits(p.output) ? p.output : [],
-  )
-
-  return (
-    <div className="msg ai">
-      {text && (
-        <Suspense fallback={<div className="ev-response">{text}</div>}>
-          <Response>{text}</Response>
-        </Suspense>
-      )}
-      {sources.length > 0 && (
-        <div className="hits">
-          {sources.map((c) => (
-            <Link
-              key={`${c.environmentId}:${c.key}`}
-              to={`/dashboard/${ws}/env/${c.environmentId}`}
-              className="hit"
+          {busy ? (
+            <button
+              type="button"
+              className="asst-send"
+              onClick={() => stop()}
+              aria-label="Stop generating"
             >
               <svg
-                width="12"
-                height="12"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            </button>
+          ) : (
+            <button type="submit" className="asst-send" disabled={!input.trim()} aria-label="Send">
+              <svg
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -347,13 +344,12 @@ function MessageView({ role, parts, ws }: { role: string; parts: AnyPart[]; ws: 
                 strokeLinejoin="round"
                 aria-hidden="true"
               >
-                <path d="M12 2 3 7v10l9 5 9-5V7z" />
+                <path d="M5 12h14M13 6l6 6-6 6" />
               </svg>
-              {c.key}
-            </Link>
-          ))}
+            </button>
+          )}
         </div>
-      )}
-    </div>
+      </form>
+    </>
   )
 }
