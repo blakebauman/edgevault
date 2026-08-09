@@ -67,15 +67,28 @@ const DRIFT_STATUS: Record<'sync' | 'drift' | 'pending', { label: string; chip: 
   pending: { label: 'pending', chip: 'drift-only' },
 }
 
-/** A row's drift status across all environments: present-everywhere-and-equal is
- * in sync, present-everywhere-but-different is drift, present-in-some is pending.
- * Secrets can't be value-compared, so they're judged on presence alone. */
+/**
+ * A row's drift status across all environments.
+ *
+ * Drift outranks absence. The presence check used to run first and return
+ * early, so a key that was set in two environments with *different* values but
+ * missing from a third reported "pending" and never counted as drifted — the
+ * summary could read "0 drifted" while a production value visibly disagreed
+ * with development. Disagreement where a key IS set is the actionable finding,
+ * so it wins; absence is reported only when everything present agrees.
+ *
+ * Secrets can't be value-compared (ciphertext differs by IV), so they are
+ * judged on presence alone.
+ */
 function driftStatus(item: MatrixItem, envIds: string[]): 'sync' | 'drift' | 'pending' {
   const cells = envIds.map((id) => item.cells[id]).filter((c): c is MatrixCell => Boolean(c))
-  if (cells.length < envIds.length) return 'pending'
-  if (item.kind === 'secret') return 'sync'
+  const missingSomewhere = cells.length < envIds.length
+  if (item.kind === 'secret') return missingSomewhere ? 'pending' : 'sync'
+
   const first = cells[0]?.content
-  return cells.every((c) => c.content === first) ? 'sync' : 'drift'
+  const disagrees = cells.length > 1 && !cells.every((c) => c.content === first)
+  if (disagrees) return 'drift'
+  return missingSomewhere ? 'pending' : 'sync'
 }
 
 /** A single-line value preview for a matrix cell. */
