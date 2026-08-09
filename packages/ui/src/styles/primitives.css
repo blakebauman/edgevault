@@ -56,13 +56,14 @@
 }
 
 /* The dog-ear: a clipped corner marks an unsealed artifact (revealed secret,
-   minted key). Set --fold-size to scale; pairs with an ::after fold triangle. */
+   minted key). Defaults to the brand's --fold so console and marketing agree;
+   set --fold-size locally to scale one instance. */
 .dog-ear {
   position: relative;
   clip-path: polygon(
     0 0,
-    calc(100% - var(--fold-size, 18px)) 0,
-    100% var(--fold-size, 18px),
+    calc(100% - var(--fold-size, var(--fold))) 0,
+    100% var(--fold-size, var(--fold)),
     100% 100%,
     0 100%
   );
@@ -73,8 +74,8 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: var(--fold-size, 18px);
-  height: var(--fold-size, 18px);
+  width: var(--fold-size, var(--fold));
+  height: var(--fold-size, var(--fold));
   background: var(--fold-color, var(--rollout));
   clip-path: polygon(0 0, 100% 100%, 0 100%);
 }
@@ -147,6 +148,99 @@
 @media (prefers-reduced-motion: reduce) {
   .ev-menu-in {
     animation: none;
+  }
+}
+
+/*
+ * The Tabular Rule (DESIGN.md §3): numbers are data, so they align. Applied
+ * wherever a figure is read as a quantity — table cells, fact rows, counts,
+ * timestamps, digests.
+ */
+.tabular-figures {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pinned column labels for the long tables (audit history, large rosters).
+   The header needs an opaque ground or rows scroll through it. Suppressed
+   under 640px, where the table is stacked cards and has no header row. */
+@media (min-width: 641px) {
+  table[data-sticky-header] thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--background);
+  }
+}
+
+/*
+ * Callout: one banner with four voices. `.attention` in the console was the
+ * warn-locked ancestor of this; the tint idiom is the same
+ * (color-mix onto --card), parametrised on --tone so ok/warn/danger/info all
+ * read as the same component. No shadow, 2px corner — the house rules.
+ */
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.7rem var(--spacing-gutter, 0.875rem);
+  border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--tone) 8%, var(--card));
+  color: var(--foreground);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.callout > svg {
+  color: var(--tone);
+  flex: none;
+  margin-top: 0.1rem;
+}
+
+.callout-tone-info {
+  --tone: var(--accent);
+}
+.callout-tone-ok {
+  --tone: var(--ok);
+}
+.callout-tone-warn {
+  --tone: var(--warn);
+}
+.callout-tone-danger {
+  --tone: var(--destructive);
+}
+
+/*
+ * Skeleton: a placeholder that holds the row's real height so the table
+ * doesn't jump when data lands. Sweeps rather than blinks; reduced motion
+ * gets a flat block, which still communicates "loading" via position.
+ */
+@keyframes ev-skeleton-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.ev-skeleton {
+  border-radius: var(--radius);
+  background-color: var(--muted);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--foreground) 7%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: ev-skeleton-sweep 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ev-skeleton {
+    animation: none;
+    background-image: none;
   }
 }
 

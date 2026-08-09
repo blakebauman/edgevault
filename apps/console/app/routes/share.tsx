@@ -1,10 +1,10 @@
 import { encryptShareText } from '@edgevault/crypto'
 import { Button, ErrorNote, Field, Select, Textarea, TokenBox, TokenValue } from '@edgevault/ui'
 import { useRef, useState } from 'react'
-import { Link, redirect, useFetcher } from 'react-router'
+import { Link, useFetcher } from 'react-router'
 import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/share'
 
 /**
@@ -20,13 +20,13 @@ export function meta(_: Route.MetaArgs) {
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   return null
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const form = await request.formData()
   const res = await context
     .get(cloudflareContext)

@@ -4,7 +4,6 @@ import {
   Link,
   NavLink,
   Outlet,
-  redirect,
   useLocation,
   useNavigate,
   useParams,
@@ -22,7 +21,7 @@ import {
 import { UserMenu } from '../components/user-menu'
 import { WorkspaceSwitcher } from '../components/workspace-switcher'
 import { cloudflareContext } from '../lib/cloudflare'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import { getWorkspaceMeta } from '../lib/workspace.server'
 import type { loader as rootLoader } from '../root'
 import type { Route } from './+types/workspace'
@@ -127,7 +126,7 @@ const SECTION_LABEL: Record<string, string> = {
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}` }
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
@@ -136,7 +135,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     getWorkspaceMeta(env, token, params.workspaceId),
     env.API_SERVICE.fetch(`${base}/environments`, { headers }),
   ])
-  if (envsRes.status === 401 || envsRes.status === 403) throw redirect('/login')
+  if (envsRes.status === 401 || envsRes.status === 403) throw loginRedirect(request)
 
   const environments = envsRes.ok
     ? ((await envsRes.json()) as { environments: EnvSummary[] }).environments
@@ -167,7 +166,7 @@ function currentSection(pathname: string): string {
 const navClass = ({ isActive }: { isActive: boolean }) => cn('ws-nav-link', isActive && 'active')
 
 export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
-  const { workspaceId, workspaceName, role, environments, activeEnvId } = loaderData
+  const { workspaceId, workspaceName, role, environments, activeEnvId, organizationId } = loaderData
   const params = useParams()
   const location = useLocation()
   const navigate = useNavigate()
@@ -401,6 +400,7 @@ export default function WorkspaceShell({ loaderData }: Route.ComponentProps) {
         workspaceId={workspaceId}
         envId={activeEnvId}
         environments={environments}
+        organizationId={organizationId}
         workspaces={(root?.switcherOrgs ?? []).flatMap((o) =>
           o.workspaces
             .filter((w) => w.id !== workspaceId)

@@ -1,3 +1,5 @@
+import { redirectOnPolicyRefusal } from './org-policy'
+
 export interface WorkspaceMeta {
   name: string | null
   /** The caller's org role (owner/admin/member) — gates admin affordances. */
@@ -17,6 +19,9 @@ export async function getWorkspaceMeta(
   const res = await env.API_SERVICE.fetch(`https://api/api/v1/workspaces/${workspaceId}`, {
     headers: { authorization: `Bearer ${token}` },
   })
+  // A policy refusal is not a missing workspace — send them to the remedy
+  // rather than degrading to the most-restricted view with no explanation.
+  await redirectOnPolicyRefusal(res)
   if (!res.ok) return { name: null, role: null, organizationId: null }
   const { workspace } = (await res.json()) as {
     workspace?: { name?: string; role?: string; organizationId?: string }

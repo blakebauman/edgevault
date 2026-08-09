@@ -1,42 +1,46 @@
-import { ActionGroup, Button, ErrorNote, TokenBox, TokenValue, TwoStepConfirm } from '@edgevault/ui'
-import { Form, Link, redirect } from 'react-router'
+import {
+  ActionGroup,
+  ArtifactPanel,
+  Button,
+  Callout,
+  ErrorNote,
+  TokenBox,
+  TokenValue,
+  TwoStepConfirm,
+} from '@edgevault/ui'
+import { Form, Link } from 'react-router'
+import { Forbidden } from '../components/forbidden'
 import { cloudflareContext } from '../lib/cloudflare'
-import { getToken } from '../lib/session.server'
+import { requireOrg } from '../lib/org.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/scim'
 
 /**
- * Org SCIM provisioning. Owner/admins generate (or rotate) the bearer token an
- * IdP uses to call EdgeVault's SCIM endpoints. The raw token is returned by the
- * api exactly once — we surface it here and never store it — only its hash lives
- * server-side. The api enforces the real RBAC; this is the UI.
+ * Org directory sync over SCIM 2.0. Owner/admins generate (or rotate) the
+ * bearer token an IdP uses. The raw token is returned by the api exactly once —
+ * surfaced here, never stored; only its hash lives server-side.
+ *
+ * The copy deliberately says "directory sync", not "provisioning". The surface
+ * today is a single `GET /Users`: an IdP can read the roster, but it cannot
+ * create, update, or deactivate anyone. Claiming provisioning would fail the
+ * first security review that tests deprovisioning, which is exactly the review
+ * this page exists to pass.
  */
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: 'SCIM provisioning · EdgeVault' }]
-}
-
-interface Org {
-  id: string
-  name: string
-  slug: string
+  return [{ title: 'Directory sync · EdgeVault' }]
 }
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
 
   const env = context.get(cloudflareContext).env
-  const res = await env.API_SERVICE.fetch('https://api/api/v1/organizations', {
-    headers: { authorization: `Bearer ${token}` },
-  })
-  if (res.status === 401 || res.status === 403) throw redirect('/login')
+  const org = await requireOrg(env, token, params.orgId, request)
 
-  const organizations = res.ok ? ((await res.json()) as { organizations: Org[] }).organizations : []
-  const org = organizations.find((o) => o.id === params.orgId)
-  // Not a member (or no such org) — don't reveal anything; bounce home.
-  if (!org) throw redirect('/')
-
-  // Token status: a boolean only (configured), never the value.
+  // Token status: a boolean only (configured), never the value. Admin-only on
+  // the api, so a member simply sees "not configured" — which is all they'd
+  // learn anyway, and the controls below are hidden from them regardless.
   const statusRes = await env.API_SERVICE.fetch(
     `https://api/api/v1/organizations/${params.orgId}/scim-token`,
     { headers: { authorization: `Bearer ${token}` } },
@@ -44,7 +48,8 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
   const status = statusRes.ok
     ? ((await statusRes.json()) as { configured: boolean })
     : { configured: false }
-  return { org, status }
+  const baseUrl = `${new URL(request.url).origin.replace('console.', 'api.')}/scim/v2/${org.slug}`
+  return { org, status, baseUrl }
 }
 
 /** Map api status codes to a human message for the SCIM token endpoints. */
@@ -56,7 +61,7 @@ function messageForStatus(status: number): string {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
 
   const env = context.get(cloudflareContext).env
   const form = await request.formData()
@@ -83,7 +88,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 }
 
 export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, status } = loaderData
+  const { org, status, baseUrl } = loaderData
   const scimToken = actionData && 'scimToken' in actionData ? actionData.scimToken : null
   const revoked = actionData && 'revoked' in actionData ? actionData.revoked : false
   const error = actionData && 'error' in actionData ? actionData.error : null
@@ -92,7 +97,7 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
     <section className="panel">
       <header className="panel-head">
         <div>
-          <p className="eyebrow">SCIM provisioning</p>
+          <p className="eyebrow">Directory sync</p>
           <h1>{org.name}</h1>
         </div>
         <Button variant="secondary" asChild>
@@ -101,10 +106,20 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
       </header>
 
       <p className="lede">
-        Generate a bearer token for your identity provider (Okta, Entra ID, …) to provision users
-        into this organization over SCIM 2.0. Paste it into your IdP’s SCIM connector as the secret
-        token.
+        Let your identity provider (Okta, Entra ID, …) read this organization's directory over SCIM
+        2.0. Paste the token below into your IdP's SCIM connector as the secret token, with the base
+        URL shown underneath.
       </p>
+
+      <Callout tone="warn" className="mt-4">
+        <strong>Read-only today.</strong> The SCIM surface implements{' '}
+        <code className="font-mono text-xs">GET /Users</code> only, so your IdP can list members but
+        cannot create, update, or deactivate them. Offboarding still has to happen on the{' '}
+        <Link to={`/orgs/${org.id}/members`}>Members</Link> page. Writes and Groups are not
+        implemented yet.
+      </Callout>
+
+      {!org.isAdmin && <Forbidden subject="manage directory sync" backTo={`/orgs/${org.id}`} />}
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
@@ -122,39 +137,55 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
         <p className="text-muted-foreground">
           The SCIM token has been revoked. Existing IdP syncs will now fail.
         </p>
-      ) : (
+      ) : org.isAdmin ? (
         <p className="text-muted-foreground">
           {status.configured
-            ? 'A SCIM token is configured for this organization. Rotate it to issue a new one.'
-            : 'No SCIM token has been generated yet.'}
+            ? 'A token is configured for this organization. Rotate it to issue a new one.'
+            : 'No token has been generated yet.'}
         </p>
+      ) : null}
+
+      {org.isAdmin && (
+        <ArtifactPanel className="mt-6" label="SCIM base URL — set this in your IdP connector:">
+          {baseUrl}
+        </ArtifactPanel>
       )}
 
-      <ActionGroup className="mt-6">
-        <Form method="post">
-          <Button type="submit" name="intent" value="generate">
-            {status.configured ? 'Rotate token' : 'Generate token'}
-          </Button>
-        </Form>
-        {status.configured && (
-          <TwoStepConfirm
-            trigger="Revoke token"
-            note="Provisioning stops until a new token is configured in your IdP."
-          >
-            {(close) => (
-              <Form method="post" onSubmit={close}>
-                <Button type="submit" name="intent" value="revoke" variant="danger" size="compact">
-                  Confirm revoke
-                </Button>
-              </Form>
-            )}
-          </TwoStepConfirm>
-        )}
-      </ActionGroup>
+      {org.isAdmin && (
+        <ActionGroup className="mt-6">
+          <Form method="post">
+            <Button type="submit" name="intent" value="generate">
+              {status.configured ? 'Rotate token' : 'Generate token'}
+            </Button>
+          </Form>
+          {status.configured && (
+            <TwoStepConfirm
+              trigger="Revoke token"
+              note="Provisioning stops until a new token is configured in your IdP."
+            >
+              {(close) => (
+                <Form method="post" onSubmit={close}>
+                  <Button
+                    type="submit"
+                    name="intent"
+                    value="revoke"
+                    variant="danger"
+                    size="compact"
+                  >
+                    Confirm revoke
+                  </Button>
+                </Form>
+              )}
+            </TwoStepConfirm>
+          )}
+        </ActionGroup>
+      )}
 
-      <p className="mt-4 text-sm text-muted-foreground">
-        Generating a new token immediately invalidates the previous one.
-      </p>
+      {org.isAdmin && (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Generating a new token immediately invalidates the previous one.
+        </p>
+      )}
     </section>
   )
 }

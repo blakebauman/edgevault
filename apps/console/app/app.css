@@ -1221,6 +1221,168 @@
     font-family: var(--font-mono);
   }
 
+  /* Sortable column headers are links (so a sorted view is a shareable URL);
+     they should read as the header, not as body links. */
+  .sort-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .sort-link:hover,
+  .sort-link:focus-visible {
+    color: var(--accent);
+  }
+
+  /* Re-querying a table recedes the stale rows rather than replacing them with
+     skeletons: these loaders block navigation server-side, so the previous
+     result is the only thing on screen and keeping it readable beats blanking
+     it. Rows stay interactive — a click during a slow query is still a click. */
+  tbody[data-pending] {
+    opacity: 0.5;
+    transition: opacity 0.15s ease-out;
+  }
+
+  /* --- Posture ledger (org overview) ------------------------------------------
+     Box-score rows: a control, where it bites, and its state. Two columns on
+     wide screens, one on narrow — the panels are independent, so they wrap
+     rather than sharing a grid track. */
+  .ledger-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+    align-items: start;
+  }
+
+  .ledger-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .ledger-row:last-child {
+    border-bottom: 0;
+  }
+
+  .ledger-label {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--foreground);
+  }
+  .ledger-label a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .ledger-label a:hover,
+  .ledger-label a:focus-visible {
+    color: var(--accent);
+  }
+
+  .ledger-note {
+    margin: 0.2rem 0 0;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+    max-width: 46ch;
+    text-wrap: pretty;
+  }
+  .ledger-note code {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    overflow-wrap: anywhere;
+    color: var(--muted-foreground);
+  }
+
+  .ledger-value {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--foreground);
+  }
+
+  /* Per-workspace jump-offs under a panel that reports org-wide facts but
+     links to workspace-scoped surfaces. */
+  .ledger-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+  }
+  .ledger-links a {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.2rem 0.5rem;
+    transition:
+      color 0.15s ease-out,
+      border-color 0.15s ease-out;
+  }
+  .ledger-links a:hover,
+  .ledger-links a:focus-visible {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* --- Security policy rows ---------------------------------------------------
+     Each control states its enforcement point, because that is the question a
+     security reviewer actually asks. */
+  .policy-row {
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .policy-row:last-of-type {
+    border-bottom: 0;
+  }
+
+  .policy-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .policy-head label {
+    cursor: pointer;
+  }
+  .policy-head:has(input:disabled) label {
+    cursor: default;
+  }
+
+  .policy-label {
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  .policy-body {
+    margin: 0.4rem 0 0 1.6rem;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--muted-foreground);
+    max-width: 68ch;
+    text-wrap: pretty;
+  }
+
+  .policy-mech {
+    margin: 0.5rem 0 0 1.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--muted-foreground-subtle);
+    max-width: 68ch;
+  }
+  .policy-mech-key {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+  }
+
   .ws-content {
     flex: 1;
     min-width: 0;

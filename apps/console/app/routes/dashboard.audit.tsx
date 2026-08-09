@@ -1,73 +1,74 @@
-import { Button, CardTable, Chip, ErrorNote, Field, Input, Select, Td, Th } from '@edgevault/ui'
-import { Form, Link, redirect } from 'react-router'
-import { LocalTime } from '../components/local-time'
+import { ArtifactPanel, Button } from '@edgevault/ui'
+import { Link } from 'react-router'
+import {
+  AUDIT_FILTER_KEYS,
+  type AuditEventRow,
+  type AuditFacets,
+  AuditFilterForm,
+  AuditTable,
+  readAuditFilters,
+} from '../components/audit-table'
 import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
-import { humanizeAction } from '../lib/format'
-import { getToken } from '../lib/session.server'
-import { getWorkspaceName } from '../lib/workspace.server'
+import { getToken, loginRedirect } from '../lib/session.server'
+import { getWorkspaceMeta } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.audit'
 
 /**
- * The cold audit warehouse view: every change ever, from the R2 NDJSON store
- * (infinite retention), date-ranged and filterable by environment. The
- * dashboard's Activity feed is the hot/recent slice; this is the record.
+ * The cold audit warehouse, workspace scope: configuration and secret
+ * operations, from the R2 NDJSON store (infinite retention). The dashboard's
+ * Activity feed is the hot/recent slice; this is the record.
+ *
+ * Membership, policy, and identity events live at the org scope instead
+ * (routes/org.audit.tsx) — they have no workspace, and folding "someone was
+ * made an admin" into a list of config writes helps nobody.
  */
 
 type EnvironmentSummary = { id: string; name: string; slug: string }
-
-type AuditEventRow = {
-  at: number
-  environmentId?: string
-  action: string
-  resourceType: string
-  key?: string
-  userId: string
-  actor: string | null
-  count?: number
-}
 
 export function meta(_: Route.MetaArgs) {
   return [{ title: 'Audit history · EdgeVault' }]
 }
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
-
   const env = context.get(cloudflareContext).env
+  const token = await getToken(request, env)
+  if (!token) throw loginRedirect(request)
+
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const headers = { authorization: `Bearer ${token}` }
   const url = new URL(request.url)
-  const from = url.searchParams.get('from') ?? ''
-  const to = url.searchParams.get('to') ?? ''
-  const envId = url.searchParams.get('env') ?? ''
+  const filters = readAuditFilters(url)
 
   // "Show more" grows the limit; the API caps at 1000 per query.
   const limit = Math.min(Number(url.searchParams.get('limit')) || 200, 1000)
   const query = new URLSearchParams()
-  if (from) query.set('from', from)
-  if (to) query.set('to', to)
-  if (envId) query.set('env', envId)
+  for (const key of AUDIT_FILTER_KEYS) if (filters[key]) query.set(key, filters[key])
   query.set('limit', String(limit))
 
-  const [workspaceName, envsRes, auditRes] = await Promise.all([
-    getWorkspaceName(env, token, params.workspaceId),
+  const [meta, envsRes, auditRes] = await Promise.all([
+    getWorkspaceMeta(env, token, params.workspaceId),
     env.API_SERVICE.fetch(`${base}/environments`, { headers }),
     env.API_SERVICE.fetch(`${base}/audit?${query}`, { headers }),
   ])
-  if (envsRes.status === 401 || envsRes.status === 403) throw redirect('/login')
+  if (envsRes.status === 401 || envsRes.status === 403) throw loginRedirect(request)
 
   const environments = envsRes.ok
     ? ((await envsRes.json()) as { environments: EnvironmentSummary[] }).environments
     : []
   let events: AuditEventRow[] = []
   let total = 0
+  let facets: AuditFacets = { actions: [], resourceTypes: [], actors: [] }
   let auditError: string | null = null
   if (auditRes.ok) {
-    const body = (await auditRes.json()) as { events: AuditEventRow[]; total?: number }
+    const body = (await auditRes.json()) as {
+      events: AuditEventRow[]
+      total?: number
+      facets?: AuditFacets
+    }
     events = body.events
     total = body.total ?? body.events.length
+    facets = body.facets ?? facets
   } else auditError = friendlyError(auditRes.status, 'querying the audit warehouse')
 
   // Preset ranges, computed server-side (the worker's clock, UTC).
@@ -76,14 +77,15 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   return {
     workspaceId: params.workspaceId,
-    workspaceName,
+    workspaceName: meta.name,
+    organizationId: meta.organizationId,
+    isAdmin: meta.role === 'owner' || meta.role === 'admin',
     environments,
     events,
     total,
+    facets,
     auditError,
-    from,
-    to,
-    envId,
+    filters,
     limit,
     presets: [
       { label: 'Last 7 days', from: daysAgo(6), to: today },
@@ -96,127 +98,103 @@ export default function AuditHistory({ loaderData }: Route.ComponentProps) {
   const {
     workspaceId,
     workspaceName,
+    organizationId,
+    isAdmin,
     environments,
     events,
     total,
+    facets,
     auditError,
-    from,
-    to,
-    envId,
+    filters,
     limit,
     presets,
   } = loaderData
-  const moreParams = new URLSearchParams()
-  if (from) moreParams.set('from', from)
-  if (to) moreParams.set('to', to)
-  if (envId) moreParams.set('env', envId)
-  moreParams.set('limit', String(limit + 200))
+
+  const current = new URLSearchParams()
+  for (const key of AUDIT_FILTER_KEYS) if (filters[key]) current.set(key, filters[key])
+  const withParams = (extra: Record<string, string>) => {
+    const next = new URLSearchParams(current)
+    for (const [k, v] of Object.entries(extra)) next.set(k, v)
+    return `?${next}`
+  }
+  const filtered = AUDIT_FILTER_KEYS.some((k) => filters[k])
   const envSlug = (id?: string) =>
     id ? (environments.find((e) => e.id === id)?.slug ?? id.slice(0, 8)) : null
 
   return (
-    <section className="panel">
+    <section className="panel is-wide">
       <header className="panel-head">
         <div>
           <p className="eyebrow">Audit history</p>
           <h1>{workspaceName ?? workspaceId}</h1>
         </div>
+        {isAdmin && !auditError && (
+          <Button variant="secondary" asChild>
+            {/* A plain anchor, not a router Link: this is a file download, and a
+                client-side navigation would try to render NDJSON as a route. */}
+            <a href={`/dashboard/${workspaceId}/audit/export${withParams({})}`} download>
+              Export NDJSON
+            </a>
+          </Button>
+        )}
       </header>
 
       <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-        The cold warehouse: every recorded change, retained indefinitely. Defaults to the last 7
-        days; ranges are capped at 31 days per query.
+        The cold warehouse: every recorded configuration and secret change, retained indefinitely.
+        Defaults to the last 7 days; ranges are capped at 31 days per query.
+        {organizationId && (
+          <>
+            {' '}
+            Membership and policy changes are recorded separately, on the{' '}
+            <Link to={`/orgs/${organizationId}/audit`}>organization trail</Link>.
+          </>
+        )}
       </p>
 
-      <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
-        <Field label="From">
-          <Input type="date" name="from" defaultValue={from} />
-        </Field>
-        <Field label="To">
-          <Input type="date" name="to" defaultValue={to} />
-        </Field>
-        <Field label="Environment">
-          <Select name="env" defaultValue={envId}>
-            <option value="">All environments</option>
-            {environments.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name} /{e.slug}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Button type="submit">Query</Button>
-        <span className="flex gap-2 pb-1.5">
-          {presets.map((preset) => (
-            <Link
-              key={preset.label}
-              className="rounded-sm border border-border px-2.5 py-1 font-mono text-xs text-muted-foreground no-underline transition-colors hover:border-accent hover:text-accent"
-              to={`?from=${preset.from}&to=${preset.to}${envId ? `&env=${envId}` : ''}`}
-            >
-              {preset.label}
-            </Link>
-          ))}
-        </span>
-      </Form>
+      <AuditFilterForm
+        filters={filters}
+        facets={facets}
+        environments={environments}
+        presets={presets}
+        withParams={withParams}
+      />
 
-      {auditError && <ErrorNote>{auditError}</ErrorNote>}
+      {auditError && <p className="text-destructive">{auditError}</p>}
 
       {!auditError && (
         <>
-          <p className="mb-3 text-sm tabular-nums text-muted-foreground">
+          <p className="mb-3 text-sm tabular-figures text-muted-foreground">
             Showing {events.length} of {total} event{total === 1 ? '' : 's'} in range
             {events.length >= 1000 ? ' — the 1000-per-query cap; narrow the range' : ''}
           </p>
-          <CardTable label="Audit events">
-            <thead>
-              <tr>
-                <Th>At</Th>
-                <Th>Action</Th>
-                <Th>Key</Th>
-                <Th>Environment</Th>
-                <Th>By</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((event, i) => (
-                // Warehouse events carry no id; the list is read-only and replaced wholesale per query
-                <tr key={`${event.at}-${event.action}-${event.key ?? ''}-${i}`}>
-                  <Td label="At" className="text-muted-foreground">
-                    <LocalTime epoch={event.at} />
-                  </Td>
-                  <Td label="Action">
-                    <Chip variant="neutral">{humanizeAction(event.action)}</Chip>
-                    {event.count && event.count > 1 && (
-                      <span className="text-muted-foreground"> ×{event.count}</span>
-                    )}
-                  </Td>
-                  <Td label="Key" className="font-mono text-sm">
-                    {event.key ?? '—'}
-                  </Td>
-                  <Td label="Environment" className="font-mono text-sm text-muted-foreground">
-                    {envSlug(event.environmentId) ? `/${envSlug(event.environmentId)}` : '—'}
-                  </Td>
-                  <Td label="By" className="text-muted-foreground">
-                    {event.actor ?? event.userId.slice(0, 8)}
-                  </Td>
-                </tr>
-              ))}
-              {events.length === 0 && (
-                <tr>
-                  <Td colSpan={5} className="py-10 text-center text-muted-foreground">
-                    <span className="mx-auto block max-w-md text-pretty">
-                      No events in this range. Widen the dates, or make a change and check back —
-                      the warehouse fills from the audit queue within seconds.
-                    </span>
-                  </Td>
-                </tr>
-              )}
-            </tbody>
-          </CardTable>
+
+          <AuditTable
+            events={events}
+            filtered={filtered}
+            envSlug={envSlug}
+            emptyHint="Make a change and check back — the warehouse fills from the audit queue within seconds of a write."
+          />
+
           {total > events.length && limit < 1000 && (
             <Button variant="secondary" size="compact" asChild className="mt-3">
-              <Link to={`?${moreParams}`}>Show 200 more</Link>
+              <Link to={withParams({ limit: String(limit + 200) })}>Show 200 more</Link>
             </Button>
+          )}
+
+          {isAdmin && events.length > 0 && (
+            <>
+              <h2>Verifying an export</h2>
+              <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                The download carries a SHA-256 of its body in the{' '}
+                <code className="font-mono text-xs">x-content-sha256</code> response header. Hash
+                the file yourself and compare — the export is only evidence if the reviewer can
+                check it wasn't altered in transit or afterwards. Exporting is itself recorded as an{' '}
+                <code className="font-mono text-xs">audit.exported</code> event.
+              </p>
+              <ArtifactPanel className="mt-4" label="In a terminal, after downloading:">
+                {`shasum -a 256 edgevault-audit-${workspaceId}.ndjson`}
+              </ArtifactPanel>
+            </>
           )}
         </>
       )}

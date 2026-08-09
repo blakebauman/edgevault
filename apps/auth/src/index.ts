@@ -45,7 +45,6 @@ import {
   createVerificationToken,
   deleteSessionById,
   deleteSessionsForUser,
-  getOrgAccessPolicy,
   getUserByEmail,
   getUserById,
   listSessionsForUser,
@@ -758,26 +757,24 @@ app.post(
     const session = await validateSessionCached(c, token)
     if (!session) return c.json({ error: 'no_session' }, 401)
 
-    // Org security policies are enforced here — the single point where org
-    // context enters a credential. Members of an SSO-only or require-MFA org
-    // can still password-auth into their personal org; they just can't mint
-    // a token *for this org* without satisfying its policy.
-    if (session.activeOrganizationId) {
-      const policy = await getOrgAccessPolicy(c.var.database, session.activeOrganizationId)
-      if (policy.ssoOnly && (session.authMethod ?? 'password') !== 'sso') {
-        return c.json({ error: 'sso_required_by_org' }, 403)
-      }
-      if (policy.requireMfa) {
-        const hasSecondFactor =
-          (await userHasMfa(c.var.database, session.user.id)) ||
-          (await getAuthenticatorsByUser(c.var.database, session.user.id)).length > 0
-        if (!hasSecondFactor) return c.json({ error: 'mfa_required_by_org' }, 403)
-      }
-    }
+    // How this session was established rides in the token as `amr`.
+    //
+    // Org policies (require-MFA, SSO-only) used to be checked right here,
+    // gated on `session.activeOrganizationId` — a column that is read in
+    // several places and written in none, so the branch never ran and both
+    // controls enforced nothing. Enforcement now lives in the api, which
+    // resolves the org from the workspace being addressed and can therefore
+    // apply the right org's policy to a multi-org user. This worker's job is
+    // to state the facts the api needs to decide.
+    const secondFactor =
+      (await userHasMfa(c.var.database, session.user.id)) ||
+      (await getAuthenticatorsByUser(c.var.database, session.user.id)).length > 0
+    const amr = [session.authMethod === 'sso' ? 'sso' : 'pwd']
+    if (secondFactor) amr.push('mfa')
 
     const { signing } = await getKeys(c.env)
     const accessToken = await signAccessToken(
-      { sub: session.user.id, org: session.activeOrganizationId ?? undefined },
+      { sub: session.user.id, org: session.activeOrganizationId ?? undefined, amr },
       signing,
       { issuer: c.env.AUTH_ISSUER, expiresIn: '15m' },
     )

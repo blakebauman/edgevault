@@ -11,13 +11,13 @@ import {
   TokenBox,
   TokenValue,
 } from '@edgevault/ui'
-import { Form, redirect, useNavigation } from 'react-router'
+import { Form, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { HeaderActions } from '../components/header-actions'
 import { KeyExpiry } from '../components/items'
 import { cloudflareContext } from '../lib/cloudflare'
 import { handleItemAction, loadApiKeys } from '../lib/items.server'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/environment.keys'
 
 /**
@@ -33,7 +33,7 @@ export function meta() {
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const base = `/${params.workspaceId}`
   const apiKeys = await loadApiKeys(context.get(cloudflareContext).env, token, base, params.envId)
   return { apiKeys }

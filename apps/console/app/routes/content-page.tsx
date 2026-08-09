@@ -11,7 +11,7 @@ import { useMemo, useState } from 'react'
 import { Form, Link, redirect, useNavigation, useRevalidator } from 'react-router'
 import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/content-page'
 
 /**
@@ -44,7 +44,7 @@ export function meta({ params }: Route.MetaArgs) {
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const base = `/${params.workspaceId}`
   const key = decodeURIComponent(params.key)
@@ -53,7 +53,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     api(env, token, `${base}/environments/${params.envId}/configs/${encodeURIComponent(key)}`),
     api(env, token, `${base}/environments/${params.envId}/configs`),
   ])
-  if (docRes.status === 401 || listRes.status === 401) throw redirect('/login')
+  if (docRes.status === 401 || listRes.status === 401) throw loginRedirect(request)
 
   const documentContent = docRes.ok
     ? ((await docRes.json()) as { config: { content: string } }).config.content
@@ -81,7 +81,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const base = `/${params.workspaceId}`
   const form = await request.formData()

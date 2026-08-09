@@ -15,11 +15,11 @@ import {
   TokenValue,
   TwoStepConfirm,
 } from '@edgevault/ui'
-import { Form, redirect, useNavigation } from 'react-router'
+import { Form, useNavigation } from 'react-router'
 import { CopyButton } from '../components/copy-button'
 import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.notifications'
 
@@ -64,13 +64,13 @@ function api(env: Env, token: string, path: string, init?: RequestInit) {
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
 
   const [res, workspaceName] = await Promise.all([
     api(context.get(cloudflareContext).env, token, `/${params.workspaceId}/channels`),
     getWorkspaceName(context.get(cloudflareContext).env, token, params.workspaceId),
   ])
-  if (res.status === 401) throw redirect('/login')
+  if (res.status === 401) throw loginRedirect(request)
   if (res.status === 403) {
     return {
       workspaceId: params.workspaceId,
@@ -85,7 +85,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const form = await request.formData()
   const intent = String(form.get('intent'))

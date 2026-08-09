@@ -13,12 +13,12 @@ import {
   Th,
 } from '@edgevault/ui'
 import { useState } from 'react'
-import { Form, Link, redirect, useNavigation, useRouteLoaderData } from 'react-router'
+import { Form, Link, useNavigation, useRouteLoaderData } from 'react-router'
 import { LocalTime } from '../components/local-time'
 import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
 import { humanizeAction } from '../lib/format'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/workspace.overview'
 import type { loader as workspaceLoader } from './workspace'
 
@@ -70,7 +70,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
 
   const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}` }
@@ -85,7 +85,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       ? env.API_SERVICE.fetch(`${base}/search?q=${encodeURIComponent(query)}`, { headers })
       : Promise.resolve(null),
   ])
-  if (envsRes.status === 401 || envsRes.status === 403) throw redirect('/login')
+  if (envsRes.status === 401 || envsRes.status === 403) throw loginRedirect(request)
 
   const environments = envsRes.ok
     ? ((await envsRes.json()) as { environments: EnvSummary[] }).environments
@@ -138,7 +138,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
   const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }

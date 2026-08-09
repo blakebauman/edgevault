@@ -41,6 +41,25 @@
   --font-display: var(--font-heading);
   --font-mono: var(--font-mono);
 
+  /*
+   * Named type roles from DESIGN.md §3, at console density. These are roles,
+   * not a parallel size ramp: they deliberately do NOT override Tailwind's
+   * --text-xs/-sm scale, because that would resize every existing utility in
+   * the app. Reach for text-label/-meta/-title/-headline when the size carries
+   * a meaning; plain text-xs/-sm are still fine for one-off tuning.
+   */
+  --text-label: 0.72rem; /* mono eyebrows, table headers, metadata */
+  --text-label--line-height: 1.4;
+  --text-meta: 0.8rem; /* fact rows, secondary detail */
+  --text-meta--line-height: 1.5;
+  --text-title: 1.05rem; /* panel h2, card headings */
+  --text-title--line-height: 1.3;
+  --text-headline: 1.6rem; /* panel-head h1 */
+  --text-headline--line-height: 1.15;
+
+  /* The padding the panel family shares (.ov-panel, .attention, Callout). */
+  --spacing-gutter: 0.875rem;
+
   --radius-xs: var(--radius);
   --radius-sm: var(--radius);
   --radius-md: var(--radius);

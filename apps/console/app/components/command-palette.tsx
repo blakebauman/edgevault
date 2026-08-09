@@ -18,6 +18,7 @@ export function CommandPalette({
   envId,
   environments,
   workspaces = [],
+  organizationId = null,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -26,6 +27,8 @@ export function CommandPalette({
   environments: Env[]
   /** Other workspaces the caller can jump to (current one excluded). */
   workspaces?: { id: string; name: string; orgName: string }[]
+  /** The org owning this workspace, so ⌘K reaches settings too. */
+  organizationId?: string | null
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -61,7 +64,78 @@ export function CommandPalette({
         keywords: 'channels alerts webhooks',
         to: `${ws}/notifications`,
       },
+      {
+        id: 'ws-settings',
+        label: 'Workspace settings',
+        group: 'Jump to',
+        keywords: 'ai indexing data privacy',
+        to: `${ws}/settings`,
+      },
     ]
+    // The palette used to stop at the workspace boundary, which left the org
+    // admin surfaces — where an admin spends most of their time — reachable
+    // only by mouse through the account menu.
+    if (organizationId) {
+      const org = `/orgs/${organizationId}`
+      cmds.push(
+        {
+          id: 'org-overview',
+          label: 'Organization overview',
+          group: 'Organization',
+          keywords: 'posture security compliance',
+          to: org,
+        },
+        {
+          id: 'org-members',
+          label: 'Members',
+          group: 'Organization',
+          keywords: 'people roles invite',
+          to: `${org}/members`,
+        },
+        {
+          id: 'org-security',
+          label: 'Security policy',
+          group: 'Organization',
+          keywords: 'mfa sso step-up policy',
+          to: `${org}/security`,
+        },
+        {
+          id: 'org-sso',
+          label: 'Single sign-on',
+          group: 'Organization',
+          keywords: 'oidc idp okta entra',
+          to: `${org}/sso`,
+        },
+        {
+          id: 'org-saml',
+          label: 'SAML',
+          group: 'Organization',
+          keywords: 'idp sso',
+          to: `${org}/saml`,
+        },
+        {
+          id: 'org-scim',
+          label: 'Directory sync',
+          group: 'Organization',
+          keywords: 'scim provisioning',
+          to: `${org}/scim`,
+        },
+        {
+          id: 'org-domains',
+          label: 'Domains',
+          group: 'Organization',
+          keywords: 'custom hostname',
+          to: `${org}/domains`,
+        },
+        {
+          id: 'org-billing',
+          label: 'Billing',
+          group: 'Organization',
+          keywords: 'plan invoice stripe',
+          to: `${org}/billing`,
+        },
+      )
+    }
     if (env) {
       cmds.push(
         { id: 'config', label: 'Config', group: 'This environment', to: `${env}/config` },

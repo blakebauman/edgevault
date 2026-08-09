@@ -23,6 +23,19 @@ export interface AccessTokenClaims extends jose.JWTPayload {
   org?: string
   /** Coarse role within the active org. */
   role?: string
+  /**
+   * Authentication method references (the standard OIDC claim): how this
+   * session was established, and whether a second factor backs it. One of
+   * `pwd` / `sso`, plus `mfa` when the user has a confirmed authenticator or
+   * passkey.
+   *
+   * Org policies (require-MFA, SSO-only) are enforced by the api, which knows
+   * the org from the workspace being addressed. It cannot see the session, so
+   * the token has to carry the method — otherwise those policies have nothing
+   * to check against. They previously keyed off a session's active
+   * organization, which no code path ever set, so they enforced nothing.
+   */
+  amr?: string[]
 }
 
 export interface SigningKey {

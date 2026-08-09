@@ -170,11 +170,24 @@ export function customDomainCacheKey(hostname: string): string {
  */
 export interface AuditEvent {
   at: number
+  /**
+   * The workspace this event belongs to, and the primary query scope.
+   *
+   * Empty for org-scoped events (membership, policy, identity), which have no
+   * workspace — the same "not applicable" convention `userId` already uses for
+   * edge reads. Those events carry `organizationId` instead, and the warehouse
+   * query scopes on one or the other.
+   */
   workspaceId: string
+  /**
+   * Set on org-scoped events. Absent on workspace events, whose org is derived
+   * from the workspace when anything needs it (billing does this already).
+   */
+  organizationId?: string
   environmentId?: string
   /** e.g. config.created, config.updated, config.deleted, config.promoted */
   action: string
-  /** config | flag | secret | environment | edge_read */
+  /** config | flag | secret | environment | edge_read | member | policy | auth */
   resourceType: string
   key?: string
   userId: string

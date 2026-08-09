@@ -19,6 +19,8 @@
  * underlying session stays revocable server-side.
  */
 
+import { redirect } from 'react-router'
+
 const COOKIE = 'ev_console'
 const SESSION_COOKIE = 'ev_sess'
 
@@ -143,6 +145,25 @@ export async function getToken(request: Request, env: Env): Promise<string | nul
  */
 export function safeRelativePath(value: string | null | undefined): string | null {
   return value && /^\/(?!\/)/.test(value) ? value : null
+}
+
+/**
+ * Send an unauthenticated caller to sign in, remembering where they were.
+ *
+ * Every route did `throw redirect('/login')`, which drops you on the workspace
+ * list afterwards. For an admin four levels into settings — or an SSO-only org
+ * whose IdP round-trip happens mid-task — that is a small tax paid often. The
+ * destination goes through `safeRelativePath`, so this can't be turned into an
+ * open redirect by a crafted URL.
+ *
+ * Only for GET navigations: bouncing a POST back to itself after sign-in would
+ * silently replay a mutation, so actions keep the bare redirect.
+ */
+export function loginRedirect(request: Request): Response {
+  if (request.method !== 'GET') return redirect('/login')
+  const url = new URL(request.url)
+  const next = safeRelativePath(`${url.pathname}${url.search}`)
+  return redirect(next && next !== '/' ? `/login?next=${encodeURIComponent(next)}` : '/login')
 }
 
 /**

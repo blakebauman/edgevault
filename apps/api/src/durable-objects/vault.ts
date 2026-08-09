@@ -975,6 +975,12 @@ export class VaultDurableObject extends DurableObject<Env> {
     return this.promotions.list(limit, offset)
   }
 
+  /** The promotion behind a workflow handle, so the approval route can check
+   * the requester against the approver. */
+  getPromotionByWorkflowInstance(workflowInstanceId: string): Promotion | null {
+    return this.promotions.getByWorkflowInstance(workflowInstanceId)
+  }
+
   // --- Promotion workflow (split create/apply for an approval gate) ---------
 
   /** Snapshot the source config and record a pending promotion (no copy yet). */

@@ -89,6 +89,18 @@ export class PromotionManager {
     return row ? toPromotion(row) : null
   }
 
+  /** Look a promotion up by its workflow handle — how the approval gate finds
+   * the row behind an instance id (to check who requested it). */
+  getByWorkflowInstance(workflowInstanceId: string): Promotion | null {
+    const row = this.sql
+      .exec<PromotionRow>(
+        `SELECT * FROM config_promotions WHERE workflow_instance_id = ? ORDER BY created_at DESC LIMIT 1`,
+        workflowInstanceId,
+      )
+      .toArray()[0]
+    return row ? toPromotion(row) : null
+  }
+
   list(limit = 50, offset = 0): Promotion[] {
     return this.sql
       .exec<PromotionRow>(
