@@ -106,17 +106,23 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
       </header>
 
       <p className="lede">
-        Let your identity provider (Okta, Entra ID, …) read this organization's directory over SCIM
-        2.0. Paste the token below into your IdP's SCIM connector as the secret token, with the base
-        URL shown underneath.
+        Let your identity provider (Okta, Entra ID, …) read this organization's directory and
+        deprovision members over SCIM 2.0. Paste the token below into your IdP's SCIM connector as
+        the secret token, with the base URL shown underneath.
       </p>
 
-      <Callout tone="warn" className="mt-4">
-        <strong>Read-only today.</strong> The SCIM surface implements{' '}
-        <code className="font-mono text-xs">GET /Users</code> only, so your IdP can list members but
-        cannot create, update, or deactivate them. Offboarding still has to happen on the{' '}
-        <Link to={`/orgs/${org.id}/members`}>Members</Link> page. Writes and Groups are not
-        implemented yet.
+      <Callout tone="ok" className="mt-4">
+        <strong>Deprovisioning is supported.</strong> When your IdP deactivates or removes someone,
+        their access to this organization stops immediately — they keep appearing on the{' '}
+        <Link to={`/orgs/${org.id}/members`}>Members</Link> page marked deactivated, and every
+        change is recorded on the <Link to={`/orgs/${org.id}/audit`}>organization trail</Link>.
+      </Callout>
+
+      <Callout tone="info" className="mt-3">
+        <strong>Not supported:</strong> creating users and Groups. Your IdP is told this up front
+        through <code className="font-mono text-xs">ServiceProviderConfig</code>, so it won't
+        silently fail — new people join by invitation from the Members page, or by signing in
+        through SSO, which provisions the account on first login.
       </Callout>
 
       {!org.isAdmin && <Forbidden subject="manage directory sync" backTo={`/orgs/${org.id}`} />}

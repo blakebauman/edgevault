@@ -531,6 +531,8 @@ export interface OrgMember {
   name: string | null
   role: MemberRole
   joinedAt: Date
+  /** Set when an IdP has deprovisioned them: listed, but with no access. */
+  deactivatedAt: Date | null
 }
 
 /** All members of an org, owners first, then by join order. */
@@ -549,6 +551,7 @@ export async function listOrgMembers(
         name: users.name,
         role: members.role,
         joinedAt: members.createdAt,
+        deactivatedAt: members.deactivatedAt,
       })
       .from(members)
       .innerJoin(users, eq(members.userId, users.id))
@@ -561,11 +564,22 @@ export async function listOrgMembers(
 }
 
 /** Count owners — the guard rail for demote/remove (an org must keep one). */
+/**
+ * Owners who can actually act. Deactivated memberships are excluded: counting
+ * one would let the last-owner guard be satisfied by someone the IdP has
+ * already deprovisioned, and the org could then lose its final real owner.
+ */
 async function countOwners(database: Database, organizationId: string): Promise<number> {
   const [row] = await database
     .select({ n: countDistinct(members.userId) })
     .from(members)
-    .where(and(eq(members.organizationId, organizationId), eq(members.role, 'owner')))
+    .where(
+      and(
+        eq(members.organizationId, organizationId),
+        eq(members.role, 'owner'),
+        isNull(members.deactivatedAt),
+      ),
+    )
   return Number(row?.n ?? 0)
 }
 
@@ -610,6 +624,7 @@ export async function addOrgMember(
         name: user.name,
         role,
         joinedAt: created?.joinedAt ?? new Date(),
+        deactivatedAt: null,
       },
     }
   })
@@ -889,4 +904,128 @@ export async function getUserEmail(database: Database, userId: string): Promise<
     .where(eq(users.id, userId))
     .limit(1)
   return row?.email ?? null
+}
+
+// --- SCIM directory (RFC 7643/7644) ---------------------------------------
+//
+// The IdP's view of an org's membership. Distinct from listOrgMembers, which
+// powers the console roster: SCIM must also see deactivated rows, because an
+// IdP reads back what it wrote and expects `active: false` rather than a 404.
+
+export interface ScimMemberRow {
+  userId: string
+  email: string
+  name: string | null
+  role: string
+  active: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+function toScimMemberRow(row: {
+  userId: string
+  email: string
+  name: string | null
+  role: string
+  deactivatedAt: Date | null
+  createdAt: Date
+}): ScimMemberRow {
+  return {
+    userId: row.userId,
+    email: row.email,
+    name: row.name,
+    role: row.role,
+    active: row.deactivatedAt === null,
+    createdAt: row.createdAt,
+    updatedAt: row.deactivatedAt ?? row.createdAt,
+  }
+}
+
+const SCIM_MEMBER_COLUMNS = {
+  userId: members.userId,
+  email: users.email,
+  name: users.name,
+  role: members.role,
+  deactivatedAt: members.deactivatedAt,
+  createdAt: members.createdAt,
+}
+
+/**
+ * The org's directory, optionally narrowed to one userName.
+ *
+ * `userName eq "..."` is the one filter every IdP sends — Okta and Entra both
+ * probe it before deciding whether to create or update — so it is supported
+ * directly rather than by making the caller scan the list.
+ */
+export async function listScimMembers(
+  database: Database,
+  organizationId: string,
+  options: { userName?: string } = {},
+): Promise<ScimMemberRow[]> {
+  const where = options.userName
+    ? and(eq(members.organizationId, organizationId), eq(users.email, options.userName))
+    : eq(members.organizationId, organizationId)
+  const rows = await database.transaction(async (tx) =>
+    tx
+      .select(SCIM_MEMBER_COLUMNS)
+      .from(members)
+      .innerJoin(users, eq(members.userId, users.id))
+      .where(where),
+  )
+  return rows.map(toScimMemberRow)
+}
+
+/** One directory entry by user id, active or not. */
+export async function getScimMember(
+  database: Database,
+  organizationId: string,
+  userId: string,
+): Promise<ScimMemberRow | null> {
+  const rows = await database.transaction(async (tx) =>
+    tx
+      .select(SCIM_MEMBER_COLUMNS)
+      .from(members)
+      .innerJoin(users, eq(members.userId, users.id))
+      .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
+      .limit(1),
+  )
+  const row = rows[0]
+  return row ? toScimMemberRow(row) : null
+}
+
+/**
+ * Suspend or restore a membership — the write behind `PATCH {"active": ...}`.
+ *
+ * Suspending the last active owner is refused for the same reason removing one
+ * is: an org with no owner cannot be administered back into existence. An IdP
+ * that tries gets a 409 it can surface, rather than silently orphaning the org.
+ */
+export async function setMemberActive(
+  database: Database,
+  organizationId: string,
+  userId: string,
+  active: boolean,
+): Promise<{ ok: true; changed: boolean } | { ok: false; error: MemberMutationError }> {
+  return database.transaction(async (tx) => {
+    const [current] = await tx
+      .select({ role: members.role, deactivatedAt: members.deactivatedAt })
+      .from(members)
+      .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
+      .limit(1)
+    if (!current) return { ok: false as const, error: 'not_a_member' as const }
+
+    const currentlyActive = current.deactivatedAt === null
+    if (currentlyActive === active) return { ok: true as const, changed: false }
+
+    if (!active && current.role === 'owner') {
+      const owners = await countOwners(tx as unknown as Database, organizationId)
+      if (owners <= 1) return { ok: false as const, error: 'last_owner' as const }
+    }
+
+    await tx
+      .update(members)
+      .set({ deactivatedAt: active ? null : new Date() })
+      .where(and(eq(members.organizationId, organizationId), eq(members.userId, userId)))
+    return { ok: true as const, changed: true }
+  })
 }

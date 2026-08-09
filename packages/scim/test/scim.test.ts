@@ -72,3 +72,63 @@ describe('SCIM list', () => {
     expect(list.schemas[0]).toContain('ListResponse')
   })
 })
+
+/**
+ * The exact PATCH bodies real IdPs send to deprovision.
+ *
+ * Okta, Entra, and OneLogin each express "deactivate this person" differently,
+ * and the difference is only visible in production — a connector that silently
+ * does nothing looks identical to one that works until someone audits access
+ * for a leaver. These pin the shapes.
+ */
+describe('deprovisioning payloads from real IdPs', () => {
+  const activeAfter = (ops: Parameters<typeof applyScimPatch>[1]) =>
+    applyScimPatch(user(), ops).active
+
+  it('Okta: replace with a path and a bare false', () => {
+    expect(activeAfter([{ op: 'replace', path: 'active', value: false }])).toBe(false)
+  })
+
+  it('Entra: replace with no path and an object value', () => {
+    expect(activeAfter([{ op: 'replace', value: { active: false } }])).toBe(false)
+  })
+
+  it('accepts the capitalised op names IdPs actually send', () => {
+    expect(activeAfter([{ op: 'Replace', path: 'active', value: false }])).toBe(false)
+    expect(activeAfter([{ op: 'REPLACE', value: { active: false } }])).toBe(false)
+  })
+
+  it('reactivates through the same paths', () => {
+    const suspended = { ...user(), active: false }
+    expect(applyScimPatch(suspended, [{ op: 'replace', path: 'active', value: true }]).active).toBe(
+      true,
+    )
+    expect(applyScimPatch(suspended, [{ op: 'Replace', value: { active: true } }]).active).toBe(
+      true,
+    )
+  })
+
+  it('leaves active untouched when the patch is about something else', () => {
+    // A profile-only sync must not be read as a deactivation.
+    expect(activeAfter([{ op: 'replace', path: 'name.givenName', value: 'Grace' }])).toBe(true)
+  })
+
+  it('rejects a filtered path rather than guessing at it', () => {
+    // Silently ignoring `emails[type eq "work"].value` would tell the IdP the
+    // write succeeded when nothing changed.
+    expect(() =>
+      applyScimPatch(user(), [{ op: 'replace', path: 'emails[type eq "work"].value', value: 'x' }]),
+    ).toThrow(/Filtered SCIM paths/)
+  })
+
+  it('refuses prototype-poisoning paths from a hostile directory', () => {
+    expect(() =>
+      applyScimPatch(user(), [{ op: 'add', path: '__proto__.admin', value: true }]),
+    ).toThrow(/Unsafe SCIM path/)
+    const merged = applyScimPatch(user(), [
+      { op: 'add', value: JSON.parse('{"__proto__": {"admin": true}}') },
+    ])
+    expect((merged as Record<string, unknown>).admin).toBeUndefined()
+    expect(({} as Record<string, unknown>).admin).toBeUndefined()
+  })
+})
