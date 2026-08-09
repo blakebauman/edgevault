@@ -1,3 +1,4 @@
+import { isAssistantProposal } from '@edgevault/edge-protocol'
 import { cloudflareContext } from '../lib/cloudflare'
 import { api } from '../lib/items.server'
 import { getToken } from '../lib/session.server'
@@ -61,8 +62,15 @@ export async function action({ request, context, params }: Route.ActionArgs) {
   const token = await getToken(request, env)
   if (!token) return Response.json({ error: 'unauthorized' }, { status: 401 })
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null
-  if (!body) return Response.json({ error: 'bad_request' }, { status: 400 })
+  // Validate against the shared contract before forwarding anything. This is
+  // not a privilege boundary — the call below carries the caller's own session,
+  // so it can never exceed what the config screens already permit — but this
+  // route exists to apply *proposals*, and without the check it was a general
+  // write endpoint that happened to live at this path. It accepted shapes the
+  // agent cannot emit (a secret value, no rationale), which quietly broke the
+  // rule that secrets are never handled through the assistant.
+  const body = await request.json().catch(() => null)
+  if (!isAssistantProposal(body)) return Response.json({ error: 'bad_request' }, { status: 400 })
   const workspaceId = params.workspaceId
 
   if (body.kind === 'config-change') {
