@@ -86,7 +86,7 @@ export default function WorkspaceSettings({ loaderData, actionData }: Route.Comp
 
       <h2>Data & AI</h2>
 
-      <Callout tone="ok" className="mt-3">
+      <Callout tone="ok" className="mt-3 max-w-[68ch]">
         Secrets are never indexed. They are excluded from embedding entirely, so no secret value can
         reach a model through search or the assistant — independent of the setting below.
       </Callout>

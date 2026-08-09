@@ -124,7 +124,7 @@ function Row({
 }) {
   return (
     <div className="ledger-row">
-      <div className="min-w-0">
+      <div className="ledger-text">
         <p className="ledger-label">{to ? <Link to={to}>{label}</Link> : label}</p>
         {note && <p className="ledger-note">{note}</p>}
       </div>
@@ -179,7 +179,7 @@ export default function OrgOverview({ loaderData }: Route.ComponentProps) {
       </p>
 
       {!org.isAdmin && (
-        <Callout tone="info" className="mt-4">
+        <Callout tone="info" className="mt-4 max-w-[68ch]">
           You're a member of this organization. Policies are shown read-only; owners and admins
           change them.
         </Callout>
@@ -291,6 +291,7 @@ export default function OrgOverview({ loaderData }: Route.ComponentProps) {
           />
           {workspaces.length > 0 && (
             <div className="ledger-links">
+              <span className="ledger-links-label">Per workspace</span>
               {workspaces.map((ws) => (
                 <Link key={ws.id} to={`/dashboard/${ws.id}/audit`}>
                   {ws.name}
@@ -317,6 +318,7 @@ export default function OrgOverview({ loaderData }: Route.ComponentProps) {
           />
           {workspaces.length > 0 && (
             <div className="ledger-links">
+              <span className="ledger-links-label">Per workspace</span>
               {workspaces.map((ws) => (
                 <Link key={ws.id} to={`/dashboard/${ws.id}/settings`}>
                   {ws.name}
@@ -328,7 +330,7 @@ export default function OrgOverview({ loaderData }: Route.ComponentProps) {
       </div>
 
       {org.isAdmin && !idpConnected && (
-        <Callout tone="warn" className="mt-6">
+        <Callout tone="warn" className="mt-6 max-w-[68ch]">
           No identity provider is connected, so SSO-only sign-in can't be turned on.{' '}
           <Link to={`${base}/sso`}>Connect one</Link> to enforce it.
         </Callout>

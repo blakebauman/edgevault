@@ -129,6 +129,8 @@
     font-size: 1.05rem;
     line-height: 1.6;
     max-width: 60ch;
+    /* Avoids the short orphan line these two-sentence intros kept producing. */
+    text-wrap: pretty;
     /* Give every intro line breathing room before the control beneath it.
        Block-flow margins collapse, so pages that already add `mt-6` etc. don't
        double up. */
@@ -158,6 +160,7 @@
     margin: 0;
     font-size: 1.6rem;
     overflow-wrap: anywhere;
+    text-wrap: balance;
   }
 
   .panel h2 {
@@ -1247,10 +1250,20 @@
      rather than sharing a grid track. */
   .ledger-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    /* 30rem keeps this at two columns on a wide screen. Narrower tracks fit a
+       third, but these rows are label + sentence + state, and at ~340px the
+       sentence wraps every three words into an unreadable column. */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr));
     gap: 1.25rem;
     margin-top: 1.5rem;
     align-items: start;
+  }
+
+  /* The stacked-panel spacing rule is adjacency-based, so in a grid it pushes
+     every panel after the first down by its margin and ragged-edges the top
+     row. Grid gap already handles the spacing here. */
+  .ledger-grid > .ov-panel + .ov-panel {
+    margin-top: 0;
   }
 
   .ledger-row {
@@ -1258,8 +1271,15 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.6rem 0;
+    padding: 0.7rem 0;
     border-bottom: 1px solid var(--border);
+  }
+
+  /* Must grow, not just be shrinkable: without this the text column is sized
+     to max-content and the note below wraps at whatever width is left over. */
+  .ledger-text {
+    flex: 1;
+    min-width: 0;
   }
   .ledger-row:last-child {
     border-bottom: 0;
@@ -1281,8 +1301,9 @@
   }
 
   .ledger-note {
-    margin: 0.2rem 0 0;
-    font-size: 0.78rem;
+    margin: 0.25rem 0 0;
+    /* 12.5px was too small for what is descriptive prose, not a label. */
+    font-size: 0.8125rem;
     line-height: 1.5;
     color: var(--muted-foreground);
     max-width: 46ch;
@@ -1311,8 +1332,19 @@
   .ledger-links {
     display: flex;
     flex-wrap: wrap;
+    align-items: baseline;
     gap: 0.5rem;
-    padding-top: 0.75rem;
+    padding-top: 0.85rem;
+    margin-top: 0.15rem;
+    border-top: 1px solid var(--border);
+  }
+  .ledger-links-label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted-foreground-subtle);
+    margin-right: 0.15rem;
   }
   .ledger-links a {
     font-family: var(--font-mono);

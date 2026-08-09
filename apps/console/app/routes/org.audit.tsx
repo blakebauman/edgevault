@@ -128,7 +128,7 @@ export default function OrgAudit({ loaderData }: Route.ComponentProps) {
             workspace, on each workspace's audit page.
           </p>
 
-          <Callout tone="info" className="mt-4">
+          <Callout tone="info" className="mt-4 max-w-[68ch]">
             Not yet covered: password changes, MFA enrollment, passkey changes, and session
             revocations. Those are account-level actions with no single organization, so attributing
             them here would be a guess.
