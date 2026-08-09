@@ -26,7 +26,7 @@ import { cloudflareContext } from './lib/cloudflare'
  * every page. Best-effort — a slow or down api leaves the menu org-less rather
  * than blanking the whole shell. */
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   const env = context.get(cloudflareContext).env
   // The agent WebSocket connects browser→api directly (like the realtime /ws),
   // so the client needs the api host (without the wss:// scheme).

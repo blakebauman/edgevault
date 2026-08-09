@@ -1,6 +1,11 @@
 import { redirect } from 'react-router'
 import { cloudflareContext } from '../lib/cloudflare'
-import { clearSamlCookie, getSamlTransaction, setTokenCookie } from '../lib/session.server'
+import {
+  clearSamlCookie,
+  getSamlTransaction,
+  setAuthSessionCookie,
+  setTokenCookie,
+} from '../lib/session.server'
 import type { Route } from './+types/saml.acs'
 
 /**
@@ -52,6 +57,7 @@ export async function action({ request, params, context }: Route.ActionArgs) {
 
   const headers = new Headers()
   headers.append('Set-Cookie', setTokenCookie(token, request))
+  headers.append('Set-Cookie', setAuthSessionCookie(cookie, request))
   headers.append('Set-Cookie', clearSamlCookie(request))
   return redirect('/', { headers })
 }

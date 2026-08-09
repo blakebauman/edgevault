@@ -22,7 +22,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   const url = new URL(request.url)
   const rpID = url.hostname
   const origin = url.origin
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) return Response.json({ error: 'unauthorized' }, { status: 401 })
 
   const body = (await request.json().catch(() => ({}))) as {

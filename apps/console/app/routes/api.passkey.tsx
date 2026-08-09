@@ -4,6 +4,7 @@ import {
   getToken,
   getWebauthnChallenge,
   ipHeaders,
+  setAuthSessionCookie,
   setTokenCookie,
   setWebauthnCookie,
 } from '../lib/session.server'
@@ -30,7 +31,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   switch (body.intent) {
     case 'register-options': {
-      const token = getToken(request)
+      const token = await getToken(request, context.get(cloudflareContext).env)
       if (!token) return json({ error: 'unauthorized' }, { status: 401 })
       const res = await env.AUTH_SERVICE.fetch('https://auth/webauthn/register/options', {
         method: 'POST',
@@ -49,7 +50,7 @@ export async function action({ request, context }: Route.ActionArgs) {
     }
 
     case 'register-verify': {
-      const token = getToken(request)
+      const token = await getToken(request, context.get(cloudflareContext).env)
       if (!token) return json({ error: 'unauthorized' }, { status: 401 })
       const expectedChallenge = getWebauthnChallenge(request)
       if (!expectedChallenge) return json({ error: 'no_challenge' }, { status: 400 })
@@ -116,6 +117,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       if (!token) return json({ error: 'token_failed' }, { status: 500 })
       const headers = new Headers({ 'content-type': 'application/json' })
       headers.append('Set-Cookie', setTokenCookie(token, request))
+      headers.append('Set-Cookie', setAuthSessionCookie(cookie, request))
       headers.append('Set-Cookie', clearWebauthnCookie(request))
       return new Response(JSON.stringify({ ok: true }), { headers })
     }

@@ -1,3 +1,4 @@
+import { cloudflareContext } from '../lib/cloudflare'
 import { getToken } from '../lib/session.server'
 import type { Route } from './+types/assistant.ws-token'
 
@@ -8,8 +9,8 @@ import type { Route } from './+types/assistant.ws-token'
  * `/ws` embeds the token. The api re-verifies it and checks workspace membership
  * on connect.
  */
-export function loader({ request }: Route.LoaderArgs) {
-  const token = getToken(request)
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) return Response.json({ error: 'unauthorized' }, { status: 401 })
   return Response.json({ token })
 }

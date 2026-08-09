@@ -3,7 +3,13 @@ import { type FormEvent, useState } from 'react'
 import { Form, redirect, useNavigation } from 'react-router'
 import { AuthLayout } from '../components/auth-layout'
 import { cloudflareContext } from '../lib/cloudflare'
-import { ipHeaders, safeRelativePath, setMfaCookie, setTokenCookie } from '../lib/session.server'
+import {
+  ipHeaders,
+  safeRelativePath,
+  setAuthSessionCookie,
+  setMfaCookie,
+  setTokenCookie,
+} from '../lib/session.server'
 import type { Route } from './+types/login'
 
 export function meta(_: Route.MetaArgs) {
@@ -94,7 +100,12 @@ export async function action({ request, context }: Route.ActionArgs) {
     return { error: 'Could not obtain an access token.' }
   }
 
-  return redirect(next, { headers: { 'Set-Cookie': setTokenCookie(token, request) } })
+  // Keep the auth session cookie too — it's the durable credential the console
+  // re-mints access tokens from once the 15-minute one lapses.
+  const headers = new Headers()
+  headers.append('Set-Cookie', setTokenCookie(token, request))
+  headers.append('Set-Cookie', setAuthSessionCookie(cookie, request))
+  return redirect(next, { headers })
 }
 
 export default function Login({ actionData, loaderData }: Route.ComponentProps) {

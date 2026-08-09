@@ -1,6 +1,29 @@
-/** Console session: stores the EdgeVault access token in an httpOnly cookie. */
+/**
+ * Console session. Two httpOnly cookies, and the split matters:
+ *
+ *  - `ev_console` — the short-lived (~15m) access token the api/delivery verify
+ *    statelessly against the JWKS. Cheap to hold, cheap to lose.
+ *  - `ev_sess`    — the auth worker's own session cookie, the durable
+ *    credential. Auth sessions live 30 days (`SESSION_TTL_MS`) and `POST /token`
+ *    is designed to be called against one repeatedly.
+ *
+ * The console used to keep only the first, so when the access token expired the
+ * user was hard signed out after 15 minutes with nothing to re-auth from — the
+ * "the UI re-auths when it expires" note below was aspirational; nothing did.
+ * Holding the session cookie lets `getToken` mint a fresh access token on
+ * demand, which is what auth's `/token` exists for.
+ *
+ * Both are httpOnly + SameSite=Lax + Secure-on-https, and `ev_sess` is only
+ * ever sent server-side to the auth service binding — it never reaches the api,
+ * the browser's JS, or any cross-site request. Sign-out clears both, and the
+ * underlying session stays revocable server-side.
+ */
 
 const COOKIE = 'ev_console'
+const SESSION_COOKIE = 'ev_sess'
+
+/** Matches auth's SESSION_TTL_MS (30 days) so the cookie dies with the session. */
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60
 
 // Mark the cookie Secure whenever we're served over https (production); omit it
 // on plain-http dev so the cookie still sets locally. Mirrors apps/auth/cookies.
@@ -9,17 +32,71 @@ function secureAttr(request: Request): string {
 }
 
 export function setTokenCookie(token: string, request: Request): string {
-  // Token TTL is ~15m; the cookie matches so the UI re-auths when it expires.
+  // Matches the token's own ~15m TTL. Expiry is no longer a sign-out: when this
+  // is gone, `getToken` mints a fresh one from `ev_sess`.
   return `${COOKIE}=${encodeURIComponent(token)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=900${secureAttr(request)}`
 }
 
-export function clearTokenCookie(request: Request): string {
-  return `${COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
+/**
+ * Persist the auth worker's session cookie (the `name=value` pair off its
+ * Set-Cookie) so the console can re-mint access tokens for the life of the
+ * session. Every sign-in path must set this alongside `setTokenCookie`.
+ */
+export function setAuthSessionCookie(sessionCookie: string, request: Request): string {
+  return `${SESSION_COOKIE}=${encodeURIComponent(sessionCookie)}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}${secureAttr(request)}`
 }
 
-export function getToken(request: Request): string | null {
+export function getAuthSessionCookie(request: Request): string | null {
+  const match = (request.headers.get('Cookie') ?? '').match(/(?:^|;\s*)ev_sess=([^;]+)/)
+  return match?.[1] ? decodeURIComponent(match[1]) : null
+}
+
+/** Sign-out must drop both — clearing only the access token would leave a live
+ * session cookie that silently mints a new token on the next request. */
+export function clearTokenCookie(request: Request): string[] {
+  const attrs = `HttpOnly; Path=/; SameSite=Lax; Max-Age=0${secureAttr(request)}`
+  return [`${COOKIE}=; ${attrs}`, `${SESSION_COOKIE}=; ${attrs}`]
+}
+
+function readAccessCookie(request: Request): string | null {
   const match = (request.headers.get('Cookie') ?? '').match(/(?:^|;\s*)ev_console=([^;]+)/)
   return match?.[1] ? decodeURIComponent(match[1]) : null
+}
+
+/**
+ * The console's access token for this request.
+ *
+ * Returns the cookied token when it's still there, and otherwise mints a fresh
+ * one from the stored auth session — so a 15-minute token expiry is invisible
+ * rather than a sign-out. The re-mint is a service-binding call to auth (same
+ * colo, and auth caches session validation), and the result is deliberately not
+ * written back to a cookie: loaders can't set headers without every call site
+ * threading them, and re-minting once per request after the token lapses is
+ * cheaper than that plumbing.
+ *
+ * Returns null only when there is genuinely no session — the callers' existing
+ * `if (!token) throw redirect('/login')` then means what it says.
+ */
+export async function getToken(request: Request, env: Env): Promise<string | null> {
+  const cookied = readAccessCookie(request)
+  if (cookied) return cookied
+
+  const session = getAuthSessionCookie(request)
+  if (!session) return null
+
+  try {
+    const res = await env.AUTH_SERVICE.fetch('https://auth/token', {
+      method: 'POST',
+      headers: { cookie: session, ...ipHeaders(request) },
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as { accessToken?: string }
+    return body.accessToken ?? null
+  } catch {
+    // Auth unreachable — treat as unauthenticated for this request rather than
+    // throwing; callers already degrade or redirect on a null token.
+    return null
+  }
 }
 
 /**
