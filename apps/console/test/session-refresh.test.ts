@@ -36,13 +36,26 @@ function authEnv(response: Response | Error) {
   return { env: { AUTH_SERVICE: { fetch } } as unknown as Env, fetch }
 }
 
+/** A JWT-shaped token whose `exp` is `secondsFromNow` away. Unsigned — the
+ * console checks shape and expiry, not the signature (the api verifies that). */
+function jwt(secondsFromNow: number): string {
+  const payload = btoa(
+    JSON.stringify({ sub: 'u1', exp: Math.floor(Date.now() / 1000) + secondsFromNow }),
+  )
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+  return `header.${payload}.signature`
+}
+
 describe('getToken', () => {
   it('uses the cookied access token without calling auth', async () => {
     const { env, fetch } = authEnv(Response.json({ accessToken: 'minted' }))
+    const live = jwt(600)
 
-    const token = await getToken(req('ev_console=cookied'), env)
+    const token = await getToken(req(`ev_console=${live}`), env)
 
-    expect(token).toBe('cookied')
+    expect(token).toBe(live)
     expect(fetch).not.toHaveBeenCalled()
   })
 
@@ -58,6 +71,34 @@ describe('getToken', () => {
     expect(init.method).toBe('POST')
     // The stored auth session cookie is what authenticates the re-mint.
     expect((init.headers as Record<string, string>).cookie).toBe('ev_session=abc123')
+  })
+
+  /**
+   * The console used to treat *cookie present* as *authenticated*, so a junk or
+   * stale `ev_console` sailed past every `if (!token) throw redirect('/login')`
+   * and rendered a page that could not work (observed live: a garbage cookie
+   * got 200 on /share). Such a token must now fall through to the re-mint.
+   */
+  it.each([
+    ['garbage that is not a JWT', 'garbage'],
+    ['a JWT-shaped token with no exp claim', `header.${btoa('{"sub":"u1"}')}.sig`],
+    ['a JWT with an undecodable payload', 'header.!!!not-base64!!!.sig'],
+    ['an expired token', jwt(-60)],
+    ['a token expiring within the skew window', jwt(5)],
+  ])('does not trust %s — re-mints instead', async (_label, bad) => {
+    const { env, fetch } = authEnv(Response.json({ accessToken: 'freshly-minted' }))
+
+    const token = await getToken(req(`ev_console=${bad}; ev_sess=ev_session%3Dabc`), env)
+
+    expect(token).toBe('freshly-minted')
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  it('redirects rather than renders when a bad token has no session behind it', async () => {
+    const { env } = authEnv(Response.json({ accessToken: 'unused' }))
+
+    // No ev_sess: nothing to re-mint from, so the caller's redirect must fire.
+    expect(await getToken(req('ev_console=garbage'), env)).toBeNull()
   })
 
   it('returns null when there is no session at all', async () => {
