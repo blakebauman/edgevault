@@ -42,3 +42,51 @@ describe('Button action states', () => {
     expect(button).toHaveClass('ev-success-pulse')
   })
 })
+
+/**
+ * The spinner must not change the button's width. An inline spinner widened the
+ * button ~18px on submit, which pushed the sign-in form's `flex-wrap` row past
+ * its container and dropped "New here? Create an account" onto a new line
+ * mid-submit (measured: 313px of content in a 318px row → 331px while loading).
+ *
+ * happy-dom does no layout, so these assert the structural properties that make
+ * the width stable rather than measuring pixels.
+ */
+describe('Button loading is layout-neutral', () => {
+  it('overlays the spinner instead of inserting it inline', () => {
+    const { container } = render(<Button loading>Sign in</Button>)
+    const button = container.querySelector('button')
+
+    // Positioned overlay, so the spinner contributes no layout width.
+    expect(button).toHaveClass('relative')
+    const overlay = container.querySelector('.absolute')
+    expect(overlay).not.toBeNull()
+    expect(overlay?.className).toContain('inset-0')
+  })
+
+  it('keeps the label box so the width is unchanged, and keeps it readable', () => {
+    const { container } = render(<Button loading>Sign in</Button>)
+
+    const label = container.querySelector('span.opacity-0')
+    expect(label).not.toBeNull()
+    expect(label).toHaveTextContent('Sign in')
+    // `invisible`/`hidden` would drop the label from the accessibility tree and
+    // (for `hidden`) from layout — opacity-0 keeps both.
+    expect(label?.className).not.toContain('invisible')
+    expect(label?.className).not.toContain('hidden')
+    // Mirrors the button's own flex gap so multi-child labels measure the same.
+    expect(label?.className).toContain('gap-1.5')
+  })
+
+  it('still exposes the accessible name while busy', () => {
+    render(<Button loading>Sign in</Button>)
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeDisabled()
+  })
+
+  it('adds no positioning wrapper when idle', () => {
+    const { container } = render(<Button>Sign in</Button>)
+    expect(container.querySelector('button')).not.toHaveClass('relative')
+    expect(container.querySelector('.absolute')).toBeNull()
+    expect(container.querySelector('span.opacity-0')).toBeNull()
+  })
+})
