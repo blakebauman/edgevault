@@ -148,12 +148,12 @@ export default function OrgSecurity({ loaderData, actionData }: Route.ComponentP
       </header>
 
       <p className="lede">
-        Organization-wide controls, checked server-side rather than in this UI. Each states where it
-        is applied — and, where it currently isn't, says so.
+        Organization-wide controls. Each is checked server-side rather than in this UI, and states
+        the point where it is applied.
       </p>
 
       {readOnly && (
-        <Callout tone="info" className="mt-4">
+        <Callout tone="info" className="mt-4 max-w-[68ch]">
           You're a member of this organization, so these are read-only. Owners and admins can change
           them.
         </Callout>
@@ -161,13 +161,13 @@ export default function OrgSecurity({ loaderData, actionData }: Route.ComponentP
       {error && <ErrorNote>{error}</ErrorNote>}
       {saved && <StatusNote>Security policy saved.</StatusNote>}
       {!security.requireStepUpForReveal && !readOnly && (
-        <Callout tone="warn" className="mt-4">
+        <Callout tone="warn" className="mt-4 max-w-[68ch]">
           Secrets in this organization can be revealed without a fresh second factor. New
           organizations require step-up by default.
         </Callout>
       )}
       {!idpConnected && !readOnly && (
-        <Callout tone="info" className="mt-4">
+        <Callout tone="info" className="mt-4 max-w-[68ch]">
           SSO-only can't be enabled until an identity provider is connected.{' '}
           <Link to={`/orgs/${org.id}/sso`}>Set one up</Link>.
         </Callout>

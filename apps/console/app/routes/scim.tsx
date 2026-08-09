@@ -111,14 +111,14 @@ export default function Scim({ loaderData, actionData }: Route.ComponentProps) {
         the secret token, with the base URL shown underneath.
       </p>
 
-      <Callout tone="ok" className="mt-4">
+      <Callout tone="ok" className="mt-4 max-w-[68ch]">
         <strong>Deprovisioning is supported.</strong> When your IdP deactivates or removes someone,
         their access to this organization stops immediately — they keep appearing on the{' '}
         <Link to={`/orgs/${org.id}/members`}>Members</Link> page marked deactivated, and every
         change is recorded on the <Link to={`/orgs/${org.id}/audit`}>organization trail</Link>.
       </Callout>
 
-      <Callout tone="info" className="mt-3">
+      <Callout tone="info" className="mt-3 max-w-[68ch]">
         <strong>Not supported:</strong> creating users and Groups. Your IdP is told this up front
         through <code className="font-mono text-xs">ServiceProviderConfig</code>, so it won't
         silently fail — new people join by invitation from the Members page, or by signing in
