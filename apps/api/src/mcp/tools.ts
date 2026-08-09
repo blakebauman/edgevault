@@ -23,6 +23,21 @@ function isAdmin(ctx: McpToolContext): boolean {
   return ctx.role === 'owner' || ctx.role === 'admin'
 }
 
+/**
+ * Can this caller change anything? Everyone except `viewer`.
+ *
+ * The REST surface gates reads-vs-writes by HTTP method in one middleware, but
+ * MCP speaks JSON-RPC over POST, so a read and a write look identical at the
+ * transport. The write tools check here instead — and they previously checked
+ * nothing at all, so this closes the same hole on both surfaces.
+ */
+function canWrite(ctx: McpToolContext): boolean {
+  return ctx.role === 'owner' || ctx.role === 'admin' || ctx.role === 'member'
+}
+
+const READ_ONLY_MESSAGE =
+  'Your role in this organization is read-only. Ask an admin for write access.'
+
 const kindEnum = ['config', 'flag', 'secret', 'content'] as const
 // Same write-time key constraint as the HTTP routes (KV-key and ref safe).
 const keySchema = z.string().min(1).max(MAX_CONFIG_KEY_LENGTH).regex(CONFIG_KEY_PATTERN)
@@ -102,6 +117,7 @@ export const edgevaultTools = [
       contentType: z.string().optional(),
     }),
     handler: async (args, ctx) => {
+      if (!canWrite(ctx)) return { error: 'read_only_role', detail: READ_ONLY_MESSAGE }
       const prepared = await prepareSecretContent(ctx.env, ctx.workspaceId, args.kind, args.content)
       const item = await stub(ctx).setConfig({
         environmentId: args.environmentId,
@@ -186,6 +202,7 @@ export const edgevaultTools = [
       key: keySchema,
     }),
     handler: async (args, ctx) => {
+      if (!canWrite(ctx)) return { error: 'read_only_role', detail: READ_ONLY_MESSAGE }
       const promotion = await stub(ctx).promote({
         ...args,
         userId: ctx.userId,

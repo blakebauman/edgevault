@@ -523,7 +523,7 @@ export async function getAccountByProvider(
 }
 
 /** Org membership roles, lowest to highest privilege. */
-export type MemberRole = 'member' | 'admin' | 'owner'
+export type MemberRole = 'viewer' | 'member' | 'admin' | 'owner'
 
 export interface OrgMember {
   userId: string
@@ -557,7 +557,7 @@ export async function listOrgMembers(
       .innerJoin(users, eq(members.userId, users.id))
       .where(eq(members.organizationId, organizationId)),
   )
-  const rank: Record<MemberRole, number> = { owner: 0, admin: 1, member: 2 }
+  const rank: Record<MemberRole, number> = { owner: 0, admin: 1, member: 2, viewer: 3 }
   return rows
     .map((r) => ({ ...r, role: r.role as MemberRole }))
     .sort((a, b) => rank[a.role] - rank[b.role] || +a.joinedAt - +b.joinedAt)

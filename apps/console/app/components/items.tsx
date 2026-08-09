@@ -1,6 +1,7 @@
 import {
   ActionGroup,
   Button,
+  Callout,
   CardTable,
   Checkbox,
   Chip,
@@ -255,6 +256,8 @@ export function ItemsTable({
   empty,
   selectedKey,
   onSelect,
+  selectable = true,
+  editable = true,
 }: {
   configs: ConfigRow[]
   selected: ReadonlySet<string>
@@ -267,6 +270,10 @@ export function ItemsTable({
   onEdit: (item: ConfigRow) => void
   onReveal: (key: string) => void
   empty: React.ReactNode
+  /** A read-only role gets no selection column (bulk actions are writes) and
+   * no Edit or Delete affordance — the api would refuse all three. */
+  selectable?: boolean
+  editable?: boolean
   selectedKey?: string | null
   /** Row click opens the read-detail panel; interactive cells stop propagation. */
   onSelect?: (item: ConfigRow) => void
@@ -276,13 +283,15 @@ export function ItemsTable({
     <CardTable label="Items">
       <thead>
         <tr>
-          <Th>
-            <Checkbox
-              checked={selected.size === configs.length && configs.length > 0}
-              onChange={() => onToggleAll(keys)}
-              aria-label="Select all keys"
-            />
-          </Th>
+          {selectable && (
+            <Th>
+              <Checkbox
+                checked={selected.size === configs.length && configs.length > 0}
+                onChange={() => onToggleAll(keys)}
+                aria-label="Select all keys"
+              />
+            </Th>
+          )}
           <Th>Key</Th>
           <Th>Kind</Th>
           <Th>Version</Th>
@@ -300,13 +309,15 @@ export function ItemsTable({
             )}
             onClick={onSelect ? () => onSelect(item) : undefined}
           >
-            <Td onClick={(e) => e.stopPropagation()}>
-              <Checkbox
-                checked={selected.has(item.key)}
-                onChange={() => onToggle(item.key)}
-                aria-label={`Select ${item.key}`}
-              />
-            </Td>
+            {selectable && (
+              <Td onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selected.has(item.key)}
+                  onChange={() => onToggle(item.key)}
+                  aria-label={`Select ${item.key}`}
+                />
+              </Td>
+            )}
             <Td className="font-mono text-sm">{item.key}</Td>
             <Td label="Kind">
               <Chip variant={`kind-${item.kind}`}>{item.kind}</Chip>
@@ -324,7 +335,7 @@ export function ItemsTable({
                 revealing={revealPendingKey === item.key}
                 baseSearch={baseSearch}
                 pageHref={pageHref(item.key)}
-                onEdit={() => onEdit(item)}
+                onEdit={editable ? () => onEdit(item) : undefined}
                 onReveal={() => onReveal(item.key)}
               />
             </Td>
@@ -770,7 +781,8 @@ function ItemActions({
   revealing: boolean
   baseSearch: (extra: Record<string, string>) => string
   pageHref: string
-  onEdit: () => void
+  /** Absent for a read-only role — the Edit control is simply not offered. */
+  onEdit?: () => void
   onReveal: () => void
 }) {
   const [arming, setArming] = useState(false)
@@ -795,7 +807,7 @@ function ItemActions({
 
   return (
     <ActionGroup>
-      {item.kind !== 'secret' && (
+      {item.kind !== 'secret' && onEdit && (
         <Button type="button" variant="secondary" size="compact" onClick={onEdit}>
           Edit
         </Button>
@@ -820,15 +832,17 @@ function ItemActions({
           Reveal
         </Button>
       )}
-      <Button
-        type="button"
-        variant="secondary"
-        size="compact"
-        disabled={busy}
-        onClick={() => setArming(true)}
-      >
-        Delete
-      </Button>
+      {onEdit && (
+        <Button
+          type="button"
+          variant="secondary"
+          size="compact"
+          disabled={busy}
+          onClick={() => setArming(true)}
+        >
+          Delete
+        </Button>
+      )}
     </ActionGroup>
   )
 }
@@ -863,7 +877,8 @@ function ItemDetail({
   revealing: boolean
   baseSearch: (extra: Record<string, string>) => string
   pageHref: string
-  onEdit: () => void
+  /** Absent for a read-only role. */
+  onEdit?: () => void
   onReveal: () => void
   onClose: () => void
   currentEnvId: string
@@ -1137,6 +1152,9 @@ type SectionData = {
   deletedConfigs: DeletedRow[]
   historyKey: string | null
   revisions: Revision[] | null
+  /** False for the read-only role: the api refuses these writes anyway, so the
+   * controls are hidden rather than left to fail on click. */
+  canWrite: boolean
 }
 
 /**
@@ -1155,7 +1173,8 @@ export function ItemSection({
   actionData: ActionData
   emptyHint?: React.ReactNode
 }) {
-  const { workspaceId, envId, configs, deletedConfigs, historyKey, revisions } = loaderData
+  const { workspaceId, envId, configs, deletedConfigs, historyKey, revisions, canWrite } =
+    loaderData
   const navigation = useNavigation()
   const busy = navigation.state !== 'idle'
   const pendingIntent = navigation.formData?.get('intent')
@@ -1238,20 +1257,37 @@ export function ItemSection({
         onChange={(id) => setTab(id as 'items' | 'deleted')}
       />
 
+      {!canWrite && (
+        <Callout tone="info" className="mb-4">
+          Your role in this organization is read-only. You can see everything here and its full
+          history; creating, editing, and deleting are hidden rather than shown and refused.
+        </Callout>
+      )}
+
       {tab === 'items' ? (
         <div className="item-split">
-          <HeaderActions>
-            <Button type="button" size="compact" onClick={startCreate}>
-              New {noun.add}
-            </Button>
-          </HeaderActions>
+          {canWrite && (
+            <HeaderActions>
+              <Button type="button" size="compact" onClick={startCreate}>
+                New {noun.add}
+              </Button>
+            </HeaderActions>
+          )}
           <div className="item-list-col">
-            <BulkDeleteBar selected={selection.selected} busy={busy} onCleared={selection.clear} />
+            {canWrite && (
+              <BulkDeleteBar
+                selected={selection.selected}
+                busy={busy}
+                onCleared={selection.clear}
+              />
+            )}
             <ItemsTable
               configs={configs}
               selected={selection.selected}
               onToggle={selection.toggle}
               onToggleAll={selection.toggleAll}
+              selectable={canWrite}
+              editable={canWrite}
               busy={busy}
               revealPendingKey={reveal.pending ? reveal.pendingKey : null}
               baseSearch={baseSearch}
@@ -1302,7 +1338,7 @@ export function ItemSection({
                 revealing={reveal.pending && reveal.pendingKey === selectedItem.key}
                 baseSearch={baseSearch}
                 pageHref={pageHref(selectedItem.key)}
-                onEdit={() => startEdit(selectedItem)}
+                onEdit={canWrite ? () => startEdit(selectedItem) : undefined}
                 onReveal={() => reveal.reveal(selectedItem.key)}
                 onClose={() => setSelectedKey(null)}
                 currentEnvId={envId}
@@ -1318,7 +1354,9 @@ export function ItemSection({
         </div>
       ) : (
         <>
-          <RecentlyDeleted deleted={deletedConfigs} busy={busy} baseSearch={baseSearch} />
+          {canWrite && (
+            <RecentlyDeleted deleted={deletedConfigs} busy={busy} baseSearch={baseSearch} />
+          )}
           {historyKey && revisions && (
             <RevisionHistory
               historyKey={historyKey}
