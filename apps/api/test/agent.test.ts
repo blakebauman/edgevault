@@ -9,7 +9,7 @@ import {
   toConfigChangeProposal,
   toPromotionProposal,
 } from '../src/agent/proposals'
-import { activeProvider } from '../src/agent/providers'
+import { activeProvider, supportsStructuredTools } from '../src/agent/providers'
 import { RATE_LIMITED_MESSAGE, refusalResponse } from '../src/agent/refusal'
 import { checkRateLimit } from '../src/rate-limit'
 
@@ -230,5 +230,14 @@ describe('provider selection', () => {
 
   it('switches to Anthropic only when a key is present', () => {
     expect(activeProvider(withKey)).toBe('anthropic')
+  })
+
+  it('offers the proposal tools only where the model can produce them', () => {
+    // Measured on staging: llama-4-scout failed proposeChange on every attempt
+    // across three schema revisions, while the single-argument read tools were
+    // reliable. Advertising a capability that always fails is worse than not
+    // having it, so Workers AI gets a read-only assistant.
+    expect(supportsStructuredTools(withoutKey)).toBe(false)
+    expect(supportsStructuredTools(withKey)).toBe(true)
   })
 })

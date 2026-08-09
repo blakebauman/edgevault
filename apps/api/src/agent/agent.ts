@@ -12,7 +12,7 @@ import {
   toConfigChangeProposal,
   toPromotionProposal,
 } from './proposals'
-import { chatModel } from './providers'
+import { chatModel, supportsStructuredTools } from './providers'
 import { RATE_LIMITED_MESSAGE, refusalResponse } from './refusal'
 
 /**
@@ -60,7 +60,7 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
    */
   private chatTools() {
     const workspaceId = this.workspaceId
-    return {
+    const readTools = {
       searchConfigs: tool({
         description:
           'Find config, flag, secret, or content items in this workspace by meaning. Use when the user is looking for a specific setting or value.',
@@ -109,6 +109,32 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
           }
         },
       }),
+      recentActivity: tool({
+        description:
+          'List recent configuration changes in this workspace (what changed and by whom).',
+        inputSchema: z.object({ limit: z.number().int().max(25).optional() }),
+        execute: async ({ limit }) => {
+          const events = await this.workspace().listActivity(limit ?? 25)
+          return events.map((e) => ({
+            action: e.action,
+            resourceType: e.resourceType,
+            resourceId: e.resourceId,
+            // ISO 8601, not the raw `unixepoch()` seconds the DO stores. Handed
+            // the bare integer the model either invents a relative time ("10
+            // minutes ago" for a year-old event, varying run to run) or omits
+            // the date entirely; with ISO it reports the real timestamp.
+            at: new Date(e.createdAt * 1000).toISOString(),
+          }))
+        },
+      }),
+    }
+
+    // Only offered where the model can actually produce them — see
+    // `supportsStructuredTools`. Registering them everywhere meant a Workers AI
+    // deployment advertised a capability that failed on every attempt.
+    if (!supportsStructuredTools(this.env)) return readTools
+
+    const proposalTools = {
       proposeChange: tool({
         description:
           'Propose creating or updating an item for the user to approve. Use this instead of claiming you changed something — you cannot write. Read the current value with getConfig first, and supply the complete new value, not a diff. Cannot propose secrets; tell the user to set those in the console.',
@@ -152,25 +178,9 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
           return proposal
         },
       }),
-      recentActivity: tool({
-        description:
-          'List recent configuration changes in this workspace (what changed and by whom).',
-        inputSchema: z.object({ limit: z.number().int().max(25).optional() }),
-        execute: async ({ limit }) => {
-          const events = await this.workspace().listActivity(limit ?? 25)
-          return events.map((e) => ({
-            action: e.action,
-            resourceType: e.resourceType,
-            resourceId: e.resourceId,
-            // ISO 8601, not the raw `unixepoch()` seconds the DO stores. Handed
-            // the bare integer the model either invents a relative time ("10
-            // minutes ago" for a year-old event, varying run to run) or omits
-            // the date entirely; with ISO it reports the real timestamp.
-            at: new Date(e.createdAt * 1000).toISOString(),
-          }))
-        },
-      }),
     }
+
+    return { ...readTools, ...proposalTools }
   }
 
   /**
@@ -221,8 +231,14 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
       // and it is gated on a forced toolChoice we deliberately don't set (that
       // would force a tool call on every turn, including "say hello"). Spelling
       // out that the tool has already run takes the leak rate to 0 of 10.
-      system:
-        "You are EdgeVault's assistant for a single workspace. Use the searchConfigs tool to find items by meaning, getConfig to read one item's current value, and recentActivity for what changed and why. Cite items by key; be concise; never invent keys or values.\n\nYou cannot change anything yourself. When the user wants a change, call proposeChange (or proposePromotion) — that shows them an approve button, and they apply it. Read the current value with getConfig first and propose the complete new value. Never say you have made, saved, or applied a change; say you've proposed it. You cannot propose secret values — tell the user to set those in the console.\n\nAfter a tool returns results, reply to the user in plain prose that answers their question using those results. Never write a tool call, function-call syntax, or raw JSON as your reply — the tool has already run and the user cannot see or execute it.",
+      // The middle paragraph tracks which tools were actually registered. Telling
+      // a model to call a tool it hasn't been given is how you get it writing the
+      // call out as prose.
+      system: `You are EdgeVault's assistant for a single workspace. Use the searchConfigs tool to find items by meaning, getConfig to read one item's current value, and recentActivity for what changed and why. Cite items by key; be concise; never invent keys or values.\n\n${
+        supportsStructuredTools(this.env)
+          ? "You cannot change anything yourself. When the user wants a change, call proposeChange (or proposePromotion) — that shows them an approve button, and they apply it. Read the current value with getConfig first and propose the complete new value. Never say you have made, saved, or applied a change; say you've proposed it. You cannot propose secret values — tell the user to set those in the console."
+          : 'You are read-only: you can find and explain things, but you cannot change anything and you have no tool that proposes changes. When the user wants something changed, say plainly that they need to make the change in the console, and tell them exactly which environment and key to open. Never claim you have made, saved, proposed, or queued a change.'
+      }\n\nAfter a tool returns results, reply to the user in plain prose that answers their question using those results. Never write a tool call, function-call syntax, or raw JSON as your reply — the tool has already run and the user cannot see or execute it.`,
       messages: await convertToModelMessages(this.messages),
       // Widened to ToolSet so streamText doesn't narrow onFinish past the
       // base-class callback signature; the executes run unchanged.

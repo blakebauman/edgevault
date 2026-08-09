@@ -38,6 +38,15 @@ const STARTERS = [
  *     attempt was deployed, not just the v3 names it was minting. The agent
  *     schedules alarms, so v2 DOs woke under 0.17.4 and were migrated out from
  *     under themselves. Generation is per-name; class code is not.
+ * v5: switching the model provider. Tool-call ids are minted by the provider
+ *     and persisted in the thread, and Anthropic rejects the ones
+ *     workers-ai-provider produces:
+ *       messages.1.content.0.tool_use.id: String should match pattern
+ *       '^[a-zA-Z0-9_-]+$'
+ *     Every turn in a thread carrying Workers AI tool calls then fails, with no
+ *     way to recover except abandoning the thread. Any future provider change
+ *     needs this bump too — that is a property of persisted tool-call ids, not
+ *     of Anthropic.
  *
  * Three `agents` version changes in one day each wedged persisted state this
  * way, which is worth weighing before that dependency moves again.
@@ -45,7 +54,7 @@ const STARTERS = [
  * The api parses this name with `split(':')` and reads only [0] and [1], so the
  * extra segment passes auth unchanged.
  */
-const AGENT_GENERATION = 'v4'
+const AGENT_GENERATION = 'v5'
 
 function Spark({ size = 15 }: { size?: number }) {
   return (
@@ -207,13 +216,24 @@ function AgentChat({
     },
     onClose: () => setConnected(false),
   })
-  // `getInitialMessages: null` disables the SDK's default HTTP fetch of thread
-  // history (`GET /agents/.../get-messages`). That fetch is cross-origin
-  // (console→api) and the api intentionally sends no CORS headers — the browser
-  // only talks to the api over the CORS-exempt WebSocket. History (and every
-  // turn) syncs over that socket instead, so the HTTP call is unnecessary here.
+  // Load thread history through the BFF rather than the SDK's default fetch.
+  // The default goes straight to the api, which is cross-origin and sends no
+  // CORS headers, so it was previously disabled with `getInitialMessages: null`
+  // on the assumption that history would arrive over the WebSocket instead. It
+  // doesn't: the DO keeps the history and still feeds it to the model, but the
+  // client rendered an empty thread on every page load. Same-origin proxy, same
+  // pattern as the ws-token route.
+  const loadHistory = useCallback(async () => {
+    const res = await fetch(
+      `/dashboard/${encodeURIComponent(workspaceId)}/assistant/messages?name=${encodeURIComponent(name)}`,
+    )
+    if (!res.ok) return []
+    const body = await res.json()
+    return Array.isArray(body) ? body : []
+  }, [workspaceId, name])
+
   const { messages, sendMessage, status, error, stop, regenerate, isStreaming, isRecovering } =
-    useAgentChat({ agent, getInitialMessages: null })
+    useAgentChat({ agent, getInitialMessages: loadHistory })
   // `isStreaming` also covers server-pushed turns (another tab, a continuation),
   // which plain `status` misses.
   const busy = status === 'submitted' || isStreaming

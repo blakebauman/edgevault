@@ -244,7 +244,11 @@ export const workspaceRoutes = new Hono<AppEnv>()
       )
       return c.json({ comparison })
     } catch (error) {
-      if (error instanceof Error && error.message.includes('Environment not found')) {
+      // Stringified rather than `instanceof Error`: the rejection crosses a
+      // Durable Object RPC boundary and the value that arrives does not reliably
+      // satisfy `instanceof` in this isolate, so this check silently never
+      // matched and an unknown environment surfaced as a 500.
+      if (String(error).includes('Environment not found')) {
         return c.json(
           {
             error: 'not_found',

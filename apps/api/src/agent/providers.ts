@@ -74,3 +74,25 @@ export function chatModel(env: Env): LanguageModel {
 export function activeProvider(env: Env): 'anthropic' | 'workers-ai' {
   return (env as ProviderEnv).ANTHROPIC_API_KEY ? 'anthropic' : 'workers-ai'
 }
+
+/**
+ * Whether the configured model can be trusted with a multi-field structured
+ * tool call — the shape the proposal tools need.
+ *
+ * Measured, not assumed. On staging, llama-4-scout failed `proposeChange` on
+ * every attempt across three schema revisions: invalid tool input, then
+ * mangled JSON-inside-JSON escaping with a truncated argument, and finally
+ * printing the call as literal text instead of invoking it. The single-argument
+ * read tools work reliably on the same model.
+ *
+ * So the proposal tools are only offered where they work. A Workers AI
+ * deployment gets a read-only assistant that is honest about what it can do,
+ * rather than a button that fails three different ways — which matters most for
+ * self-hosters, since running on a Cloudflare account alone is the default.
+ *
+ * Phrased as a capability rather than `=== 'anthropic'` so adding a provider is
+ * a question about that provider, not an edit to every call site.
+ */
+export function supportsStructuredTools(env: Env): boolean {
+  return activeProvider(env) === 'anthropic'
+}
