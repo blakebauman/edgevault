@@ -36,6 +36,8 @@ export default [
     route('audit/export', 'routes/dashboard.audit.export.tsx'),
   ]),
   route('dashboard/:workspaceId/assistant/ws-token', 'routes/assistant.ws-token.tsx'),
+  route('dashboard/:workspaceId/assistant/proposal', 'routes/assistant.proposal.tsx'),
+  route('dashboard/:workspaceId/assistant/messages', 'routes/assistant.messages.tsx'),
   route('dashboard/:workspaceId/configs/:key/across', 'routes/across.tsx'),
   route('share', 'routes/share.tsx'),
   route('s/:id', 'routes/share.view.tsx'),

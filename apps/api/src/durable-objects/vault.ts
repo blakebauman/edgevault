@@ -674,6 +674,17 @@ export class VaultDurableObject extends DurableObject<Env> {
   // --- Config items -------------------------------------------------------
 
   async setConfig(input: SetConfigInput): Promise<ConfigItem> {
+    // `compareEnvironments` and `promote` have always checked this; writes never
+    // did, so any caller passing an environment id that doesn't exist got a
+    // successful write into a phantom environment — a real item, with a real
+    // revision, that no screen lists and nothing can reach. Harmless while
+    // every id came from a UI dropdown; not harmless now that the assistant
+    // supplies one, since a model will happily invent it (staging created
+    // `assistant-probe` under a made-up `env-abc` this way).
+    if (!this.getEnvironment(input.environmentId)) {
+      throw new Error('Environment not found')
+    }
+
     const kind = input.kind ?? 'config'
     const contentType = input.contentType ?? 'json'
     const isEncrypted = input.isEncrypted ? 1 : 0

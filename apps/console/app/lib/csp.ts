@@ -3,10 +3,14 @@
  * (React Router streams inline hydration scripts); styles allow inline because
  * component style attributes are subject to style-src. The API origin is the
  * only cross-origin connection the browser makes — everything else goes through
- * the BFF on this origin. The assistant's Agents SDK client uses BOTH the
- * WebSocket (`wss://`) and a preliminary HTTPS fetch (`/agents/.../get-messages`
- * to load history), so connect-src must allow the matching `https://` origin
- * too — otherwise that history fetch is CSP-blocked and the assistant crashes.
+ * the BFF on this origin. The assistant's Agents SDK client needs BOTH schemes
+ * of that origin: the chat itself rides the WebSocket (`wss://`), but the SDK
+ * still reaches for `https://` on its own (stream resumption after an
+ * interrupted turn), and a CSP-blocked fetch there surfaces as the assistant
+ * crashing rather than as a console warning. History is *not* one of those
+ * fetches — `getInitialMessages: null` in global-assistant.tsx turns off the
+ * default `/agents/.../get-messages` call, because the api sends no CORS
+ * headers; history re-syncs over the socket instead.
  */
 export function buildCsp(nonce: string, apiWsBase?: string): string {
   const apiOrigins = apiWsBase ? [apiWsBase, apiWsBase.replace(/^ws(s?):\/\//, 'http$1://')] : []

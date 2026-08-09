@@ -21,3 +21,16 @@ CONSOLE_URL='https://console.edgevault.io'
 # `pnpm seed:dev`. Leave UNSET in any deployed environment — its absence is what
 # keeps the seed endpoint inert in staging/prod.
 ALLOW_DEV_SEED='1'
+
+# --- Optional: assistant model provider -------------------------------------
+# Unset by default, and that is the supported configuration: the assistant runs
+# on Workers AI (TEXT_MODEL in wrangler.jsonc) with no third-party account.
+# Setting a key here switches chat — and only chat — to Anthropic. Embeddings
+# and risk scoring stay on Workers AI regardless. See src/agent/providers.ts.
+# ANTHROPIC_API_KEY='sk-ant-...'
+# ANTHROPIC_MODEL='claude-sonnet-4-6'
+
+# Cloudflare account id, needed ONLY to proxy the above through AI Gateway
+# (pair it with AI_GATEWAY_ID in wrangler.jsonc). The Workers AI path reaches
+# the gateway through its binding and does not need this.
+# AI_GATEWAY_ACCOUNT_ID='...'

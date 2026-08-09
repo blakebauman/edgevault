@@ -244,7 +244,11 @@ export const workspaceRoutes = new Hono<AppEnv>()
       )
       return c.json({ comparison })
     } catch (error) {
-      if (error instanceof Error && error.message.includes('Environment not found')) {
+      // Stringified rather than `instanceof Error`: the rejection crosses a
+      // Durable Object RPC boundary and the value that arrives does not reliably
+      // satisfy `instanceof` in this isolate, so this check silently never
+      // matched and an unknown environment surfaced as a 500.
+      if (String(error).includes('Environment not found')) {
         return c.json(
           {
             error: 'not_found',
@@ -330,6 +334,17 @@ export const workspaceRoutes = new Hono<AppEnv>()
       } catch (error) {
         if (isRefError(error))
           return c.json({ error: 'invalid_reference', detail: error.message }, 400)
+        // An unknown environment is the caller's mistake, not ours — same
+        // mapping the compare route already uses. Without this it reaches the
+        // global handler and reports 500, which tells the caller to retry
+        // something that can never succeed.
+        //
+        // Matched on the stringified error rather than `instanceof Error`: this
+        // rejection crosses a Durable Object RPC boundary, and the value that
+        // arrives does not reliably satisfy `instanceof` in the caller's isolate.
+        if (String(error).includes('Environment not found')) {
+          return c.json({ error: 'not_found', detail: 'unknown environment' }, 404)
+        }
         throw error
       }
       // Write-through to the edge cache (KV) — the item plus anything referencing it.

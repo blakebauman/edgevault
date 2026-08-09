@@ -45,6 +45,30 @@ describe('VaultDurableObject', () => {
     expect(await ws.getConfig(prod.id, 'api.base')).toBeNull()
   })
 
+  it('refuses a write to an environment that does not exist', async () => {
+    // Found on staging: the assistant proposed a change against a made-up
+    // environment id, the write succeeded, and it produced a real item with a
+    // real revision that no screen lists. Reads and promotions already checked
+    // this; writes did not.
+    const ws = workspace('ws-phantom-env')
+    // try/catch rather than `.rejects`: a rejected DO RPC promise that anything
+    // else also observes surfaces as an unhandled rejection in the workers pool,
+    // which fails the run even though the assertion passes.
+    let message = ''
+    try {
+      await ws.setConfig({
+        environmentId: 'env-does-not-exist',
+        key: 'api.base',
+        content: '{}',
+        userId: 'u1',
+      })
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error)
+    }
+    expect(message).toMatch(/Environment not found/)
+    expect(await ws.getConfig('env-does-not-exist', 'api.base')).toBeNull()
+  })
+
   it('versions config writes and records revisions + activity', async () => {
     const ws = workspace('ws-versions')
     const env1 = await ws.createEnvironment({

@@ -71,6 +71,50 @@ export function promoteEvent(args: {
   }
 }
 
+/**
+ * ai.rate_limited — a chat turn refused before any inference ran.
+ *
+ * Worth a cold record because it's the only signal that distinguishes a user
+ * hitting the cap from the assistant being broken, and because a sustained run
+ * of these is what abuse looks like.
+ */
+export function aiRateLimitedEvent(args: {
+  workspaceId: string
+  userId: string
+}): Omit<AuditEvent, 'at'> {
+  return {
+    workspaceId: args.workspaceId,
+    action: 'ai.rate_limited',
+    resourceType: 'assistant',
+    userId: args.userId,
+  }
+}
+
+/**
+ * ai.proposed — the assistant offered a change for a human to approve.
+ *
+ * The proposal itself never writes anything (see agent/proposals.ts), so this
+ * records intent only. Pairing it with the `config.*` event that follows an
+ * approval is what lets the warehouse answer "which changes originated with
+ * the assistant, and did anyone act on them".
+ */
+export function aiProposalEvent(args: {
+  workspaceId: string
+  environmentId: string
+  kind: string
+  key: string
+  userId: string
+}): Omit<AuditEvent, 'at'> {
+  return {
+    workspaceId: args.workspaceId,
+    environmentId: args.environmentId,
+    action: 'ai.proposed',
+    resourceType: args.kind,
+    key: args.key,
+    userId: args.userId,
+  }
+}
+
 /** secret.revealed — the single most sensitive action; always emitted. */
 export function revealEvent(args: {
   workspaceId: string
