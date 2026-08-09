@@ -63,7 +63,11 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
             action: e.action,
             resourceType: e.resourceType,
             resourceId: e.resourceId,
-            at: e.createdAt,
+            // ISO 8601, not the raw `unixepoch()` seconds the DO stores. Handed
+            // the bare integer the model either invents a relative time ("10
+            // minutes ago" for a year-old event, varying run to run) or omits
+            // the date entirely; with ISO it reports the real timestamp.
+            at: new Date(e.createdAt * 1000).toISOString(),
           }))
         },
       }),
@@ -91,8 +95,16 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
     const workersai = createWorkersAI({ binding: this.env.AI })
     const result = streamText({
       model: workersai(textModel(this.env) as Parameters<typeof workersai>[0]),
+      // The last paragraph is load-bearing, not boilerplate. Without it
+      // llama-4-scout answers tool-using turns with its own call syntax as the
+      // final text — `recentActivity(limit=10)` — in 9 of 10 runs against live
+      // Workers AI. The provider's parseLeakedToolCalls salvage does not catch
+      // this: it JSON.parses the buffer, so it only recovers JSON-shaped leaks,
+      // and it is gated on a forced toolChoice we deliberately don't set (that
+      // would force a tool call on every turn, including "say hello"). Spelling
+      // out that the tool has already run takes the leak rate to 0 of 10.
       system:
-        "You are EdgeVault's assistant for a single workspace. Use the searchConfigs tool to find items by meaning and the recentActivity tool for what changed and why. Cite items by key; be concise; never invent keys or values.",
+        "You are EdgeVault's assistant for a single workspace. Use the searchConfigs tool to find items by meaning and the recentActivity tool for what changed and why. Cite items by key; be concise; never invent keys or values.\n\nAfter a tool returns results, reply to the user in plain prose that answers their question using those results. Never write a tool call, function-call syntax, or raw JSON as your reply — the tool has already run and the user cannot see or execute it.",
       messages: await convertToModelMessages(this.messages),
       // Widened to ToolSet so streamText doesn't narrow onFinish past the
       // base-class callback signature; the executes run unchanged.
