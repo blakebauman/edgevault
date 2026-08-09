@@ -6,7 +6,12 @@ import { aiRunner, embeddingModel, vectorize } from '../ai'
 import { aiProposalEvent, aiRateLimitedEvent, emitAudit } from '../audit'
 import type { VaultDurableObject } from '../durable-objects/vault'
 import { checkRateLimit } from '../rate-limit'
-import { configChangeProposalSchema, promotionProposalSchema } from './proposals'
+import {
+  configChangeToolInput,
+  promotionToolInput,
+  toConfigChangeProposal,
+  toPromotionProposal,
+} from './proposals'
 import { chatModel } from './providers'
 import { RATE_LIMITED_MESSAGE, refusalResponse } from './refusal'
 
@@ -107,19 +112,21 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
       proposeChange: tool({
         description:
           'Propose creating or updating an item for the user to approve. Use this instead of claiming you changed something — you cannot write. Read the current value with getConfig first, and supply the complete new value, not a diff. Cannot propose secrets; tell the user to set those in the console.',
-        inputSchema: configChangeProposalSchema,
-        // Pure passthrough: the return value *is* the proposal, and its only
+        inputSchema: configChangeToolInput,
+        // Near-passthrough: the return value *is* the proposal, and its only
         // effect is to exist as a tool-call record the client can render an
         // Approve button on. Nothing is written here — see the contract note in
-        // @edgevault/edge-protocol.
-        execute: async (proposal) => {
+        // @edgevault/edge-protocol. `toConfigChangeProposal` only restores the
+        // fields the model isn't asked to supply.
+        execute: async (input) => {
+          const proposal = toConfigChangeProposal(input)
           await emitAudit(
             this.env,
             aiProposalEvent({
               workspaceId: this.workspaceId,
-              environmentId: proposal.environmentId,
-              kind: proposal.itemKind,
-              key: proposal.key,
+              environmentId: input.environmentId,
+              kind: input.itemKind,
+              key: input.key,
               userId: this.userId,
             }),
           )
@@ -129,15 +136,16 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
       proposePromotion: tool({
         description:
           'Propose promoting one key from one environment to another for the user to approve. Same rule as proposeChange: this only suggests, it does not promote.',
-        inputSchema: promotionProposalSchema,
-        execute: async (proposal) => {
+        inputSchema: promotionToolInput,
+        execute: async (input) => {
+          const proposal = toPromotionProposal(input)
           await emitAudit(
             this.env,
             aiProposalEvent({
               workspaceId: this.workspaceId,
-              environmentId: proposal.targetEnvironmentId,
+              environmentId: input.targetEnvironmentId,
               kind: 'config',
-              key: proposal.key,
+              key: input.key,
               userId: this.userId,
             }),
           )
@@ -236,6 +244,21 @@ export class EdgeVaultAgent extends AIChatAgent<Env> {
         )
       },
     })
-    return result.toUIMessageStreamResponse()
+    // `streamText`'s onError above only sees stream-level failures. A tool call
+    // whose arguments fail their schema never reaches it: the SDK turns that
+    // into an errored tool part and masks the reason as "An error occurred."
+    // That combination cost a staging debugging cycle — five identical failures
+    // in the UI and a completely silent tail. Log the real cause here, and keep
+    // returning a generic string to the client so schema internals and model
+    // output don't leak into the browser.
+    return result.toUIMessageStreamResponse({
+      onError: (error) => {
+        console.error(
+          'chat stream/tool error:',
+          error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+        )
+        return 'Something went wrong while answering. Please try again.'
+      },
+    })
   }
 }

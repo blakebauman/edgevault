@@ -1,6 +1,14 @@
 import { env } from 'cloudflare:test'
+import { isAssistantProposal } from '@edgevault/edge-protocol'
 import { describe, expect, it } from 'vitest'
-import { assistantProposalSchema, configChangeProposalSchema } from '../src/agent/proposals'
+import {
+  assistantProposalSchema,
+  configChangeProposalSchema,
+  configChangeToolInput,
+  promotionToolInput,
+  toConfigChangeProposal,
+  toPromotionProposal,
+} from '../src/agent/proposals'
 import { activeProvider } from '../src/agent/providers'
 import { RATE_LIMITED_MESSAGE, refusalResponse } from '../src/agent/refusal'
 import { checkRateLimit } from '../src/rate-limit'
@@ -133,6 +141,75 @@ describe('proposal contract', () => {
     const parsed = assistantProposalSchema.safeParse(promotion)
     expect(parsed.success).toBe(true)
     expect(parsed.success && parsed.data.kind).toBe('promotion')
+  })
+})
+
+describe('tool input schemas', () => {
+  // llama-4-scout failed proposeChange five times running on staging because
+  // the tool asked it for `kind` — a constant the tool name already implies —
+  // and hard-required a rationale. Lenient about phrasing, strict about
+  // invariants.
+  const modelArgs = {
+    environmentId: 'env_1',
+    key: 'checkout-timeout-ms',
+    itemKind: 'config' as const,
+    content: '{"ms":3000}',
+  }
+
+  it('accepts model input that omits kind and rationale', () => {
+    expect(configChangeToolInput.safeParse(modelArgs).success).toBe(true)
+  })
+
+  it('rebuilds the full wire proposal, defaulting the rationale', () => {
+    const proposal = toConfigChangeProposal(configChangeToolInput.parse(modelArgs))
+    expect(proposal.kind).toBe('config-change')
+    expect(proposal.rationale.length).toBeGreaterThan(0)
+    // Must satisfy the guard the console applies before it will render or apply.
+    expect(isAssistantProposal(proposal)).toBe(true)
+  })
+
+  it('keeps the model-supplied rationale when there is one', () => {
+    const proposal = toConfigChangeProposal(
+      configChangeToolInput.parse({ ...modelArgs, rationale: 'Upstream times out sooner.' }),
+    )
+    expect(proposal.rationale).toBe('Upstream times out sooner.')
+  })
+
+  it('accepts structured content and serializes it, so the model never escapes JSON', () => {
+    // The staging failure: asked for a string, llama-4-scout produced
+    // `"{\"\s\":3000}"` and truncated. Letting it send the object sidesteps it.
+    const parsed = configChangeToolInput.safeParse({ ...modelArgs, content: { ms: 3000 } })
+    expect(parsed.success).toBe(true)
+    const proposal = toConfigChangeProposal(parsed.data as never)
+    expect(typeof proposal.kind === 'string' && proposal.kind).toBe('config-change')
+    const content = (proposal as { content: string }).content
+    expect(JSON.parse(content)).toEqual({ ms: 3000 })
+    expect(isAssistantProposal(proposal)).toBe(true)
+  })
+
+  it('still passes a plain string through untouched', () => {
+    const proposal = toConfigChangeProposal(
+      configChangeToolInput.parse({ ...modelArgs, content: 'plain-text-value' }),
+    )
+    expect((proposal as { content: string }).content).toBe('plain-text-value')
+  })
+
+  it('still refuses a secret and a bad key', () => {
+    expect(configChangeToolInput.safeParse({ ...modelArgs, itemKind: 'secret' }).success).toBe(
+      false,
+    )
+    expect(configChangeToolInput.safeParse({ ...modelArgs, key: 'not a key!' }).success).toBe(false)
+  })
+
+  it('does the same for promotions', () => {
+    const input = promotionToolInput.parse({
+      sourceEnvironmentId: 'env_a',
+      targetEnvironmentId: 'env_b',
+      key: 'checkout-timeout-ms',
+    })
+    const proposal = toPromotionProposal(input)
+    expect(proposal.kind).toBe('promotion')
+    expect(isAssistantProposal(proposal)).toBe(true)
   })
 })
 
