@@ -214,13 +214,21 @@ describe('tool input schemas', () => {
 })
 
 describe('provider selection', () => {
+  // Built from the ambient env with the key removed rather than read from it: a
+  // developer who sets ANTHROPIC_API_KEY in .dev.vars must not flip the meaning
+  // of these assertions. Deleted rather than set to undefined, because
+  // `wrangler types` types it as a required string once it is in .dev.vars.
+  const { ANTHROPIC_API_KEY: _ignored, ...rest } = env as Env & { ANTHROPIC_API_KEY?: string }
+  const withoutKey = rest as Env
+  const withKey = { ...rest, ANTHROPIC_API_KEY: 'sk-ant-test' } as Env
+
   it('defaults to Workers AI when no third-party key is set', () => {
     // The MIT core must run on a Cloudflare account alone; reaching for a paid
     // provider has to be a deliberate act.
-    expect(activeProvider(env)).toBe('workers-ai')
+    expect(activeProvider(withoutKey)).toBe('workers-ai')
   })
 
   it('switches to Anthropic only when a key is present', () => {
-    expect(activeProvider({ ...env, ANTHROPIC_API_KEY: 'sk-ant-test' } as Env)).toBe('anthropic')
+    expect(activeProvider(withKey)).toBe('anthropic')
   })
 })
