@@ -218,7 +218,10 @@ export const organizationRoutes = new Hono<AppEnv>()
     '/:orgId/members',
     zValidator(
       'json',
-      z.object({ email: z.email(), role: z.enum(['owner', 'admin', 'member']).default('member') }),
+      z.object({
+        email: z.email(),
+        role: z.enum(['owner', 'admin', 'member', 'viewer']).default('member'),
+      }),
     ),
     async (c) => {
       const orgId = c.req.param('orgId')
@@ -333,7 +336,7 @@ export const organizationRoutes = new Hono<AppEnv>()
   })
   .patch(
     '/:orgId/members/:userId',
-    zValidator('json', z.object({ role: z.enum(['owner', 'admin', 'member']) })),
+    zValidator('json', z.object({ role: z.enum(['owner', 'admin', 'member', 'viewer']) })),
     async (c) => {
       const orgId = c.req.param('orgId')
       const role = await getMemberRole(c.var.database, orgId, c.var.userId)

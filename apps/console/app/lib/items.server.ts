@@ -1,6 +1,7 @@
 import { redirect } from 'react-router'
 import { friendlyError } from './errors'
 import { getRevealToken, getToken } from './session.server'
+import { getWorkspaceMeta } from './workspace.server'
 
 /**
  * Shared server logic for the per-type item sections (Config / Flags / Secrets /
@@ -159,12 +160,17 @@ export async function loadSection(args: {
   if (!token) throw redirect('/login')
   const base = `/${workspaceId}`
   const historyKey = new URL(request.url).searchParams.get('history')
-  const [configs, deletedConfigs, revisions] = await Promise.all([
+  const [meta, configs, deletedConfigs, revisions] = await Promise.all([
+    getWorkspaceMeta(env, token, workspaceId),
     loadItems(env, token, base, envId, kind),
     loadDeleted(env, token, base, envId, kind),
     historyKey ? loadRevisions(env, token, base, envId, historyKey) : Promise.resolve(null),
   ])
-  return { workspaceId, envId, configs, deletedConfigs, historyKey, revisions }
+  // The api refuses writes from a read-only role; the UI should not offer them
+  // in the first place. Deny-by-default so an unresolved role reads read-only
+  // rather than showing controls that will 403.
+  const canWrite = meta.role === 'owner' || meta.role === 'admin' || meta.role === 'member'
+  return { workspaceId, envId, configs, deletedConfigs, historyKey, revisions, canWrite }
 }
 
 /**

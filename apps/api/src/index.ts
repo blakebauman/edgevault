@@ -6,6 +6,7 @@ import { mcpRoutes } from './mcp'
 import { requireAuth } from './middleware/auth'
 import { withDatabase } from './middleware/database'
 import { requireWorkspaceMember } from './middleware/workspace'
+import { requireWriteRole } from './middleware/writer'
 import { customDomainRoutes } from './routes/custom-domains'
 import { devSeedRoutes } from './routes/dev-seed'
 import { invitationRoutes } from './routes/invitations'
@@ -85,7 +86,7 @@ app.get('/', (c) => c.json({ name: 'EdgeVault API', docs: '/openapi.json' }))
 // Authenticated API surface (Neon via Hyperdrive + JWT verified against auth's JWKS).
 app.use('/api/v1/*', withDatabase, requireAuth)
 // Workspace config routes additionally require org membership.
-app.use('/api/v1/workspaces/:workspaceId/*', requireWorkspaceMember)
+app.use('/api/v1/workspaces/:workspaceId/*', requireWorkspaceMember, requireWriteRole)
 
 app.route('/api/v1/organizations', organizationRoutes)
 app.route('/api/v1/organizations', customDomainRoutes)

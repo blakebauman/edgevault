@@ -141,6 +141,13 @@
       "when": 1786243475427,
       "tag": "0019_sloppy_songbird",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786245134571,
+      "tag": "0020_oval_banshee",
+      "breakpoints": true
     }
   ]
 }

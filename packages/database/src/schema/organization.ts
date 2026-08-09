@@ -10,8 +10,24 @@ import {
 } from 'drizzle-orm/pg-core'
 import { users } from './auth'
 
-/** Roles within an organization. Advanced/attribute-based RBAC lives in ee/. */
-export const memberRole = pgEnum('member_role', ['owner', 'admin', 'member'])
+/**
+ * Roles within an organization, least privilege first.
+ *
+ * `viewer` reads and cannot write anything — the answer to "does this support
+ * read-only access", which every security questionnaire asks. Before it, the
+ * lowest role was `member`, which could write to every environment including
+ * production; an auditor, a contractor, or a dashboard user had no seat that
+ * fit them.
+ *
+ * Declared last, which is also how Postgres appends it. That happens to be
+ * right: enum sort order follows declaration, so the ordinal now runs from
+ * most to least privileged (owner → viewer) and any ordered comparison reads
+ * the way you would expect.
+ *
+ * Finer-grained, environment- and key-scoped permissions are ROADMAP §2.10;
+ * this is the down payment, not the destination.
+ */
+export const memberRole = pgEnum('member_role', ['owner', 'admin', 'member', 'viewer'])
 export const invitationStatus = pgEnum('invitation_status', [
   'pending',
   'accepted',

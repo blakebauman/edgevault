@@ -10,7 +10,7 @@ import { loginRedirect } from './session.server'
  * small differences in what a failure did; this is the one version.
  */
 
-export type OrgRole = 'owner' | 'admin' | 'member'
+export type OrgRole = 'owner' | 'admin' | 'member' | 'viewer'
 
 export interface OrgContext {
   id: string

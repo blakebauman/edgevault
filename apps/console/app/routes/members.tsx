@@ -30,7 +30,7 @@ import type { Route } from './+types/members'
  * api enforces RBAC and the last-owner guard; this surfaces it.
  */
 
-type Role = 'owner' | 'admin' | 'member'
+type Role = 'owner' | 'admin' | 'member' | 'viewer'
 
 interface Member {
   userId: string
@@ -59,7 +59,7 @@ type SortDir = 'asc' | 'desc'
 
 /** Owner → admin → member, so sorting by role ranks by privilege rather than
  * alphabetically (which would put admin above owner and read as wrong). */
-const ROLE_RANK: Record<Role, number> = { owner: 0, admin: 1, member: 2 }
+const ROLE_RANK: Record<Role, number> = { owner: 0, admin: 1, member: 2, viewer: 3 }
 
 /**
  * Filter and sort the roster in the browser.
@@ -94,6 +94,8 @@ const ROLE_CHIP: Record<Role, ChipVariant> = {
   owner: 'kind-flag',
   admin: 'kind-config',
   member: 'neutral',
+  // Read-only reads as a state, not a kind — it says what someone *can't* do.
+  viewer: 'state-off',
 }
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
@@ -285,6 +287,8 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
             <option value="owner">owner</option>
             <option value="admin">admin</option>
             <option value="member">member</option>
+            <option value="viewer">viewer</option>
+            <option value="viewer">viewer</option>
           </Select>
         </Field>
         <input type="hidden" name="sort" value={sort} />
@@ -481,6 +485,7 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
             </Field>
             <Field label="Role">
               <Select name="role" defaultValue="member">
+                <option value="viewer">viewer</option>
                 <option value="member">member</option>
                 <option value="admin">admin</option>
                 {isOwner && <option value="owner">owner</option>}

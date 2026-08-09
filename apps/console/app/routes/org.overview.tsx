@@ -87,7 +87,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
       ])
     : [null, null, null, null]
 
-  const byRole = { owner: 0, admin: 0, member: 0 }
+  const byRole: Record<OrgRole, number> = { owner: 0, admin: 0, member: 0, viewer: 0 }
   for (const m of membersBody.members) byRole[m.role] = (byRole[m.role] ?? 0) + 1
 
   return {
