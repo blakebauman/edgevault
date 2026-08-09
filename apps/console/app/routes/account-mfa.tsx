@@ -1,4 +1,13 @@
-import { Button, ErrorNote, Field, Input, StatusNote, TokenBox, TokenValue } from '@edgevault/ui'
+import {
+  Button,
+  Callout,
+  ErrorNote,
+  Field,
+  Input,
+  StatusNote,
+  TokenBox,
+  TokenValue,
+} from '@edgevault/ui'
 import { useState } from 'react'
 import { Form, Link } from 'react-router'
 import { CopyButton } from '../components/copy-button'
@@ -40,6 +49,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
+  // Set when an organization's require-MFA policy sent them here; the page is
+  // otherwise identical, it just leads with why they arrived.
+  const requiredByOrg = new URL(request.url).searchParams.get('required') === 'org'
   const [statusRes, sessionsRes] = await Promise.all([
     authFetch(env, request, token, '/mfa/status'),
     authFetch(env, request, token, '/sessions'),
@@ -54,7 +66,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const sessions = sessionsRes.ok
     ? ((await sessionsRes.json()) as { sessions: SessionRow[] }).sessions
     : []
-  return { status, sessions }
+  return { status, sessions, requiredByOrg }
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
@@ -108,7 +120,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 export default function AccountMfa({ loaderData, actionData }: Route.ComponentProps) {
-  const { status, sessions } = loaderData
+  const { status, sessions, requiredByOrg } = loaderData
   const secret = actionData && 'secret' in actionData ? actionData.secret : null
   const otpauthUri = actionData && 'otpauthUri' in actionData ? actionData.otpauthUri : null
   const qrSvg = actionData && 'qrSvg' in actionData ? actionData.qrSvg : null
@@ -131,6 +143,14 @@ export default function AccountMfa({ loaderData, actionData }: Route.ComponentPr
             <Link to="/">← All workspaces</Link>
           </Button>
         </header>
+
+        {requiredByOrg && !enabled && (
+          <Callout tone="warn" className="mb-4">
+            An organization you belong to requires two-factor authentication, so it's closed to you
+            until you add one. Set up an authenticator app below, or add a passkey — either
+            satisfies the policy, and access returns immediately.
+          </Callout>
+        )}
 
         {error && <ErrorNote className="mb-3">{error}</ErrorNote>}
         {confirmed && (

@@ -1,4 +1,5 @@
 import { redirect } from 'react-router'
+import { redirectOnPolicyRefusal } from './org-policy'
 import { loginRedirect } from './session.server'
 
 /**
@@ -43,6 +44,7 @@ export async function requireOrg(
   const res = await env.API_SERVICE.fetch('https://api/api/v1/organizations', {
     headers: { authorization: `Bearer ${token}` },
   })
+  await redirectOnPolicyRefusal(res, orgId)
   if (res.status === 401 || res.status === 403) {
     throw request ? loginRedirect(request) : redirect('/login')
   }
@@ -60,8 +62,15 @@ export async function requireOrg(
   }
 }
 
-/** JSON from an api/auth response, or `fallback` on any non-OK or parse failure. */
-export async function jsonOr<T>(res: Response, fallback: T): Promise<T> {
+/**
+ * JSON from an api/auth response, or `fallback` on any non-OK or parse failure.
+ *
+ * A policy refusal is the one failure that must not degrade quietly: rendering
+ * "not configured" to someone who is actually blocked would be a lie about the
+ * org's state, so it redirects to the remedy instead.
+ */
+export async function jsonOr<T>(res: Response, fallback: T, orgId?: string): Promise<T> {
+  await redirectOnPolicyRefusal(res, orgId)
   if (!res.ok) return fallback
   try {
     return (await res.json()) as T

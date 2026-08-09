@@ -1383,12 +1383,6 @@
     color: var(--accent);
   }
 
-  /* A control that is settable but not applied — the key wears the warn voice
-     so it can't be skimmed as an enforcement statement. */
-  .policy-mech-inactive .policy-mech-key {
-    color: var(--warn);
-  }
-
   .ws-content {
     flex: 1;
     min-width: 0;

@@ -204,25 +204,14 @@ export default function OrgOverview({ loaderData }: Route.ComponentProps) {
           <Row
             label="Two-factor required"
             to={`${base}/security`}
-            // Set but not applied: the check exists and its precondition never
-            // does. "partial" rather than "enforced" — claiming a control that
-            // doesn't fire is worse than admitting the gap.
-            state={security.requireMfa ? 'partial' : 'off'}
-            note={
-              security.requireMfa
-                ? 'Set, but not currently applied — the check depends on a session field nothing sets yet'
-                : 'Would be checked when an org access token is minted'
-            }
+            state={security.requireMfa ? 'enforced' : 'off'}
+            note="Checked on every request that touches this organization, against the token's authentication method"
           />
           <Row
             label="SSO-only sign-in"
             to={`${base}/security`}
-            state={security.ssoOnly ? 'partial' : 'off'}
-            note={
-              security.ssoOnly
-                ? 'Set, but not currently applied — same gap as require-two-factor'
-                : "Would refuse sessions not established through this org's IdP"
-            }
+            state={security.ssoOnly ? 'enforced' : 'off'}
+            note="Sessions not established through this org's IdP are refused"
           />
           <Row
             label="Step-up before secret reveal"

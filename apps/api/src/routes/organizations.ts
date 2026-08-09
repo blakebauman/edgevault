@@ -19,6 +19,7 @@ import {
   setOrgSecurityPolicy,
 } from '../database/queries'
 import type { VaultDurableObject } from '../durable-objects/vault'
+import { enforceOrgPolicy } from '../middleware/org-policy'
 
 /** Organization + workspace management, backed by Neon (via Hyperdrive). */
 
@@ -50,6 +51,22 @@ function isDuplicate(error: unknown): boolean {
 }
 
 export const organizationRoutes = new Hono<AppEnv>()
+  /*
+   * Org access policy, applied to everything scoped to a single org.
+   *
+   * `GET /organizations` (the caller's own list) is deliberately outside this:
+   * the console resolves the shell from it, and blocking it would replace a
+   * useful "your org requires two-factor" message with a blank app.
+   *
+   * A refused caller can still reach account security to enrol, because that
+   * lives in the auth worker and is not org-scoped — so the policy is strict
+   * without being a trap.
+   */
+  .use('/:orgId/*', async (c, next) => {
+    const refused = await enforceOrgPolicy(c, c.req.param('orgId'))
+    if (refused) return refused
+    await next()
+  })
   .post('/', zValidator('json', nameSlug), async (c) => {
     const { name, slug } = c.req.valid('json')
     if (!(await isEmailVerified(c.var.database, c.var.userId))) {
@@ -414,6 +431,25 @@ export const organizationRoutes = new Hono<AppEnv>()
             {
               error: 'sso_not_configured',
               detail: 'Connect an identity provider before requiring SSO-only sign-in.',
+            },
+            409,
+          )
+        }
+      }
+
+      if (patch.requireMfa === true) {
+        const { getAuthenticatorsByUser, userHasConfirmedTotp } = await import(
+          '../database/queries'
+        )
+        const enrolled =
+          (await userHasConfirmedTotp(c.var.database, c.var.userId)) ||
+          (await getAuthenticatorsByUser(c.var.database, c.var.userId)).length > 0
+        if (!enrolled) {
+          return c.json(
+            {
+              error: 'mfa_not_enrolled',
+              detail:
+                'Add an authenticator app or passkey to your own account before requiring two-factor for everyone — otherwise this locks you out of this organization.',
             },
             409,
           )

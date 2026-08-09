@@ -1,13 +1,15 @@
 import type { Database, NotificationChannelType } from '@edgevault/database'
 import {
   apiKeys,
+  authenticators,
   members,
   notificationChannels,
   organizations,
+  totpCredentials,
   users,
   workspaces,
 } from '@edgevault/database/schema'
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 
 /** Neon (via Hyperdrive) queries for org/workspace metadata + membership. */
 
@@ -440,4 +442,31 @@ export async function getUserDisplayNames(
     .from(users)
     .where(inArray(users.id, ids))
   return new Map(rows.map((r) => [r.id, r.name ?? r.email]))
+}
+
+/**
+ * Does this user have a confirmed authenticator app?
+ *
+ * `confirmedAt` matters: an abandoned enrollment must not satisfy a
+ * require-MFA policy, or turning the policy on would be a no-op for anyone
+ * who once opened the setup screen.
+ */
+export async function userHasConfirmedTotp(database: Database, userId: string): Promise<boolean> {
+  const [row] = await database
+    .select({ userId: totpCredentials.userId })
+    .from(totpCredentials)
+    .where(and(eq(totpCredentials.userId, userId), isNotNull(totpCredentials.confirmedAt)))
+    .limit(1)
+  return Boolean(row)
+}
+
+/** Registered passkeys for a user — the other way to satisfy require-MFA. */
+export async function getAuthenticatorsByUser(
+  database: Database,
+  userId: string,
+): Promise<Array<{ id: string }>> {
+  return database
+    .select({ id: authenticators.id })
+    .from(authenticators)
+    .where(eq(authenticators.userId, userId))
 }

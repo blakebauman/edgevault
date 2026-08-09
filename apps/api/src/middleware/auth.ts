@@ -52,6 +52,7 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
     }
     c.set('userId', claims.sub)
     c.set('orgId', claims.org ?? null)
+    c.set('amr', Array.isArray(claims.amr) ? claims.amr : [])
   } catch {
     return c.json({ error: 'invalid_token' }, 401)
   }
