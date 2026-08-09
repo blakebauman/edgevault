@@ -37,7 +37,27 @@ pnpm db:down
 
 Drizzle schema work lives in `packages/database` (`db:generate`, `db:migrate`, `db:push`, `db:studio`; reads `DATABASE_URL` from `packages/database/.env`).
 
-Deploys (`pnpm deploy` / `turbo run deploy`) push to the real Cloudflare account — never deploy without explicit user direction. See DEPLOYMENT.md for resource provisioning and ACTIVATION.md for optional providers (OAuth, etc.).
+Deploys push to the real Cloudflare account — never deploy without explicit user direction. See DEPLOYMENT.md for resource provisioning and ACTIVATION.md for optional providers (OAuth, etc.).
+
+```sh
+npx turbo run deploy     # every worker, production
+# NOT `pnpm deploy` — pnpm has its own builtin `deploy` command that shadows the
+# root script, so it fails with ERR_PNPM_NOTHING_TO_DEPLOY. Use `pnpm run deploy`
+# if you want it via pnpm.
+```
+
+**`apps/console` picks its environment at BUILD time**, via `CLOUDFLARE_ENV` (the
+`@cloudflare/vite-plugin` bakes the resolved wrangler env into the bundle). A
+bare `wrangler deploy --env staging` therefore ships a *production* build under
+the staging name. Set the variable for both steps:
+
+```sh
+cd apps/console
+CLOUDFLARE_ENV=staging npx react-router build && CLOUDFLARE_ENV=staging npx wrangler deploy
+npx react-router build && npx wrangler deploy    # production (no CLOUDFLARE_ENV)
+```
+
+Every other worker takes `--env staging` normally.
 
 ## Open-core boundary (enforced)
 

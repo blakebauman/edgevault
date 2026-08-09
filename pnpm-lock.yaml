@@ -7,7 +7,7 @@ settings:
 catalogs:
   default:
     '@cloudflare/ai-chat':
-      specifier: ^0.8.6
+      specifier: 0.8.6
       version: 0.8.6
     '@cloudflare/vitest-pool-workers':
       specifier: ^0.20.3
@@ -19,7 +19,7 @@ catalogs:
       specifier: ^19.2.18
       version: 19.2.18
     agents:
-      specifier: ^0.16.2
+      specifier: 0.16.2
       version: 0.16.2
     drizzle-orm:
       specifier: ^0.45.2

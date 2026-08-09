@@ -26,8 +26,20 @@ catalog:
   zod: ^4.0.17
   drizzle-orm: ^0.45.2
   jose: ^6.2.8
-  agents: ^0.16.2
-  "@cloudflare/ai-chat": ^0.8.6
+  # EXACT, not caret — deliberately. These two drive the assistant's Durable
+  # Object (EdgeVaultAgent), and DO state outlives both deploys and downgrades:
+  # a new `agents` migrates the stored format on first wake, and reverting the
+  # package does not migrate it back. Worse, generation is per-DO-name but class
+  # code is not, so while any version is live it is the code for *every*
+  # EdgeVaultAgent — DOs on older names get migrated when an alarm wakes them.
+  #
+  # On 2026-08-08 three version changes in one day each wedged the assistant,
+  # and every one passed biome/typecheck/test/build and the post-deploy smoke.
+  # Recovery is a bump of AGENT_GENERATION in global-assistant.tsx (v4 today),
+  # which orphans the wedged DOs. A caret let a routine `pnpm install` walk into
+  # that on its own, so pin and move them only on purpose.
+  agents: 0.16.2
+  "@cloudflare/ai-chat": 0.8.6
 
   # React. Only where it is a real dependency/devDependency — see the note
   # above about peer ranges.
