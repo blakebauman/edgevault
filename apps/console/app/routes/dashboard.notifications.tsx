@@ -1,3 +1,4 @@
+import { NOTIFY_ACTIONS } from '@edgevault/edge-protocol'
 import {
   ActionGroup,
   Button,
@@ -30,14 +31,18 @@ import type { Route } from './+types/dashboard.notifications'
  * creation.
  */
 
-const EVENT_OPTIONS = [
-  'config.created',
-  'config.updated',
-  'config.deleted',
-  'config.promoted',
-  'promotion.awaiting_approval',
-  'secret.revealed',
-] as const
+/**
+ * The deliverable event types, from the shared protocol rather than a local
+ * copy.
+ *
+ * This list had been duplicated here and drifted: the api gained the two
+ * anomaly alerts (reveal spike, bulk export) and this page never did. Since a
+ * channel with a non-empty selection only receives actions it explicitly
+ * lists, any channel scoped to specific events could never be delivered a
+ * security alert — the box to tick did not exist. The api already validated
+ * against the full set, so only this surface was behind.
+ */
+const EVENT_OPTIONS = NOTIFY_ACTIONS
 
 type Channel = {
   id: string
