@@ -1,27 +1,79 @@
 import { cn } from '@edgevault/ui'
 import { Link } from 'react-router'
 
-/** The org-settings sections, in one place so the workspaces list and every org
- * page share the same set and order. `path` is the route segment; `slug` keys
- * the active section. "oidc" is the friendly label for the /sso route. */
-export const ORG_LINKS = [
-  { slug: 'members', label: 'Members', path: 'members' },
-  { slug: 'billing', label: 'Billing', path: 'billing' },
-  { slug: 'domains', label: 'Domains', path: 'domains' },
-  { slug: 'oidc', label: 'OIDC', path: 'sso' },
-  { slug: 'saml', label: 'SAML', path: 'saml' },
-  { slug: 'scim', label: 'SCIM', path: 'scim' },
-] as const
+/**
+ * The org-settings sections, in one place so the rail, the workspaces list, and
+ * the account menu share the same set and order.
+ *
+ * Grouped rather than flat, and named by function. Four of these were bare
+ * acronyms in a six-item list — "OIDC · SAML · SCIM" tells you nothing unless
+ * you already know what you're looking for, which is the opposite of what an
+ * evaluating admin needs. There is deliberately no "Enterprise" group: nothing
+ * here is gated, and an upsell label on an unlocked feature reads as one.
+ *
+ * `path` is the route segment; `slug` keys the active section.
+ */
+export type OrgNavKey =
+  | 'overview'
+  | 'members'
+  | 'billing'
+  | 'security'
+  | 'oidc'
+  | 'saml'
+  | 'scim'
+  | 'domains'
 
-export type OrgNavKey = (typeof ORG_LINKS)[number]['slug']
+export interface OrgLink {
+  slug: OrgNavKey
+  label: string
+  /** Route segment; the overview is the index, so its segment is empty. */
+  path: string
+}
+
+export interface OrgGroup {
+  label: string
+  links: OrgLink[]
+}
+
+export const ORG_GROUPS: OrgGroup[] = [
+  {
+    label: 'Organization',
+    links: [
+      { slug: 'overview', label: 'Overview', path: '' },
+      { slug: 'members', label: 'Members', path: 'members' },
+      { slug: 'billing', label: 'Billing', path: 'billing' },
+    ],
+  },
+  {
+    label: 'Identity & access',
+    links: [
+      { slug: 'security', label: 'Security', path: 'security' },
+      { slug: 'oidc', label: 'Single sign-on', path: 'sso' },
+      { slug: 'saml', label: 'SAML', path: 'saml' },
+      { slug: 'scim', label: 'Directory sync', path: 'scim' },
+    ],
+  },
+  {
+    label: 'Delivery',
+    links: [{ slug: 'domains', label: 'Domains', path: 'domains' }],
+  },
+]
+
+/** Flattened, for consumers that want one list (account menu, ⌘K palette). */
+export const ORG_LINKS: OrgLink[] = ORG_GROUPS.flatMap((g) => g.links)
 
 /** Which org section a path points at, e.g. `/orgs/abc/sso` → `oidc`. Lets the
  * account menu highlight the section you're currently on. */
 export function orgSectionForPath(orgId: string, pathname: string): OrgNavKey | undefined {
-  const prefix = `/orgs/${orgId}/`
+  const prefix = `/orgs/${orgId}`
   if (!pathname.startsWith(prefix)) return undefined
-  const segment = pathname.slice(prefix.length).split('/')[0]
+  const segment = pathname.slice(prefix.length).replace(/^\//, '').split('/')[0] ?? ''
   return ORG_LINKS.find((l) => l.path === segment)?.slug
+}
+
+/** Build the href for a section — the overview's empty path is the org root. */
+export function orgLinkTo(orgId: string, path: string): string {
+  return path ? `/orgs/${orgId}/${path}` : `/orgs/${orgId}`
 }
 
 /**
@@ -66,7 +118,7 @@ export function OrgNav({
           ) : (
             <Link
               key={link.slug}
-              to={`/orgs/${orgId}/${link.path}`}
+              to={orgLinkTo(orgId, link.path)}
               role="menuitem"
               className="rounded-sm px-2 py-1.5 text-muted-foreground no-underline transition-colors hover:bg-muted hover:text-accent focus-visible:bg-muted focus-visible:text-accent focus-visible:outline-none"
             >
@@ -87,7 +139,7 @@ export function OrgNav({
               </span>
             ) : (
               <Link
-                to={`/orgs/${orgId}/${link.path}`}
+                to={orgLinkTo(orgId, link.path)}
                 className="text-muted-foreground no-underline hover:text-accent"
               >
                 {link.label}

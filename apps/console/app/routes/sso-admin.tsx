@@ -1,8 +1,9 @@
 import { Button, ErrorNote, Field, Input, TokenBox, TokenValue } from '@edgevault/ui'
-import { Form, Link, redirect } from 'react-router'
+import { Form, Link } from 'react-router'
 import { Forbidden } from '../components/forbidden'
 import { cloudflareContext } from '../lib/cloudflare'
-import { getToken } from '../lib/session.server'
+import { requireOrg } from '../lib/org.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/sso-admin'
 
 /**
@@ -16,13 +17,6 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: 'Enterprise SSO · EdgeVault' }]
 }
 
-interface Org {
-  id: string
-  name: string
-  slug: string
-  role: string
-}
-
 interface ConnectionView {
   configured: boolean
   issuer?: string
@@ -31,26 +25,13 @@ interface ConnectionView {
   scopes?: string[]
 }
 
-const ADMIN_ROLES = new Set(['owner', 'admin'])
-
-async function requireOrgAdmin(token: string, orgId: string, env: Env): Promise<Org> {
-  const res = await env.API_SERVICE.fetch('https://api/api/v1/organizations', {
-    headers: { authorization: `Bearer ${token}` },
-  })
-  if (res.status === 401 || res.status === 403) throw redirect('/login')
-  const organizations = res.ok ? ((await res.json()) as { organizations: Org[] }).organizations : []
-  const org = organizations.find((o) => o.id === orgId)
-  if (!org) throw redirect('/') // not a member — reveal nothing
-  return org
-}
-
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
-  const org = await requireOrgAdmin(token, params.orgId, env)
+  const org = await requireOrg(env, token, params.orgId, request)
 
-  const isAdmin = ADMIN_ROLES.has(org.role)
+  const isAdmin = org.isAdmin
   const suggestedRedirectUri = `${new URL(request.url).origin}/sso/${params.orgId}/callback`
 
   let connection: ConnectionView = { configured: false }
@@ -73,10 +54,10 @@ function messageForStatus(status: number): string {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
-  const org = await requireOrgAdmin(token, params.orgId, env)
-  if (!ADMIN_ROLES.has(org.role)) return { error: 'Only owners or admins can configure SSO.' }
+  const org = await requireOrg(env, token, params.orgId, request)
+  if (!org.isAdmin) return { error: 'Only owners or admins can configure SSO.' }
 
   const form = await request.formData()
   const scopesRaw = String(form.get('scopes') ?? '').trim()

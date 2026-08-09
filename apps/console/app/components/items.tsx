@@ -15,7 +15,7 @@ import {
   Th,
   TwoStepConfirm,
 } from '@edgevault/ui'
-import { useEffect, useRef, useState } from 'react'
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react'
 import { Form, Link, useFetcher, useNavigate, useNavigation, useSearchParams } from 'react-router'
 import type { AcrossEnvRow, ConfigRow, DeletedRow, ItemKind, Revision } from '../lib/items.server'
 import { HeaderActions } from './header-actions'
@@ -1060,6 +1060,15 @@ function RevertControl({
 // Subtabs
 // ---------------------------------------------------------------------------
 
+/**
+ * A tablist with the keyboard behaviour the role promises.
+ *
+ * This declared `role="tablist"` while behaving like a row of buttons: every
+ * tab was a tab stop and the arrow keys did nothing. Assistive tech announces
+ * "tab, 1 of 3" and users then press Left/Right, which is a WCAG 2.1.1 failure
+ * when nothing happens. Roving tabindex fixes both halves — one stop for the
+ * group, arrows to move within it (WAI-ARIA APG, automatic activation).
+ */
 export function Subtabs({
   tabs,
   active,
@@ -1069,20 +1078,50 @@ export function Subtabs({
   active: string
   onChange: (id: string) => void
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const keys = ['ArrowRight', 'ArrowLeft', 'Home', 'End']
+    if (!keys.includes(e.key)) return
+    e.preventDefault()
+    const index = tabs.findIndex((t) => t.id === active)
+    const last = tabs.length - 1
+    const next =
+      e.key === 'Home'
+        ? 0
+        : e.key === 'End'
+          ? last
+          : e.key === 'ArrowRight'
+            ? (index + 1) % tabs.length
+            : (index - 1 + tabs.length) % tabs.length
+    const target = tabs[next]
+    if (!target) return
+    onChange(target.id)
+    // Follow focus to the newly selected tab, or the arrow keys move the
+    // selection out from under the user's focus ring.
+    ref.current?.querySelector<HTMLButtonElement>(`[data-tab-id="${target.id}"]`)?.focus()
+  }
+
   return (
-    <div className="subtabs" role="tablist">
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          aria-selected={active === t.id}
-          className={active === t.id ? 'active' : undefined}
-          onClick={() => onChange(t.id)}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div className="subtabs" role="tablist" ref={ref} onKeyDown={onKeyDown}>
+      {tabs.map((t) => {
+        const selected = active === t.id
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            data-tab-id={t.id}
+            aria-selected={selected}
+            // Roving tabindex: Tab reaches the group once, arrows move inside.
+            tabIndex={selected ? 0 : -1}
+            className={selected ? 'active' : undefined}
+            onClick={() => onChange(t.id)}
+          >
+            {t.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

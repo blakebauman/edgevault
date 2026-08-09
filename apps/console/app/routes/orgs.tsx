@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Link, NavLink, Outlet, redirect, useLocation, useRouteLoaderData } from 'react-router'
 import { VaultMark } from '../components/brand'
 import { GlobalAssistant } from '../components/global-assistant'
-import { ORG_LINKS } from '../components/org-nav'
+import { ORG_GROUPS, orgLinkTo } from '../components/org-nav'
 import {
   RoutePendingStatus,
   RouteProgress,
@@ -13,7 +13,7 @@ import {
 import { UserMenu } from '../components/user-menu'
 import { WorkspaceSwitcher } from '../components/workspace-switcher'
 import { cloudflareContext } from '../lib/cloudflare'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { loader as rootLoader } from '../root'
 import type { Route } from './+types/orgs'
 
@@ -45,6 +45,20 @@ function NavIcon({ children }: { children: ReactNode }) {
 }
 
 const ORG_ICON: Record<string, ReactNode> = {
+  overview: (
+    <>
+      <rect x="3" y="3" width="7" height="9" rx="1" />
+      <rect x="14" y="3" width="7" height="5" rx="1" />
+      <rect x="14" y="12" width="7" height="9" rx="1" />
+      <rect x="3" y="16" width="7" height="5" rx="1" />
+    </>
+  ),
+  security: (
+    <>
+      <rect x="4" y="10" width="16" height="11" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v2" />
+    </>
+  ),
   members: (
     <>
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -79,26 +93,29 @@ const ORG_ICON: Record<string, ReactNode> = {
   ),
 }
 
+/** Breadcrumb tail, keyed by path segment (the org root has none → Overview). */
 const SECTION_LABEL: Record<string, string> = {
+  '': 'Overview',
   members: 'Members',
   billing: 'Billing',
   domains: 'Domains',
-  sso: 'OIDC',
+  security: 'Security',
+  sso: 'Single sign-on',
   saml: 'SAML',
-  scim: 'SCIM',
+  scim: 'Directory sync',
 }
 
 const navClass = ({ isActive }: { isActive: boolean }) => cn('ws-nav-link', isActive && 'active')
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const res = await context
     .get(cloudflareContext)
     .env.API_SERVICE.fetch('https://api/api/v1/organizations', {
       headers: { authorization: `Bearer ${token}` },
     })
-  if (res.status === 401) throw redirect('/login')
+  if (res.status === 401) throw loginRedirect(request)
   const orgs = res.ok
     ? ((await res.json()) as { organizations: Array<{ id: string; name: string }> }).organizations
     : []
@@ -112,7 +129,8 @@ export default function OrgShell({ loaderData }: Route.ComponentProps) {
   const root = useRouteLoaderData<typeof rootLoader>('root')
   const initial = (orgName.trim()[0] ?? 'O').toUpperCase()
   const { pathname } = useLocation()
-  // The section label for the breadcrumb, from the last path segment.
+  // The section label for the breadcrumb, from the last path segment. The bare
+  // org URL has no segment and is the Overview.
   const seg = pathname.match(/\/orgs\/[^/]+\/([^/]+)/)?.[1] ?? ''
   const sectionLabel = SECTION_LABEL[seg] ?? 'Settings'
   // Mobile: the rail is an off-canvas drawer (closes on route change, Escape,
@@ -150,15 +168,24 @@ export default function OrgShell({ loaderData }: Route.ComponentProps) {
         />
 
         <nav className="ws-nav" aria-label="Organization">
-          <div className="ws-nav-group">
-            <p className="ws-nav-label">Organization</p>
-            {ORG_LINKS.map((l) => (
-              <NavLink key={l.slug} to={`/orgs/${orgId}/${l.path}`} className={navClass}>
-                <NavIcon>{ORG_ICON[l.slug]}</NavIcon>
-                {l.label}
-              </NavLink>
-            ))}
-          </div>
+          {ORG_GROUPS.map((group) => (
+            <div key={group.label} className="ws-nav-group">
+              <p className="ws-nav-label">{group.label}</p>
+              {group.links.map((l) => (
+                <NavLink
+                  key={l.slug}
+                  to={orgLinkTo(orgId, l.path)}
+                  // Overview is the index route, so only an exact match is
+                  // "current" — otherwise it stays lit on every child page.
+                  end={l.path === ''}
+                  className={navClass}
+                >
+                  <NavIcon>{ORG_ICON[l.slug]}</NavIcon>
+                  {l.label}
+                </NavLink>
+              ))}
+            </div>
+          ))}
         </nav>
 
         <div className="ws-foot">

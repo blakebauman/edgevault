@@ -1,9 +1,11 @@
 import {
   ActionGroup,
   Button,
+  Callout,
   CardTable,
   Chip,
   type ChipVariant,
+  EmptyRow,
   ErrorNote,
   Field,
   Input,
@@ -14,11 +16,11 @@ import {
   TwoStepConfirm,
 } from '@edgevault/ui'
 import { useState } from 'react'
-import { Form, redirect } from 'react-router'
+import { Form, Link, redirect } from 'react-router'
 import { LocalTime } from '../components/local-time'
 import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/members'
 
 /**
@@ -50,6 +52,42 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: 'Members · EdgeVault' }]
 }
 
+type SortKey = 'name' | 'role' | 'joined'
+type SortDir = 'asc' | 'desc'
+
+/** Owner → admin → member, so sorting by role ranks by privilege rather than
+ * alphabetically (which would put admin above owner and read as wrong). */
+const ROLE_RANK: Record<Role, number> = { owner: 0, admin: 1, member: 2 }
+
+/**
+ * Filter and sort the roster in the browser.
+ *
+ * The api returns the whole roster in one response and there is no server-side
+ * search, so doing this client-side keeps it instant and avoids a round trip
+ * per keystroke. It stays honest up to the low thousands; past that the roster
+ * needs real pagination in the api, not a bigger client-side sort.
+ */
+function visibleMembers(
+  members: Member[],
+  q: string,
+  roleFilter: string,
+  sort: SortKey,
+  dir: SortDir,
+): Member[] {
+  const needle = q.trim().toLowerCase()
+  const filtered = members.filter((m) => {
+    if (roleFilter && m.role !== roleFilter) return false
+    if (!needle) return true
+    return m.email.toLowerCase().includes(needle) || (m.name ?? '').toLowerCase().includes(needle)
+  })
+  const sign = dir === 'desc' ? -1 : 1
+  return filtered.sort((a, b) => {
+    if (sort === 'role') return sign * (ROLE_RANK[a.role] - ROLE_RANK[b.role])
+    if (sort === 'joined') return sign * (Date.parse(a.joinedAt) - Date.parse(b.joinedAt))
+    return sign * (a.name ?? a.email).localeCompare(b.name ?? b.email)
+  })
+}
+
 const ROLE_CHIP: Record<Role, ChipVariant> = {
   owner: 'kind-flag',
   admin: 'kind-config',
@@ -58,12 +96,12 @@ const ROLE_CHIP: Record<Role, ChipVariant> = {
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}` }
 
   const orgsRes = await env.API_SERVICE.fetch('https://api/api/v1/organizations', { headers })
-  if (orgsRes.status === 401) throw redirect('/login')
+  if (orgsRes.status === 401) throw loginRedirect(request)
   const organizations = orgsRes.ok
     ? ((await orgsRes.json()) as { organizations: Array<{ id: string; name: string }> })
         .organizations
@@ -100,6 +138,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     }
   }
 
+  const url = new URL(request.url)
   return {
     org,
     members: body.members,
@@ -107,12 +146,16 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     viewerId: body.viewerId,
     invitations,
     security,
+    q: url.searchParams.get('q') ?? '',
+    roleFilter: url.searchParams.get('role') ?? '',
+    sort: (url.searchParams.get('sort') ?? 'name') as SortKey,
+    dir: (url.searchParams.get('dir') ?? 'asc') as SortDir,
   }
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
   const base = `https://api/api/v1/organizations/${params.orgId}/members`
@@ -174,32 +217,32 @@ export async function action({ request, params, context }: Route.ActionArgs) {
     return { error: detail ?? friendlyError(res.status, 'removing the member') }
   }
 
-  if (intent === 'security') {
-    const res = await env.API_SERVICE.fetch(
-      `https://api/api/v1/organizations/${params.orgId}/security`,
-      {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({
-          requireStepUpForReveal: form.get('requireStepUpForReveal') === 'on',
-          requireMfa: form.get('requireMfa') === 'on',
-          ssoOnly: form.get('ssoOnly') === 'on',
-        }),
-      },
-    )
-    if (res.ok) return { securitySaved: true as const }
-    const detail = ((await res.json().catch(() => null)) as { detail?: string } | null)?.detail
-    return { error: detail ?? friendlyError(res.status, 'updating the security policy') }
-  }
-
+  // The `security` intent moved to routes/org.security.tsx — the roster page
+  // is no longer where org-wide policy is edited.
   return { error: 'Unknown action' }
 }
 
 export default function Members({ loaderData, actionData }: Route.ComponentProps) {
-  const { org, members, role, viewerId, invitations, security } = loaderData
+  const { org, members, role, viewerId, invitations, security, q, roleFilter, sort, dir } =
+    loaderData
   const isAdmin = role === 'owner' || role === 'admin'
   const isOwner = role === 'owner'
+  // Counted across the whole roster, not the filtered view — the last-owner
+  // guard must not relax just because a search hid the other owners.
   const ownerCount = members.filter((m) => m.role === 'owner').length
+  const shown = visibleMembers(members, q, roleFilter, sort, dir)
+  const narrowed = Boolean(q || roleFilter)
+
+  /** Sorting is a link, so a filtered+sorted roster is a shareable URL. */
+  const sortHref = (key: SortKey) => {
+    const next = new URLSearchParams()
+    if (q) next.set('q', q)
+    if (roleFilter) next.set('role', roleFilter)
+    next.set('sort', key)
+    next.set('dir', sort === key && dir === 'asc' ? 'desc' : 'asc')
+    return `?${next}`
+  }
+  const sortState = (key: SortKey) => (sort === key ? dir : 'none')
 
   return (
     <section className="panel">
@@ -223,21 +266,66 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
       {actionData && 'revoked' in actionData && <StatusNote>Invitation revoked.</StatusNote>}
       {actionData && 'roleChanged' in actionData && <StatusNote>Role updated.</StatusNote>}
       {actionData && 'removed' in actionData && <StatusNote>Member removed.</StatusNote>}
-      {actionData && 'securitySaved' in actionData && (
-        <StatusNote>Security policy updated.</StatusNote>
-      )}
 
-      <CardTable label="Members">
+      <Form method="get" className="my-5 flex flex-wrap items-end gap-3">
+        <Field label="Search">
+          <Input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Name or email"
+            aria-label="Search members by name or email"
+          />
+        </Field>
+        <Field label="Role">
+          <Select name="role" defaultValue={roleFilter}>
+            <option value="">All roles</option>
+            <option value="owner">owner</option>
+            <option value="admin">admin</option>
+            <option value="member">member</option>
+          </Select>
+        </Field>
+        <input type="hidden" name="sort" value={sort} />
+        <input type="hidden" name="dir" value={dir} />
+        <Button type="submit" variant="secondary">
+          Filter
+        </Button>
+        {narrowed && (
+          <Button variant="linklike" size="compact" asChild className="pb-1.5">
+            <Link to="?">Clear</Link>
+          </Button>
+        )}
+      </Form>
+
+      <p className="mb-3 text-sm tabular-figures text-muted-foreground">
+        {narrowed
+          ? `Showing ${shown.length} of ${members.length} members`
+          : `${members.length} member${members.length === 1 ? '' : 's'}`}
+      </p>
+
+      <CardTable label="Members" stickyHeader>
         <thead>
           <tr>
-            <Th>Member</Th>
-            <Th>Role</Th>
-            <Th>Joined</Th>
+            <Th sort={sortState('name')}>
+              <Link to={sortHref('name')} className="sort-link">
+                Member
+              </Link>
+            </Th>
+            <Th sort={sortState('role')}>
+              <Link to={sortHref('role')} className="sort-link">
+                Role
+              </Link>
+            </Th>
+            <Th sort={sortState('joined')}>
+              <Link to={sortHref('joined')} className="sort-link">
+                Joined
+              </Link>
+            </Th>
             <Th />
           </tr>
         </thead>
         <tbody>
-          {members.map((m) => {
+          {shown.map((m) => {
             const isSelf = m.userId === viewerId
             // The last owner can't be demoted or removed — match the api guard
             // so the UI never offers an action that will 409.
@@ -293,6 +381,20 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
               </tr>
             )
           })}
+          {shown.length === 0 && (
+            <EmptyRow
+              colSpan={4}
+              title="No members match"
+              action={
+                <Button variant="secondary" size="compact" asChild>
+                  <Link to="?">Clear filters</Link>
+                </Button>
+              }
+            >
+              Nobody in this organization matches that search. Someone invited but not yet signed up
+              appears under pending invitations, not here.
+            </EmptyRow>
+          )}
         </tbody>
       </CardTable>
 
@@ -377,43 +479,11 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
         </>
       )}
 
-      {isAdmin && (
-        <>
-          <h2>Security</h2>
-          {!security.requireStepUpForReveal && (
-            <StatusNote>
-              Secrets in this organization can currently be revealed without a fresh second factor.
-              New organizations require step-up by default — consider turning it on.
-            </StatusNote>
-          )}
-          <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-            Step-up asks for a fresh second factor (passkey or authenticator code) before any secret
-            is revealed — being signed in isn't enough. Machine API keys (CLI / CI) are unaffected.
-            Require-MFA and SSO-only gate every member's access to this organization at sign-in.
-          </p>
-          <Form method="post" className="mt-4 flex flex-col gap-2">
-            <input type="hidden" name="intent" value="security" />
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="requireStepUpForReveal"
-                defaultChecked={security.requireStepUpForReveal}
-              />
-              Require step-up to reveal secrets
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="requireMfa" defaultChecked={security.requireMfa} />
-              Require two-factor auth (TOTP or passkey) for all members
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="ssoOnly" defaultChecked={security.ssoOnly} />
-              SSO-only — members must sign in through this org's identity provider
-            </label>
-            <Button type="submit" variant="secondary" size="compact" className="self-start">
-              Save
-            </Button>
-          </Form>
-        </>
+      {isAdmin && !security.requireStepUpForReveal && (
+        <Callout tone="warn" className="mt-8">
+          Secrets in this organization can be revealed without a fresh second factor.{' '}
+          <Link to={`/orgs/${org.id}/security`}>Review security policy</Link>.
+        </Callout>
       )}
 
       {!isAdmin && (

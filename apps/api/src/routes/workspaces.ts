@@ -14,7 +14,7 @@ import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 import { aiRunner, embeddingModel, indexConfig, unindexConfig, vectorize } from '../ai'
 import { configChangeEvent, emitAudit, promoteEvent, revealEvent } from '../audit'
-import { queryAuditHistory } from '../audit-query'
+import { type AuditQuery, buildAuditExport, queryAuditHistory } from '../audit-query'
 import { deletePageThrough, publishWithRender } from '../content-render'
 import type { AppEnv } from '../context'
 import {
@@ -53,6 +53,27 @@ function stubFor(c: Context<AppEnv>, workspaceId: string): DurableObjectStub<Vau
 /** Never return secret plaintext over the API (envelope decryption is gated, Phase 9). */
 function redact(item: ConfigItem): ConfigItem {
   return item.kind === 'secret' ? { ...item, content: '' } : item
+}
+
+/**
+ * Read the audit filters off the query string. Shared by the table view and the
+ * export so a download always covers exactly the query on screen.
+ *
+ * `workspaceId` is passed in rather than read off `c`: a bare `Context<AppEnv>`
+ * has no route-param typing, so `c.req.param()` would widen to
+ * `string | undefined` here even though the route guarantees it.
+ */
+function auditQueryFromRequest(c: Context<AppEnv>, workspaceId: string): AuditQuery {
+  return {
+    workspaceId,
+    from: c.req.query('from'),
+    to: c.req.query('to'),
+    environmentId: c.req.query('env'),
+    action: c.req.query('action'),
+    resourceType: c.req.query('resourceType'),
+    userId: c.req.query('actor'),
+    limit: c.req.query('limit') ? Number(c.req.query('limit')) : undefined,
+  }
 }
 
 const kindSchema = z.enum(['config', 'flag', 'secret', 'content'])
@@ -592,10 +613,32 @@ export const workspaceRoutes = new Hono<AppEnv>()
       if (c.var.role !== 'owner' && c.var.role !== 'admin') {
         return c.json({ error: 'forbidden', detail: 'resolving a promotion requires admin' }, 403)
       }
-      const instance = await c.env.PROMOTION_WORKFLOW.get(c.req.param('instanceId'))
+      const instanceId = c.req.param('instanceId')
+      const approved = c.req.valid('json').approved
+
+      // Separation of duties: the gate is only a control if a second person
+      // passes it. Rejecting your own request is fine — withdrawing a change
+      // you proposed needs no independent eye; approving it does.
+      if (approved) {
+        const promotion = await stubFor(
+          c,
+          c.req.param('workspaceId'),
+        ).getPromotionByWorkflowInstance(instanceId)
+        if (promotion && promotion.createdBy === c.var.userId) {
+          return c.json(
+            {
+              error: 'self_approval',
+              detail: 'a promotion must be approved by someone other than the member who opened it',
+            },
+            409,
+          )
+        }
+      }
+
+      const instance = await c.env.PROMOTION_WORKFLOW.get(instanceId)
       await instance.sendEvent({
         type: 'promotion-approval',
-        payload: { approved: c.req.valid('json').approved, by: c.var.userId },
+        payload: { approved, by: c.var.userId },
       })
       return c.json({ ok: true })
     },
@@ -624,19 +667,22 @@ export const workspaceRoutes = new Hono<AppEnv>()
   // Cold audit history from the R2 warehouse (infinite retention). ?from&to are
   // YYYY-MM-DD (default last 7 days); ?env restricts to one environment.
   .get('/:workspaceId/audit', async (c) => {
-    const { events, total } = await queryAuditHistory(c.env.AUDIT_BUCKET, {
-      workspaceId: c.req.param('workspaceId'),
-      from: c.req.query('from'),
-      to: c.req.query('to'),
-      environmentId: c.req.query('env'),
-      limit: c.req.query('limit') ? Number(c.req.query('limit')) : undefined,
-    })
-    // Same batched name resolution as /activity — audit answers "who".
-    const ids = [...new Set(events.map((e) => e.userId).filter(Boolean))]
+    const { events, total, facets } = await queryAuditHistory(
+      c.env.AUDIT_BUCKET,
+      auditQueryFromRequest(c, c.req.param('workspaceId')),
+    )
+    // Same batched name resolution as /activity — audit answers "who". Facet
+    // ids get names too, so the actor filter reads as people, not uuids.
+    const ids = [...new Set([...events.map((e) => e.userId), ...facets.userIds].filter(Boolean))]
     const actors = await getUserDisplayNames(c.var.database, ids)
     return c.json({
       events: events.map((e) => ({ ...e, actor: actors.get(e.userId) ?? null })),
       total,
+      facets: {
+        actions: facets.actions,
+        resourceTypes: facets.resourceTypes,
+        actors: facets.userIds.map((id) => ({ userId: id, actor: actors.get(id) ?? null })),
+      },
     })
   })
   // Compliance export: the raw warehouse NDJSON for a date range, with a
@@ -648,16 +694,13 @@ export const workspaceRoutes = new Hono<AppEnv>()
       return c.json({ error: 'forbidden', detail: 'audit export requires admin' }, 403)
     }
     const workspaceId = c.req.param('workspaceId')
+    // The export carries the same filters the reviewer was looking at, so the
+    // file matches the on-screen query rather than silently widening it.
     const { events } = await queryAuditHistory(c.env.AUDIT_BUCKET, {
-      workspaceId,
-      from: c.req.query('from'),
-      to: c.req.query('to'),
-      environmentId: c.req.query('env'),
+      ...auditQueryFromRequest(c, workspaceId),
       limit: 1000000,
     })
-    const ndjson = events.map((e) => JSON.stringify(e)).join('\n')
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ndjson))
-    const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+    const { ndjson, sha256 } = await buildAuditExport(events)
 
     c.executionCtx.waitUntil(
       emitAudit(c.env, {
@@ -672,7 +715,7 @@ export const workspaceRoutes = new Hono<AppEnv>()
       headers: {
         'content-type': 'application/x-ndjson',
         'content-disposition': `attachment; filename="edgevault-audit-${workspaceId}.ndjson"`,
-        'x-content-sha256': hex,
+        'x-content-sha256': sha256,
         'x-audit-event-count': String(events.length),
       },
     })

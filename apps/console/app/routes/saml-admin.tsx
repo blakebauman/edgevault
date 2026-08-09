@@ -1,8 +1,18 @@
-import { Button, ErrorNote, Field, Input, Textarea, TokenBox, TokenValue } from '@edgevault/ui'
-import { Form, Link, redirect } from 'react-router'
+import {
+  Button,
+  Callout,
+  ErrorNote,
+  Field,
+  Input,
+  Textarea,
+  TokenBox,
+  TokenValue,
+} from '@edgevault/ui'
+import { Form, Link } from 'react-router'
 import { Forbidden } from '../components/forbidden'
 import { cloudflareContext } from '../lib/cloudflare'
-import { getToken } from '../lib/session.server'
+import { requireOrg } from '../lib/org.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/saml-admin'
 
 /**
@@ -15,13 +25,6 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: 'Enterprise SSO (SAML) · EdgeVault' }]
 }
 
-interface Org {
-  id: string
-  name: string
-  slug: string
-  role: string
-}
-
 interface ConnectionView {
   configured: boolean
   idpEntityId?: string
@@ -30,26 +33,13 @@ interface ConnectionView {
   acsUrl?: string
 }
 
-const ADMIN_ROLES = new Set(['owner', 'admin'])
-
-async function requireOrgAdmin(token: string, orgId: string, env: Env): Promise<Org> {
-  const res = await env.API_SERVICE.fetch('https://api/api/v1/organizations', {
-    headers: { authorization: `Bearer ${token}` },
-  })
-  if (res.status === 401 || res.status === 403) throw redirect('/login')
-  const organizations = res.ok ? ((await res.json()) as { organizations: Org[] }).organizations : []
-  const org = organizations.find((o) => o.id === orgId)
-  if (!org) throw redirect('/')
-  return org
-}
-
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
-  const org = await requireOrgAdmin(token, params.orgId, env)
+  const org = await requireOrg(env, token, params.orgId, request)
 
-  const isAdmin = ADMIN_ROLES.has(org.role)
+  const isAdmin = org.isAdmin
   const origin = new URL(request.url).origin
   const suggestedAcsUrl = `${origin}/saml/${params.orgId}/acs`
   const suggestedSpEntityId = `${origin}/saml/${params.orgId}/metadata`
@@ -73,10 +63,10 @@ function messageForStatus(status: number): string {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
-  const org = await requireOrgAdmin(token, params.orgId, env)
-  if (!ADMIN_ROLES.has(org.role)) return { error: 'Only owners or admins can configure SSO.' }
+  const org = await requireOrg(env, token, params.orgId, request)
+  if (!org.isAdmin) return { error: 'Only owners or admins can configure SSO.' }
 
   const form = await request.formData()
   const body = {
@@ -121,6 +111,12 @@ export default function SamlAdmin({ loaderData, actionData }: Route.ComponentPro
             Register your SAML identity provider. Give your IdP the SP values below, then paste the
             IdP’s metadata values (entity id, SSO URL, signing certificate) here.
           </p>
+          <Callout tone="warn" className="mt-4">
+            SAML assertion signature verification is implemented — including replay protection and a
+            hard assertion-lifetime cap — but the XML signature code has not yet had an external
+            audit. <Link to={`/orgs/${org.id}/sso`}>OIDC</Link> is the supported path for production
+            single sign-on until it has.
+          </Callout>
           {saved && (
             <p className="text-muted-foreground">
               Connection saved. Members can now sign in via SAML.

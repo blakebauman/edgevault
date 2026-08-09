@@ -14,10 +14,10 @@ import {
   TwoStepConfirm,
 } from '@edgevault/ui'
 import { useState } from 'react'
-import { Form, redirect, useNavigation, useSearchParams } from 'react-router'
+import { Form, useNavigation, useSearchParams } from 'react-router'
 import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import { getWorkspaceName } from '../lib/workspace.server'
 import type { Route } from './+types/dashboard.compare'
 
@@ -90,7 +90,7 @@ export function meta(_: Route.MetaArgs) {
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
 
   const env = context.get(cloudflareContext).env
   const base = `https://api/api/v1/workspaces/${params.workspaceId}`
@@ -101,7 +101,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
     env.API_SERVICE.fetch(`${base}/environments/matrix`, { headers }),
     getWorkspaceName(env, token, params.workspaceId),
   ])
-  if (envRes.status === 401 || envRes.status === 403) throw redirect('/login')
+  if (envRes.status === 401 || envRes.status === 403) throw loginRedirect(request)
   const environments = envRes.ok
     ? ((await envRes.json()) as { environments: EnvironmentSummary[] }).environments
     : []
@@ -140,7 +140,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
 
   const form = await request.formData()
 

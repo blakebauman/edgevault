@@ -1,9 +1,9 @@
 import { Button, CardTable, ErrorNote, Field, Input, StatusNote, Td, Th } from '@edgevault/ui'
-import { Form, Link, redirect, useNavigation } from 'react-router'
+import { Form, Link, useNavigation } from 'react-router'
 import { HeaderActions } from '../components/header-actions'
 import { cloudflareContext } from '../lib/cloudflare'
 import { friendlyError } from '../lib/errors'
-import { getToken } from '../lib/session.server'
+import { getToken, loginRedirect } from '../lib/session.server'
 import type { Route } from './+types/workspace.environments'
 
 /**
@@ -20,14 +20,14 @@ export function meta() {
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}` }
   const res = await env.API_SERVICE.fetch(
     `https://api/api/v1/workspaces/${params.workspaceId}/environments`,
     { headers },
   )
-  if (res.status === 401 || res.status === 403) throw redirect('/login')
+  if (res.status === 401 || res.status === 403) throw loginRedirect(request)
   const environments = res.ok
     ? ((await res.json()) as { environments: EnvSummary[] }).environments
     : []
@@ -36,7 +36,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
 export async function action({ request, params, context }: Route.ActionArgs) {
   const token = await getToken(request, context.get(cloudflareContext).env)
-  if (!token) throw redirect('/login')
+  if (!token) throw loginRedirect(request)
   const env = context.get(cloudflareContext).env
   const headers = { authorization: `Bearer ${token}`, 'content-type': 'application/json' }
   const form = await request.formData()
