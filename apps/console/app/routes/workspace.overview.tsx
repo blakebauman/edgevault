@@ -190,6 +190,21 @@ function describeActivity(entry: ActivityEntry, envSlug: (id: string) => string)
   return `${humanizeAction(entry.action)} · ${resource}`
 }
 
+/**
+ * The realtime socket's own vocabulary, in words a user can act on.
+ *
+ * `closed` was rendered raw and coloured with --destructive, so a socket that
+ * simply hadn't connected yet announced itself in red next to "Recent
+ * activity" — a resting state dressed as a failure. The feed is still correct
+ * when the socket is down; it just stops updating on its own, which is a
+ * caution at most.
+ */
+const LIVE_LABEL: Record<string, string> = {
+  open: 'live',
+  connecting: 'connecting',
+  closed: 'not live',
+}
+
 const PROMOTION_CHIP: Record<PromotionRow['status'], ChipVariant> = {
   completed: 'ok',
   pending: 'warn',
@@ -273,7 +288,7 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
               <h2>Recent activity</h2>
               <span className={`dot ${status}`} role="status">
                 <span aria-hidden="true">● </span>
-                {status}
+                {LIVE_LABEL[status] ?? status}
               </span>
               <Link className="more" to={`/dashboard/${workspaceId}/audit`}>
                 Audit log
@@ -362,6 +377,11 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
               </Link>
             </div>
             <div className="ov-panel-body">
+              {scores.length > 0 && (
+                // Three bare numbers per row relied on a hover title, which is
+                // invisible on a dashboard. Label the columns once instead.
+                <p className="envmini-legend">configs · flags · secrets</p>
+              )}
               {scores.length === 0 ? (
                 <p className="m-0 text-sm text-muted-foreground">
                   No environments yet —{' '}
@@ -374,7 +394,7 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
                     <span className="nm">
                       <Link to={`/dashboard/${workspaceId}/env/${s.id}/config`}>{s.name}</Link>
                     </span>
-                    <span className="ct" title="configs · flags · secrets">
+                    <span className="ct">
                       {s.configs} · {s.flags} · {s.secrets}
                     </span>
                     <Button variant="secondary" size="compact" asChild>
@@ -405,7 +425,7 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
               </div>
               <div className="fact">
                 <span className="lbl">Live updates</span>
-                <span className="val">{status}</span>
+                <span className="val">{LIVE_LABEL[status] ?? status}</span>
               </div>
             </div>
           </div>

@@ -245,7 +245,7 @@
   }
 
   .dot.closed {
-    color: var(--destructive);
+    color: var(--muted-foreground);
   }
 
   @media (max-width: 640px) {
@@ -1174,6 +1174,18 @@
   }
   .ov-panel-body .feed {
     margin: 0.5rem 0 0;
+  }
+
+  /* Column labels for the counts, matching the row's own alignment. */
+  .envmini-legend {
+    margin: 0 0 0.15rem;
+    text-align: right;
+    padding-right: 5.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted-foreground-subtle);
   }
 
   .envmini {
