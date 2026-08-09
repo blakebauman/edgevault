@@ -66,12 +66,19 @@ function TwoStepConfirm({
   )
 }
 
-/** The un-armed action group: same fixed metrics as the armed confirm row. */
+/**
+ * A row of actions that wraps rather than forcing its container wider.
+ *
+ * This used to be `flex-nowrap` above the small breakpoint, so a row of four
+ * item actions set a min-content width the column could not honour: in the
+ * list + detail split the items table needed 720px inside a 661px column,
+ * overflowed, and clipped the last button. Horizontal scrolling to reach
+ * Delete is not a real affordance, and the wrap costs nothing when there is
+ * room, because the group only takes a second line once it genuinely runs out.
+ */
 function ActionGroup({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={cn('flex min-h-8 flex-nowrap items-center gap-2 max-sm:flex-wrap', className)}>
-      {children}
-    </div>
+    <div className={cn('flex min-h-8 flex-wrap items-center gap-2', className)}>{children}</div>
   )
 }
 
