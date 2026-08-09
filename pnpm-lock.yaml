@@ -235,6 +235,9 @@ importers:
       '@edgevault/crypto':
         specifier: workspace:*
         version: link:../../packages/crypto
+      '@edgevault/edge-protocol':
+        specifier: workspace:*
+        version: link:../../packages/edge-protocol
       '@edgevault/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
