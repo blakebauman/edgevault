@@ -7,6 +7,7 @@ import {
   getMfaToken,
   ipHeaders,
   safeRelativePath,
+  setAuthSessionCookie,
   setTokenCookie,
 } from '../lib/session.server'
 import type { Route } from './+types/login.mfa'
@@ -57,6 +58,7 @@ export async function action({ request, context }: Route.ActionArgs) {
 
   const headers = new Headers()
   headers.append('Set-Cookie', setTokenCookie(token, request))
+  headers.append('Set-Cookie', setAuthSessionCookie(cookie, request))
   headers.append('Set-Cookie', clearMfaCookie(request))
   return redirect(next, { headers })
 }

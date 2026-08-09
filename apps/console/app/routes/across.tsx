@@ -9,7 +9,7 @@ import type { Route } from './+types/across'
  * environment loads on demand without a full navigation.
  */
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) return { key: params.key, environments: [] }
   return loadAcrossEnvironments(
     context.get(cloudflareContext).env,

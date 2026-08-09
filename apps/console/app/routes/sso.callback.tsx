@@ -1,6 +1,11 @@
 import { redirect } from 'react-router'
 import { cloudflareContext } from '../lib/cloudflare'
-import { clearSsoCookie, getSsoTransaction, setTokenCookie } from '../lib/session.server'
+import {
+  clearSsoCookie,
+  getSsoTransaction,
+  setAuthSessionCookie,
+  setTokenCookie,
+} from '../lib/session.server'
 import type { Route } from './+types/sso.callback'
 
 /**
@@ -59,6 +64,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 
   const headers = new Headers()
   headers.append('Set-Cookie', setTokenCookie(token, request))
+  headers.append('Set-Cookie', setAuthSessionCookie(cookie, request))
   headers.append('Set-Cookie', clearSsoCookie(request))
   return redirect(tx.next ?? '/', { headers })
 }

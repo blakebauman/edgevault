@@ -32,7 +32,7 @@ export function meta() {
 }
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) throw redirect('/login')
   const base = `/${params.workspaceId}`
   const apiKeys = await loadApiKeys(context.get(cloudflareContext).env, token, base, params.envId)

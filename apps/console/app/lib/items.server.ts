@@ -155,7 +155,7 @@ export async function loadSection(args: {
   kind: ItemKind
 }) {
   const { request, env, workspaceId, envId, kind } = args
-  const token = getToken(request)
+  const token = await getToken(request, env)
   if (!token) throw redirect('/login')
   const base = `/${workspaceId}`
   const historyKey = new URL(request.url).searchParams.get('history')
@@ -178,7 +178,7 @@ export async function handleItemAction(
   workspaceId: string,
   envId: string,
 ) {
-  const token = getToken(request)
+  const token = await getToken(request, env)
   if (!token) throw redirect('/login')
   const base = `/${workspaceId}`
   const form = await request.formData()

@@ -25,7 +25,7 @@ export function meta(_: Route.MetaArgs) {
 }
 
 export async function loader({ request, params, context }: Route.LoaderArgs) {
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   // Sign in (or sign up) first, then come straight back here.
   if (!token) throw redirect(`/login?next=${encodeURIComponent(`/invite/${params.id}`)}`)
 
@@ -43,7 +43,7 @@ export async function loader({ request, params, context }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params, context }: Route.ActionArgs) {
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) throw redirect(`/login?next=${encodeURIComponent(`/invite/${params.id}`)}`)
 
   const res = await context

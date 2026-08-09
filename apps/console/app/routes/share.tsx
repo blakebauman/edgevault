@@ -18,14 +18,14 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: 'Share a secret · EdgeVault' }]
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
-  const token = getToken(request)
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) throw redirect('/login')
   return null
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) throw redirect('/login')
   const form = await request.formData()
   const res = await context

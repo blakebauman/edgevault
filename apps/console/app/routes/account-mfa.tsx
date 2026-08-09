@@ -37,7 +37,7 @@ interface SessionRow {
 }
 
 export async function loader({ request, context }: Route.LoaderArgs) {
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) throw redirect('/login')
   const env = context.get(cloudflareContext).env
   const [statusRes, sessionsRes] = await Promise.all([
@@ -58,7 +58,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 }
 
 export async function action({ request, context }: Route.ActionArgs) {
-  const token = getToken(request)
+  const token = await getToken(request, context.get(cloudflareContext).env)
   if (!token) throw redirect('/login')
   const env = context.get(cloudflareContext).env
   const form = await request.formData()
