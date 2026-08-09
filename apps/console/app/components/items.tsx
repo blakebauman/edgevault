@@ -10,6 +10,7 @@ import {
   Field,
   Input,
   Select,
+  Skeleton,
   StatusNote,
   Td,
   Textarea,
@@ -931,8 +932,20 @@ function ItemDetail({
                 )
               })}
             </div>
+          ) : matrixLoading ? (
+            // Holds the shape of the rows being fetched. The previous single
+            // line of "Loading…" collapsed the panel and then jumped when the
+            // environments arrived.
+            <div className="env-across" role="status" aria-label="Loading environments">
+              {['a', 'b', 'c'].map((id) => (
+                <div key={id} className="env-row">
+                  <Skeleton className="h-3 w-20" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              ))}
+            </div>
           ) : (
-            <p className="m-0 text-sm text-muted-foreground">{matrixLoading ? 'Loading…' : '—'}</p>
+            <p className="m-0 text-sm text-muted-foreground">—</p>
           )}
         </div>
 

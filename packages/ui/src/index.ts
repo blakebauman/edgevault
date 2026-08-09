@@ -13,7 +13,7 @@ export {
   StatusNote,
   Textarea,
 } from './components/form'
-export { Skeleton, SkeletonRows } from './components/skeleton'
+export { Skeleton } from './components/skeleton'
 export { TokenBox, TokenValue } from './components/token-box'
 export { ActionGroup, TwoStepConfirm } from './components/two-step-confirm'
 export { cn } from './lib/cn'
