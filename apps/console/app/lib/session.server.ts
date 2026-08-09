@@ -64,9 +64,41 @@ function readAccessCookie(request: Request): string | null {
 }
 
 /**
+ * Is this access token structurally a JWT that hasn't expired?
+ *
+ * Deliberately *not* a signature check. Authorization is enforced at the api,
+ * which verifies every token against auth's JWKS — the console is a BFF whose
+ * only decision here is "render, or send them to sign in", and a forged token
+ * buys nothing but an empty page shell that 401s on its first api call. Pulling
+ * `jose` + JWKS fetching into the console to re-litigate that would be cost
+ * without a threat.
+ *
+ * What it does buy: the console stops treating *cookie present* as *usable*.
+ * Before this, a junk or stale `ev_console` sailed past every
+ * `if (!token) throw redirect('/login')` and rendered a page that could not
+ * work. Now such a token falls through to the re-mint path, which either
+ * produces a real one from `ev_sess` or reports no session at all.
+ *
+ * The 30s skew allowance keeps a token that is about to lapse from being
+ * discarded mid-request.
+ */
+function looksUsable(token: string): boolean {
+  const payload = token.split('.')[1]
+  if (!payload) return false
+  try {
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    const { exp } = JSON.parse(json) as { exp?: unknown }
+    if (typeof exp !== 'number') return false
+    return exp * 1000 > Date.now() + 30_000
+  } catch {
+    return false
+  }
+}
+
+/**
  * The console's access token for this request.
  *
- * Returns the cookied token when it's still there, and otherwise mints a fresh
+ * Returns the cookied token when it's still usable, and otherwise mints a fresh
  * one from the stored auth session — so a 15-minute token expiry is invisible
  * rather than a sign-out. The re-mint is a service-binding call to auth (same
  * colo, and auth caches session validation), and the result is deliberately not
@@ -74,12 +106,18 @@ function readAccessCookie(request: Request): string | null {
  * threading them, and re-minting once per request after the token lapses is
  * cheaper than that plumbing.
  *
+ * "Usable" is checked, not assumed — see `looksUsable`. A junk or stale
+ * `ev_console` used to satisfy every `if (!token) throw redirect('/login')` and
+ * render a page that could not work; it now falls through to the re-mint, which
+ * is also what rescues a token that outlived its cookie (clock skew, or a client
+ * that kept the cookie past Max-Age).
+ *
  * Returns null only when there is genuinely no session — the callers' existing
  * `if (!token) throw redirect('/login')` then means what it says.
  */
 export async function getToken(request: Request, env: Env): Promise<string | null> {
   const cookied = readAccessCookie(request)
-  if (cookied) return cookied
+  if (cookied && looksUsable(cookied)) return cookied
 
   const session = getAuthSessionCookie(request)
   if (!session) return null
