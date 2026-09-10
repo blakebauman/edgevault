@@ -25,8 +25,8 @@ catalogs:
       specifier: ^0.45.2
       version: 0.45.2
     hono:
-      specifier: ^4.13.1
-      version: 4.13.1
+      specifier: ^4.13.5
+      version: 4.13.7
     jose:
       specifier: ^6.2.8
       version: 6.2.8
@@ -117,10 +117,10 @@ importers:
         version: link:../../packages/scim
       '@hono/zod-openapi':
         specifier: ^1.5.2
-        version: 1.5.2(hono@4.13.1)(zod@4.4.3)
+        version: 1.5.2(hono@4.13.7)(zod@4.4.3)
       '@hono/zod-validator':
         specifier: 'catalog:'
-        version: 0.9.0(hono@4.13.1)(zod@4.4.3)
+        version: 0.9.0(hono@4.13.7)(zod@4.4.3)
       agents:
         specifier: 'catalog:'
         version: 0.16.2(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/ai-chat@0.8.6)(@cloudflare/workers-types@4.20260620.1)(ai@6.0.208(zod@4.4.3))(react@19.2.8)(rolldown@1.2.3)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.11)(yaml@2.9.0))(zod@4.4.3)
@@ -132,7 +132,7 @@ importers:
         version: 0.45.2(@cloudflare/workers-types@4.20260620.1)(@opentelemetry/api@1.9.1)(@types/pg@8.21.0)(pg@8.22.0)(sql.js@1.14.1)
       hono:
         specifier: 'catalog:'
-        version: 4.13.1
+        version: 4.13.7
       workers-ai-provider:
         specifier: 3.2.0
         version: 3.2.0(patch_hash=a569dc1aed265327b3be0505a63458fb1ad5dfe2f4e08e17f447c4acd6189049)(@ai-sdk/anthropic@3.0.107(zod@4.4.3))(@ai-sdk/provider@4.0.7)(ai@6.0.208(zod@4.4.3))
@@ -197,7 +197,7 @@ importers:
         version: link:../../packages/sso-saml
       '@hono/zod-validator':
         specifier: 'catalog:'
-        version: 0.9.0(hono@4.13.1)(zod@4.4.3)
+        version: 0.9.0(hono@4.13.7)(zod@4.4.3)
       '@simplewebauthn/server':
         specifier: ^13.3.2
         version: 13.3.2
@@ -206,7 +206,7 @@ importers:
         version: 0.45.2(@cloudflare/workers-types@4.20260620.1)(@opentelemetry/api@1.9.1)(@types/pg@8.21.0)(pg@8.22.0)(sql.js@1.14.1)
       hono:
         specifier: 'catalog:'
-        version: 4.13.1
+        version: 4.13.7
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -340,7 +340,7 @@ importers:
         version: link:../../packages/edge-protocol
       hono:
         specifier: 'catalog:'
-        version: 4.13.1
+        version: 4.13.7
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
@@ -402,7 +402,7 @@ importers:
         version: link:../../packages/edge-protocol
       hono:
         specifier: 'catalog:'
-        version: 4.13.1
+        version: 4.13.7
     devDependencies:
       '@edgevault/typescript-config':
         specifier: workspace:*
@@ -2793,6 +2793,7 @@ packages:
   '@xmldom/xmldom@0.9.10':
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -3578,8 +3579,8 @@ packages:
   hastscript@9.0.1:
     resolution: {integrity: sha512-g7df9rMFX/SPi34tyGCyUBREQoKkapwdY/T04Qn9TDWfHhAYt4/I0gMVirzK5wEzeUqIjEB+LXC/ypb7Aqno5w==}
 
-  hono@4.13.1:
-    resolution: {integrity: sha512-kdJoFVv2xmayw6cY09H7AbMJMt8Jn5jdlEdXsP7AGBdF2DIptVlKlOLKXP41yPip4/a3yQPv9gVcJYI8YY04dw==}
+  hono@4.13.7:
+    resolution: {integrity: sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@3.0.3:
@@ -6046,21 +6047,21 @@ snapshots:
 
   '@hexagon/base64@1.1.28': {}
 
-  '@hono/node-server@1.19.17(hono@4.13.1)':
+  '@hono/node-server@1.19.17(hono@4.13.7)':
     dependencies:
-      hono: 4.13.1
+      hono: 4.13.7
 
-  '@hono/zod-openapi@1.5.2(hono@4.13.1)(zod@4.4.3)':
+  '@hono/zod-openapi@1.5.2(hono@4.13.7)(zod@4.4.3)':
     dependencies:
       '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
-      '@hono/zod-validator': 0.9.0(hono@4.13.1)(zod@4.4.3)
-      hono: 4.13.1
+      '@hono/zod-validator': 0.9.0(hono@4.13.7)(zod@4.4.3)
+      hono: 4.13.7
       openapi3-ts: 4.6.1
       zod: 4.4.3
 
-  '@hono/zod-validator@0.9.0(hono@4.13.1)(zod@4.4.3)':
+  '@hono/zod-validator@0.9.0(hono@4.13.7)(zod@4.4.3)':
     dependencies:
-      hono: 4.13.1
+      hono: 4.13.7
       zod: 4.4.3
 
   '@img/colour@1.1.0': {}
@@ -6321,7 +6322,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0(@cfworker/json-schema@4.1.1)(zod@4.4.3)':
     dependencies:
-      '@hono/node-server': 1.19.17(hono@4.13.1)
+      '@hono/node-server': 1.19.17(hono@4.13.7)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -6331,7 +6332,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1
       express-rate-limit: 8.6.2(express@5.2.1)
-      hono: 4.13.1
+      hono: 4.13.7
       jose: 6.2.8
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -7886,7 +7887,7 @@ snapshots:
       property-information: 7.2.0
       space-separated-tokens: 2.0.2
 
-  hono@4.13.1: {}
+  hono@4.13.7: {}
 
   html-escaper@3.0.3: {}
 
