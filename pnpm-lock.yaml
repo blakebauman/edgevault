@@ -25,8 +25,8 @@ catalogs:
       specifier: ^0.45.2
       version: 0.45.2
     hono:
-      specifier: ^4.13.1
-      version: 4.13.1
+      specifier: ^4.13.7
+      version: 4.13.13
     jose:
       specifier: ^6.2.8
       version: 6.2.8
@@ -117,10 +117,10 @@ importers:
         version: link:../../packages/scim
       '@hono/zod-openapi':
         specifier: ^1.5.2
-        version: 1.5.2(hono@4.13.1)(zod@4.4.3)
+        version: 1.5.2(hono@4.13.13)(zod@4.4.3)
       '@hono/zod-validator':
         specifier: 'catalog:'
-        version: 0.9.0(hono@4.13.1)(zod@4.4.3)
+        version: 0.9.0(hono@4.13.13)(zod@4.4.3)
       agents:
         specifier: 'catalog:'
         version: 0.16.2(@babel/core@7.29.7)(@babel/runtime@7.29.7)(@cloudflare/ai-chat@0.8.6)(@cloudflare/workers-types@4.20260620.1)(ai@6.0.208(zod@4.4.3))(react@19.2.8)(rolldown@1.2.3)(vite@8.2.1(@types/node@26.2.0)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.11)(yaml@2.9.0))(zod@4.4.3)
@@ -132,7 +132,7 @@ importers:
         version: 0.45.2(@cloudflare/workers-types@4.20260620.1)(@opentelemetry/api@1.9.1)(@types/pg@8.21.0)(pg@8.22.0)(sql.js@1.14.1)
       hono:
         specifier: 'catalog:'
-        version: 4.13.1
+        version: 4.13.13
       workers-ai-provider:
         specifier: 3.2.0
         version: 3.2.0(patch_hash=a569dc1aed265327b3be0505a63458fb1ad5dfe2f4e08e17f447c4acd6189049)(@ai-sdk/anthropic@3.0.107(zod@4.4.3))(@ai-sdk/provider@4.0.7)(ai@6.0.208(zod@4.4.3))
@@ -197,7 +197,7 @@ importers:
         version: link:../../packages/sso-saml
       '@hono/zod-validator':
         specifier: 'catalog:'
-        version: 0.9.0(hono@4.13.1)(zod@4.4.3)
+        version: 0.9.0(hono@4.13.13)(zod@4.4.3)
       '@simplewebauthn/server':
         specifier: ^13.3.2
         version: 13.3.2
@@ -206,7 +206,7 @@ importers:
         version: 0.45.2(@cloudflare/workers-types@4.20260620.1)(@opentelemetry/api@1.9.1)(@types/pg@8.21.0)(pg@8.22.0)(sql.js@1.14.1)
       hono:
         specifier: 'catalog:'
-        version: 4.13.1
+        version: 4.13.13
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -340,7 +340,7 @@ importers:
         version: link:../../packages/edge-protocol
       hono:
         specifier: 'catalog:'
-        version: 4.13.1
+        version: 4.13.13
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
@@ -402,7 +402,7 @@ importers:
         version: link:../../packages/edge-protocol
       hono:
         specifier: 'catalog:'
-        version: 4.13.1
+        version: 4.13.13
     devDependencies:
       '@edgevault/typescript-config':
         specifier: workspace:*
@@ -1194,6 +1194,7 @@ packages:
 
   '@cloudflare/vitest-pool-workers@0.20.3':
     resolution: {integrity: sha512-aCMvM5zQ3MTz8SorSZB6ZxjVK2Gof6UhIc2Z1z9zbX/obucSYwDUkx8A0MUOod4I7clfB0QLarKBjRdIczK3vg==}
+    deprecated: '@cloudflare/vitest-pool-workers has been renamed to @cloudflare/vitest-plugin. This package will not receive future updates.'
     peerDependencies:
       '@vitest/runner': ^4.1.0
       '@vitest/snapshot': ^4.1.0
@@ -2793,6 +2794,7 @@ packages:
   '@xmldom/xmldom@0.9.10':
     resolution: {integrity: sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==}
     engines: {node: '>=14.6'}
+    deprecated: this version has critical issues, please update to the latest version
 
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
@@ -3580,6 +3582,10 @@ packages:
 
   hono@4.13.1:
     resolution: {integrity: sha512-kdJoFVv2xmayw6cY09H7AbMJMt8Jn5jdlEdXsP7AGBdF2DIptVlKlOLKXP41yPip4/a3yQPv9gVcJYI8YY04dw==}
+    engines: {node: '>=16.9.0'}
+
+  hono@4.13.13:
+    resolution: {integrity: sha512-CQ46U0ZkAGmbT/4UxdzzGJpacP2IeKgY4a5/tOI9AABbpOMfK739wfDXmv1usCk+3RkKj1hQy4/fjhiwa2xlrA==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@3.0.3:
@@ -6050,17 +6056,17 @@ snapshots:
     dependencies:
       hono: 4.13.1
 
-  '@hono/zod-openapi@1.5.2(hono@4.13.1)(zod@4.4.3)':
+  '@hono/zod-openapi@1.5.2(hono@4.13.13)(zod@4.4.3)':
     dependencies:
       '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
-      '@hono/zod-validator': 0.9.0(hono@4.13.1)(zod@4.4.3)
-      hono: 4.13.1
+      '@hono/zod-validator': 0.9.0(hono@4.13.13)(zod@4.4.3)
+      hono: 4.13.13
       openapi3-ts: 4.6.1
       zod: 4.4.3
 
-  '@hono/zod-validator@0.9.0(hono@4.13.1)(zod@4.4.3)':
+  '@hono/zod-validator@0.9.0(hono@4.13.13)(zod@4.4.3)':
     dependencies:
-      hono: 4.13.1
+      hono: 4.13.13
       zod: 4.4.3
 
   '@img/colour@1.1.0': {}
@@ -7887,6 +7893,8 @@ snapshots:
       space-separated-tokens: 2.0.2
 
   hono@4.13.1: {}
+
+  hono@4.13.13: {}
 
   html-escaper@3.0.3: {}
 
