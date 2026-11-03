@@ -23,7 +23,7 @@ catalog:
   # Runtime, shared across workers
   hono: ^4.13.1
   "@hono/zod-validator": ^0.9.0
-  zod: ^4.0.17
+  zod: ^4.6.6
   drizzle-orm: ^0.45.2
   jose: ^6.2.8
   # EXACT, not caret — deliberately. These two drive the assistant's Durable
